@@ -1,0 +1,185 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信用卡管家</title>
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--text:#1d2129;--sub:#6b7280;--line:#e5e7eb;--pri:#2563eb;--good:#059669;--bad:#dc2626;--warn:#d97706}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#1a1d24;--text:#e6e8ec;--sub:#9aa3b2;--line:#2a2f3a;--pri:#60a5fa;--good:#34d399;--bad:#f87171;--warn:#fbbf24}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+header{padding:16px;display:flex;justify-content:space-between;align-items:center;max-width:960px;margin:0 auto}
+h1{font-size:20px;margin:0}
+nav{display:flex;gap:4px;max-width:960px;margin:0 auto;padding:0 16px;overflow-x:auto}
+nav button{border:0;background:none;color:var(--sub);padding:10px 14px;font-size:15px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+nav button.on{color:var(--pri);border-color:var(--pri);font-weight:600}
+main{max-width:960px;margin:0 auto;padding:16px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.stat .n{font-size:24px;font-weight:700}.stat .l{color:var(--sub);font-size:13px}
+.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}.sub{color:var(--sub);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--sub);font-weight:500}
+.tw{overflow-x:auto}
+button.b,.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
+button.g{background:none;color:var(--pri);border:1px solid var(--line)}
+button.d{background:none;color:var(--bad);border:0;padding:4px 8px;cursor:pointer}
+button.e{background:none;color:var(--pri);border:0;padding:4px 8px;cursor:pointer}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
+label{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
+input,select{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;width:100%}
+.full{grid-column:1/-1}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--pri)}
+.rule{display:flex;gap:6px;margin-bottom:6px}
+.rule input:first-child{flex:2}.rule input:nth-child(2){flex:1}
+.chip{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 4px 2px 0}
+.empty{text-align:center;color:var(--sub);padding:24px}
+</style>
+</head>
+<body>
+<header><h1>💳 信用卡管家</h1>
+<div><button class="b g" id="exp">导出</button> <label class="b g" style="display:inline;cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
+<nav id="nav"></nav>
+<main id="app"></main>
+
+<script>
+const KEY='momo-cards-v1';
+const CATS=['餐饮','超市','出行','网购','娱乐','话费水电','其他'];
+const $=(s,r=document)=>r.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'¥'+(Math.round(n*100)/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
+const uid=()=>Math.random().toString(36).slice(2,10);
+const today=()=>new Date().toISOString().slice(0,10);
+
+let db;
+try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
+db=db&&db.cards?db:{cards:[],txs:[]};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+
+let tab='dash',year=new Date().getFullYear(),editCard=null;
+const TABS=[['dash','总览'],['cards','我的卡片'],['txs','消费记录']];
+
+// 返现/积分:rules=[{cat,rate}],rate 为百分比;base 为默认比例;pv 为每1元积分折算价值(元)
+function earn(card,tx){
+  const r=(card.rules||[]).find(r=>r.cat===tx.cat);
+  const rate=r?r.rate:card.base;
+  return {v:tx.amount*rate/100,rate};
+}
+function cardStats(card,y){
+  const txs=db.txs.filter(t=>t.card===card.id&&t.date.startsWith(y));
+  const spend=txs.reduce((s,t)=>s+t.amount,0);
+  let reward=txs.reduce((s,t)=>s+earn(card,t).v,0);
+  if(card.cap>0){ // 按月封顶
+    const m={};txs.forEach(t=>{const k=t.date.slice(0,7);m[k]=(m[k]||0)+earn(card,t).v});
+    reward=Object.values(m).reduce((s,v)=>s+Math.min(v,card.cap),0);
+  }
+  reward*= card.pv??1;
+  const fee=card.fee||0;
+  return {spend,reward,fee,net:reward-fee,n:txs.length};
+}
+function used(card){ // 当前账单周期内已用额度(简化:本月消费)
+  const m=today().slice(0,7);
+  return db.txs.filter(t=>t.card===card.id&&t.date.startsWith(m)).reduce((s,t)=>s+t.amount,0);
+}
+function nextDay(day){
+  const d=new Date(),y=d.getFullYear(),m=d.getMonth();
+  let t=new Date(y,m,Math.min(day,new Date(y,m+1,0).getDate()));
+  if(t<new Date(y,m,d.getDate())) t=new Date(y,m+1,Math.min(day,new Date(y,m+2,0).getDate()));
+  return {date:t,days:Math.round((t-new Date(y,m,d.getDate()))/864e5)};
+}
+
+function render(){
+  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
+  $('#app').innerHTML=({dash,cards,txs})[tab]();
+  bind();
+}
+
+function dash(){
+  const ys=[...new Set([year,...db.txs.map(t=>+t.date.slice(0,4))])].sort((a,b)=>b-a);
+  const rows=db.cards.map(c=>({c,...cardStats(c,String(year))}));
+  const T=rows.reduce((a,r)=>({spend:a.spend+r.spend,reward:a.reward+r.reward,fee:a.fee+r.fee}),{spend:0,reward:0,fee:0});
+  const net=T.reward-T.fee;
+  const due=db.cards.flatMap(c=>[c.billDay&&{c,k:'账单日',...nextDay(c.billDay)},c.dueDay&&{c,k:'还款日',...nextDay(c.dueDay)}]).filter(Boolean).sort((a,b)=>a.days-b.days).slice(0,6);
+  return `
+  <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
+  <div class="grid">
+    <div class="box stat"><div class="l">总消费</div><div class="n">${money(T.spend)}</div></div>
+    <div class="box stat"><div class="l">累计收益(返现/积分折算)</div><div class="n good">${money(T.reward)}</div></div>
+    <div class="box stat"><div class="l">年费支出</div><div class="n bad">${money(T.fee)}</div></div>
+    <div class="box stat"><div class="l">净收益</div><div class="n ${net>=0?'good':'bad'}">${money(net)}</div></div>
+  </div>
+  <div class="box"><b>各卡收益</b><div class="tw"><table><tr><th>卡片</th><th>消费</th><th>收益</th><th>年费</th><th>净收益</th></tr>
+  ${rows.map(r=>`<tr><td>${esc(r.c.name)} <span class="sub">${esc(r.c.last4)}</span></td><td>${money(r.spend)}</td><td class="good">${money(r.reward)}</td><td>${money(r.fee)}</td><td class="${r.net>=0?'good':'bad'}">${money(r.net)}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">还没有卡片,先去添加吧</td></tr>'}
+  </table></div></div>
+  <div class="box"><b>近期账单 / 还款提醒</b>${due.length?due.map(d=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(d.c.name)} · ${d.k}</span><span class="${d.days<=3?'bad':d.days<=7?'warn':'sub'}">${d.date.getMonth()+1}月${d.date.getDate()}日(${d.days===0?'今天':d.days+'天后'})</span></div>`).join(''):'<div class="empty">暂无,在卡片里填写账单日/还款日即可</div>'}</div>`;
+}
+
+function cards(){
+  const c=editCard&&editCard!=='new'?db.cards.find(x=>x.id===editCard):{};
+  const rules=(c.rules&&c.rules.length?c.rules:[{cat:'',rate:''}]);
+  const form=editCard?`<div class="box"><b>${editCard==='new'?'添加卡片':'编辑卡片'}</b><form id="cf" style="margin-top:10px">
+    <label>卡片名称<input name="name" required value="${esc(c.name)}" placeholder="如 招行经典白"></label>
+    <label>尾号<input name="last4" maxlength="4" value="${esc(c.last4)}"></label>
+    <label>额度(元)<input name="limit" type="number" min="0" step="any" value="${c.limit??''}"></label>
+    <label>年费(元/年)<input name="fee" type="number" min="0" step="any" value="${c.fee??0}"></label>
+    <label>账单日(每月几号)<input name="billDay" type="number" min="1" max="31" value="${c.billDay??''}"></label>
+    <label>还款日(每月几号)<input name="dueDay" type="number" min="1" max="31" value="${c.dueDay??''}"></label>
+    <label>基础收益率(%)<input name="base" type="number" min="0" step="any" value="${c.base??0}"></label>
+    <label>积分折算(1积分=?元,返现填1)<input name="pv" type="number" min="0" step="any" value="${c.pv??1}"></label>
+    <label>每月收益封顶(元,0=不封顶)<input name="cap" type="number" min="0" step="any" value="${c.cap??0}"></label>
+    <div class="full"><div class="sub" style="margin-bottom:6px">分类加成(消费类别需与记账时一致,可选:${CATS.join('、')})</div>
+      <div id="rules">${rules.map(r=>`<div class="rule"><input list="cats" placeholder="类别" value="${esc(r.cat)}"><input type="number" step="any" min="0" placeholder="收益率%" value="${r.rate}"></div>`).join('')}</div>
+      <datalist id="cats">${CATS.map(x=>`<option>${x}`).join('')}</datalist>
+      <button type="button" class="b g" id="addrule">+ 加一条</button></div>
+    <div class="full"><button class="b">保存</button> <button type="button" class="b g" id="cancel">取消</button></div></form></div>`:'';
+  return `${form}<div class="box" style="display:flex;justify-content:space-between;align-items:center"><b>我的卡片(${db.cards.length})</b><button class="b" id="newcard">+ 添加</button></div>
+  ${db.cards.map(c=>{const u=used(c),p=c.limit?Math.min(100,u/c.limit*100):0;return `<div class="box"><div style="display:flex;justify-content:space-between"><b>${esc(c.name)} <span class="sub">${esc(c.last4)}</span></b><span><button class="e" data-edit="${c.id}">编辑</button><button class="d" data-delc="${c.id}">删除</button></span></div>
+    <div class="sub">年费 ${money(c.fee||0)} · 基础 ${c.base||0}%${c.pv&&c.pv!==1?` · 1积分=${c.pv}元`:''}${c.cap?` · 月封顶 ${money(c.cap)}`:''}${c.billDay?` · 账单日 ${c.billDay}号`:''}${c.dueDay?` · 还款日 ${c.dueDay}号`:''}</div>
+    <div>${(c.rules||[]).filter(r=>r.cat).map(r=>`<span class="chip">${esc(r.cat)} ${r.rate}%</span>`).join('')}</div>
+    ${c.limit?`<div class="sub" style="margin-top:6px">本月已用 ${money(u)} / ${money(c.limit)}</div><div class="bar"><i style="width:${p}%;${p>80?'background:var(--bad)':''}"></i></div>`:''}</div>`}).join('')||'<div class="empty">还没有卡片</div>'}`;
+}
+
+function txs(){
+  if(!db.cards.length) return '<div class="box empty">请先到「我的卡片」添加一张卡</div>';
+  const list=[...db.txs].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,200);
+  return `<div class="box"><b>记一笔</b><form id="tf" style="margin-top:10px">
+    <label>日期<input name="date" type="date" required value="${today()}"></label>
+    <label>卡片<select name="card">${db.cards.map(c=>`<option value="${c.id}">${esc(c.name)} ${esc(c.last4)}</option>`).join('')}</select></label>
+    <label>类别<select name="cat">${CATS.map(x=>`<option>${x}`).join('')}</select></label>
+    <label>金额(元)<input name="amount" type="number" min="0.01" step="any" required></label>
+    <label>备注<input name="note"></label>
+    <button class="b">添加</button></form></div>
+  <div class="box"><div class="tw"><table><tr><th>日期</th><th>卡片</th><th>类别</th><th>金额</th><th>收益</th><th>备注</th><th></th></tr>
+  ${list.map(t=>{const c=db.cards.find(x=>x.id===t.card);if(!c)return '';const e=earn(c,t);return `<tr><td>${t.date}</td><td>${esc(c.name)}</td><td>${esc(t.cat)}</td><td>${money(t.amount)}</td><td class="good">${money(e.v*(c.pv??1))} <span class="sub">${e.rate}%</span></td><td>${esc(t.note)}</td><td><button class="d" data-delt="${t.id}">删</button></td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无记录</td></tr>'}
+  </table></div><div class="sub">仅显示最近 200 条;月封顶在「总览」中统计。</div></div>`;
+}
+
+function bind(){
+  $('#yr')&&($('#yr').onchange=e=>{year=+e.target.value;render()});
+  $('#newcard')&&($('#newcard').onclick=()=>{editCard='new';render();scrollTo(0,0)});
+  $('#cancel')&&($('#cancel').onclick=()=>{editCard=null;render()});
+  $('#addrule')&&($('#addrule').onclick=()=>{$('#rules').insertAdjacentHTML('beforeend','<div class="rule"><input list="cats" placeholder="类别"><input type="number" step="any" min="0" placeholder="收益率%"></div>')});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editCard=b.dataset.edit;render();scrollTo(0,0)});
+  document.querySelectorAll('[data-delc]').forEach(b=>b.onclick=()=>{if(confirm('删除该卡片及其全部消费记录?')){const id=b.dataset.delc;db.cards=db.cards.filter(c=>c.id!==id);db.txs=db.txs.filter(t=>t.card!==id);save();render()}});
+  document.querySelectorAll('[data-delt]').forEach(b=>b.onclick=()=>{db.txs=db.txs.filter(t=>t.id!==b.dataset.delt);save();render()});
+  const cf=$('#cf');
+  if(cf)cf.onsubmit=e=>{e.preventDefault();const f=new FormData(cf),n=k=>+f.get(k)||0;
+    const rules=[...cf.querySelectorAll('.rule')].map(r=>{const i=r.querySelectorAll('input');return{cat:i[0].value.trim(),rate:+i[1].value||0}}).filter(r=>r.cat);
+    const o={name:f.get('name').trim(),last4:f.get('last4').trim(),limit:n('limit'),fee:n('fee'),billDay:n('billDay')||'',dueDay:n('dueDay')||'',base:n('base'),pv:f.get('pv')===''?1:n('pv'),cap:n('cap'),rules};
+    if(editCard==='new')db.cards.push({id:uid(),...o});else Object.assign(db.cards.find(c=>c.id===editCard),o);
+    editCard=null;save();render()};
+  const tf=$('#tf');
+  if(tf)tf.onsubmit=e=>{e.preventDefault();const f=new FormData(tf);
+    db.txs.push({id:uid(),date:f.get('date'),card:f.get('card'),cat:f.get('cat'),amount:+f.get('amount'),note:f.get('note').trim()});
+    save();render()};
+}
+$('#nav').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;editCard=null;render()}};
+$('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='cards-backup-'+today()+'.json';a.click()};
+$('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.cards)||!Array.isArray(d.txs))throw 0;if(confirm('导入将覆盖当前数据,继续?')){db=d;save();render()}}catch{alert('文件格式不正确')}e.target.value=''};
+render();
+</script>
+</body>
+</html>
