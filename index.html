@@ -44,7 +44,7 @@ input,select{padding:8px;border:1px solid var(--line);border-radius:8px;backgrou
 </head>
 <body>
 <header><h1>💳 信用卡管家</h1>
-<div><button class="b g" id="bell">🔔 通知</button> <button class="b g" id="ics">📅 日历提醒</button> <button class="b g" id="exp">导出</button> <label class="b g" style="display:inline;cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
+<div><button class="b g" id="sync">☁️ 同步</button> <button class="b g" id="bell">🔔 通知</button> <button class="b g" id="ics">📅 日历提醒</button> <button class="b g" id="exp">导出</button> <label class="b g" style="display:inline;cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
 <nav id="nav"></nav>
 <main id="app"></main>
 
@@ -65,7 +65,23 @@ let db;
 try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 db=db&&db.cards?db:{cards:[],txs:[]};
 db.offers=db.offers||[];
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+const TOK='momo-token';
+const getTok=()=>{try{return localStorage.getItem(TOK)||''}catch(e){return ''}};
+const SYNC={off:'☁️ 同步',ok:'☁️ 已同步',auth:'☁️ 令牌错误',err:'☁️ 离线'};
+function setSync(k){const b=document.getElementById('sync');if(b)b.textContent=SYNC[k]}
+let pushT;
+function pushRemote(){const t=getTok();if(!t)return;clearTimeout(pushT);pushT=setTimeout(async()=>{
+  try{const r=await fetch('api/data',{method:'PUT',headers:{'X-Token':t,'Content-Type':'application/json'},body:JSON.stringify(db)});
+    if(r.status===409){await pullRemote();return}setSync(r.ok?'ok':r.status===401?'auth':'err')}catch(e){setSync('err')}},600)}
+const store=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
+const save=()=>{db.updatedAt=Date.now();store();pushRemote()};
+async function pullRemote(){const t=getTok();if(!t)return setSync('off');
+  try{const r=await fetch('api/data',{headers:{'X-Token':t}});if(r.status===401)return setSync('auth');if(!r.ok)return setSync('err');
+    const d=await r.json();
+    if(d&&Array.isArray(d.cards)&&(d.updatedAt||0)>(db.updatedAt||0)){db=d;db.offers=db.offers||[];store();render()}
+    else if((db.updatedAt||0)>(d&&d.updatedAt||0))pushRemote();
+    else if(!(d&&d.updatedAt)&&(db.cards.length||db.offers.length||db.txs.length))save();
+    setSync('ok')}catch(e){setSync('err')}}
 
 let tab='dash',year=new Date().getFullYear(),editCard=null,editOffer=null;
 const TABS=[['dash','总览'],['cards','我的卡片'],['txs','消费记录'],['offers','开户奖励']];
@@ -290,6 +306,11 @@ $('#bell').onclick=async()=>{
   if(!alertTexts().length)alert('通知已开启。目前没有待办,有到期事项时打开本页会提醒你。注意:网页通知只在页面被打开时触发,想要准点后台提醒请用「日历提醒」。');
   notifyNow(true);
 };
+$('#sync').onclick=async()=>{
+  const cur=getTok();const t=prompt('输入服务器访问令牌(MOMO_TOKEN)。留空则关闭同步。',cur);if(t===null)return;
+  try{if(t.trim())localStorage.setItem(TOK,t.trim());else localStorage.removeItem(TOK)}catch(e){}
+  await pullRemote()};
+pullRemote();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 render();
 notifyNow();

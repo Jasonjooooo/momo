@@ -1,0 +1,14 @@
+services:
+  momo:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8765:8765"   # 只对本机开放,请用 Nginx/Caddy 加 HTTPS 后对外
+    environment:
+      MOMO_TOKEN: ${MOMO_TOKEN:?请在 .env 中设置 MOMO_TOKEN}
+      BARK_KEY: ${BARK_KEY:-}
+      BARK_SERVER: ${BARK_SERVER:-https://api.day.app}
+      MOMO_PUSH_HOURS: ${MOMO_PUSH_HOURS:-9,20}
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ./data:/data
