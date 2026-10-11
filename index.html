@@ -91,11 +91,14 @@ svg.ch rect[data-tip]{cursor:pointer}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
 #tip{position:fixed;z-index:9;pointer-events:none;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;white-space:pre-line}
 details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:8px}
+.disc{margin:18px 4px 0;text-align:center;font-size:12px;color:var(--sub)}
+.disc a{color:var(--sub)}
+ul.help{padding-left:18px;margin:8px 0 0;line-height:1.8;font-size:14px}
 </style>
 </head>
 <body>
 <header><h1>💳 信用卡管家</h1>
-<div class="hb"><button class="ib" id="sync" title="同步到服务器">☁️</button><button class="ib" id="bell" title="浏览器通知">🔔</button><button class="ib" id="ics" title="导出日历提醒(.ics)">📅</button><button class="ib" id="exp" title="导出备份(JSON)">⬇️</button><label class="ib" title="导入备份(JSON)" style="cursor:pointer">⬆️<input type="file" id="imp" accept=".json" hidden></label></div></header>
+<div class="hb"><button class="ib" id="sync" title="同步到服务器">☁️</button><button class="ib" id="bell" title="浏览器通知">🔔</button><button class="ib" id="ics" title="导出日历提醒(.ics)">📅</button><button class="ib" id="aboutbtn" title="使用说明与免责声明">ℹ️</button><button class="ib" id="exp" title="导出备份(JSON)">⬇️</button><label class="ib" title="导入备份(JSON)" style="cursor:pointer">⬆️<input type="file" id="imp" accept=".json" hidden></label></div></header>
 <nav id="nav"></nav>
 <main id="app"></main>
 
@@ -144,7 +147,7 @@ const TABS=[['dash','总览','🏠'],['stats','分析','📈'],['cards','卡片'
 // 返现/积分:rules=[{cat,rate}],rate 为百分比;base 为默认比例;pv 为每1元积分折算价值(元)
 function earn(card,tx){
   const r=(card.rules||[]).find(r=>r.cat===tx.cat);
-  const rate=r?r.rate:card.base;
+  const rate=+(r?r.rate:card.base)||0;
   return {v:tx.amount*rate/100,rate};
 }
 // 某卡某年各月收益(已含月封顶和积分折算),返回长度 12 的数组
@@ -206,6 +209,7 @@ function offers(){
   const eo=editOffer?db.offers.find(o=>o.id===editOffer):null;
   const list=db.offers.map(o=>({o,...offerInfo(o)})).sort((a,b)=>({move:0,ready:1,hold:2,done:3}[a.st]-({move:0,ready:1,hold:2,done:3}[b.st]))||a.end.localeCompare(b.end));
   return `<div class="box"><b>${eo?'编辑记录':'添加开户 / 开卡奖励'}</b><div class="sub">例如:某券商存入 50000 元,持有 30 天,可得 200 元</div><form id="of" style="margin-top:10px">
+    ${eo?'':`<label class="full">套用模板(示例数字,请改成实际活动的要求)<select id="tplo"><option value="">不使用模板</option>${OFFER_TPL.map((t,i)=>`<option value="${i}">${t.n}</option>`).join('')}</select></label>`}
     <label>名称<input name="name" required value="${esc(eo?.name)}" placeholder="如 XX证券新户礼"></label>
     <label>类型<select name="type">${['证券','信用卡','银行','其他'].map(x=>`<option ${eo?.type===x?'selected':''}>${x}</option>`).join('')}</select></label>
     <label>币种<select name="currency">${curOpts(eo?.currency)}</select></label>
@@ -334,13 +338,56 @@ function keepForm(form){const vals=[...form.elements].filter(e=>e.name).map(e=>[
   nf.querySelectorAll('.rule').forEach((r,i)=>{if(rules[i])r.querySelectorAll('input').forEach((inp,j)=>inp.value=rules[i][j])});
   const box=$('#rules');while(box&&box.children.length<rules.length)$('#addrule').click();
   [...nf.querySelectorAll('.rule')].forEach((r,i)=>r.querySelectorAll('input').forEach((inp,j)=>inp.value=rules[i]?.[j]??''));nf.dispatchEvent(new Event('input'))}
+const APP_VERSION='1.0.0';
+const CARD_TPL=[
+ {n:'基础返现卡(每100元返1元)',base:1,pv:1,fee:0,rules:[]},
+ {n:'餐饮加成返现卡(餐饮每100元返5元,月封顶100元)',base:1,pv:1,fee:0,cap:100,rules:[{cat:'餐饮',rate:5}]},
+ {n:'积分卡(每100元得100积分,1积分=0.01元)',base:100,pv:0.01,fee:0,rules:[]},
+ {n:'高年费旅行卡(年费1800,刷满60笔免)',base:1.5,pv:1,fee:1800,waiveCount:60,rules:[{cat:'出行',rate:5}]},
+ {n:'美元卡(年费95美元,全年消费满12000美元免)',currency:'USD',base:2,pv:1,fee:95,waiveSpend:12000,rules:[]}];
+const OFFER_TPL=[
+ {n:'证券开户礼(存5万,持有30天,得200元)',type:'证券',amount:50000,days:30,reward:200},
+ {n:'银行存款奖励(存10万,持有90天,得600元)',type:'银行',amount:100000,days:90,reward:600},
+ {n:'短期活动(存2万,持有15天,得80元)',type:'其他',amount:20000,days:15,reward:80}];
+const ruleRow=(c='',r='')=>`<div class="rule"><input list="cats" placeholder="类别" value="${esc(c)}"><input type="number" step="any" min="0" placeholder="每100元得" value="${r}"></div>`;
+function loadDemo(){
+  const D=n=>{const d=new Date();d.setDate(d.getDate()+n);return ymd(d)},now=new Date(),Y=now.getFullYear(),M=now.getMonth()+1,pad=x=>String(x).padStart(2,'0');
+  const cards=[
+   {id:'d1',name:'示例·餐饮返现卡',last4:'0001',limit:60000,fee:0,billDay:5,dueDay:23,base:1,pv:1,cap:0,color:0,rules:[{cat:'餐饮',rate:5},{cat:'超市',rate:3}]},
+   {id:'d2',name:'示例·美元卡',last4:'0002',currency:'USD',limit:15000,fee:95,billDay:12,dueDay:Math.max(1,Math.min(28,now.getDate()+2)),base:2,pv:1,cap:0,color:1,waiveSpend:12000,rules:[{cat:'出行',rate:4}]},
+   {id:'d3',name:'示例·旅行卡',last4:'0003',limit:80000,fee:1800,billDay:20,dueDay:8,base:1.2,pv:1,cap:0,color:3,waiveCount:60,rules:[{cat:'出行',rate:6}]}];
+  const cats=['餐饮','超市','出行','网购','娱乐','话费水电'],txs=[];let k=0;
+  for(let m=1;m<=M;m++)cards.forEach((c,ci)=>{for(let j=0;j<3+((m+ci)%3);j++){k++;const b=c.currency==='USD'?90+((k*37)%260):60+((k*53)%1500);
+    txs.push({id:'dt'+k,date:Y+'-'+pad(m)+'-'+pad(Math.min(1+((k*7)%27),m===M?now.getDate():28)),card:c.id,cat:cats[(k+ci)%6],amount:Math.round(b*(1+0.4*ci)),note:''})}});
+  const offers=[
+   {id:'do1',name:'示例·证券开户礼',type:'证券',currency:'CNY',amount:50000,days:30,reward:200,start:D(-95),rewardedDate:D(-62),got:200,movedDate:D(-61)},
+   {id:'do2',name:'示例·银行存款奖励',type:'银行',currency:'CNY',amount:100000,days:90,reward:600,start:D(-93),rewardedDate:D(-2),got:600},
+   {id:'do3',name:'示例·短期活动',type:'其他',currency:'CNY',amount:20000,days:15,reward:80,start:D(-3)}];
+  db=norm({cards,txs,offers,demo:true,rates:db.rates});save();render();
+}
+function welcome(){return `<div class="box"><b style="font-size:18px">欢迎使用信用卡管家</b>
+  <p class="sub" style="font-size:14px;margin:8px 0 12px">记录信用卡的返现/积分规则和开户存款奖励,自动算出收益、年费是否回本、奖励年化,并提醒你到期确认收益和转走本金。数据只保存在这台设备的浏览器里。</p>
+  <ol style="padding-left:20px;margin:0 0 14px;line-height:1.9"><li>在「卡片」添加你的卡,填写返现规则和年费;可以套用模板再修改。</li><li>在「记账」记录消费,收益自动计算。</li><li>在「开户奖励」记录存款活动,到期会提醒你。</li></ol>
+  <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b" id="startcard">添加第一张卡</button><button class="b g" id="demo">先看看示例数据</button></div></div>`}
+function about(){return `<div class="box"><b>使用说明</b>
+  <ul class="help"><li><b>返还怎么填:</b>「每消费100元得多少」。返现卡填 1 就是 1% 返现;积分卡填每100元得多少积分,再把「1返还单位=多少钱」填成 1 积分值多少元。</li>
+  <li><b>分类加成:</b>类别名要和记账时选的类别一致,没有加成的类别按基础返还算。</li>
+  <li><b>月封顶:</b>按自然月把当月所有返还加总后封顶,单位与返还一致。</li>
+  <li><b>免年费:</b>全年消费金额或笔数任一达标就记为减免。退款请填负数。</li>
+  <li><b>开户奖励年化:</b>收益 ÷ 本金 × 365 ÷ 持有天数。</li>
+  <li><b>多币种:</b>各卡按自己的币种记,汇总统一按你设置的汇率折合人民币。</li></ul></div>
+  <div class="box"><b>数据与备份</b><p class="sub" style="font-size:14px">所有数据只保存在当前浏览器里,不会上传。清除浏览器数据、换设备或换浏览器都会丢失,请定期点页面右上角的「⬇️」导出备份,需要时用「⬆️」导入。</p></div>
+  <div class="box"><b>免责声明</b><p class="sub" style="font-size:14px">本工具只根据你自己填写的规则做计算和提醒,结果仅供参考,不构成任何理财、投资或信贷建议,也不保证与银行或券商的实际结算一致。银行和券商的活动规则以其官方公告和合同为准。请勿在备注等位置记录完整卡号、密码或验证码。</p></div>
+  <div class="box"><b>关于</b><p class="sub" style="font-size:14px">信用卡管家 v${APP_VERSION}</p></div>`}
 function render(){
   $('#nav').innerHTML=TABS.map(([k,l,i])=>`<button class="${k===tab?'on':''}" data-t="${k}"><span class="ic">${i}</span>${l}</button>`).join('');
-  $('#app').innerHTML=({dash,stats,cards,txs,offers})[tab]();
+  $('#app').innerHTML=({dash,stats,cards,txs,offers,about})[tab]()+(tab==='about'?'':'<div class="disc">计算结果仅供参考,以银行/券商实际结算为准。<a href="#" data-t="about">使用说明与免责声明</a></div>');
   bind();
 }
 
 function dash(){
+  if(!db.cards.length&&!db.offers.length&&!db.txs.length)return welcome();
+  const demoBar=db.demo?'<div class="box" style="border-color:var(--warn)"><b>当前是示例数据</b><div class="sub" style="margin:4px 0 8px">用来体验功能。确认后清除,开始记录你自己的数据。</div><button class="b" id="cleardemo">清除示例数据</button></div>':'';
   const ys=[...new Set([year,...db.txs.map(t=>+t.date.slice(0,4))])].sort((a,b)=>b-a);
   const rows=db.cards.map(c=>({c,...cardStats(c,String(year))}));
   const T=rows.reduce((a,r)=>({spend:a.spend+r.spendB,reward:a.reward+r.rewardB,fee:a.fee+r.feeB}),{spend:0,reward:0,fee:0});
@@ -349,7 +396,7 @@ function dash(){
   const al=offerAlerts();
   const multi=db.cards.some(c=>c.currency&&c.currency!=='CNY')||db.offers.some(o=>o.currency&&o.currency!=='CNY');
   const due=db.cards.flatMap(c=>[c.billDay&&{c,k:'账单日',...nextDay(c.billDay)},c.dueDay&&{c,k:'还款日',...nextDay(c.dueDay)}]).filter(Boolean).sort((a,b)=>a.days-b.days).slice(0,6);
-  return `
+  return `${demoBar}
   <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
   ${rows.length?`<div class="wall">${rows.map(r=>`<div class="item">${faceHtml(r.c)}<div class="cap"><span class="sub">${r.n} 笔 · ${money(r.spend,r.c.currency)}</span><span class="${r.net>=0?'good':'bad'}">净 ${money(r.net,r.c.currency)}</span></div></div>`).join('')}</div>`:''}
   <div class="grid">
@@ -376,6 +423,7 @@ function cards(){
         <label class="b g" style="cursor:pointer;flex-direction:row">上传图片<input type="file" id="faceimg" accept="image/*" hidden></label>
         ${ff.img?'<button type="button" class="b g" id="clearimg">清除图片</button>':''}</div>
       <div id="prev" style="margin-top:10px"></div></div>
+    ${editCard==='new'?`<label class="full">套用模板(示例,请按你的卡片实际规则修改)<select id="tplc"><option value="">不使用模板</option>${CARD_TPL.map((t,i)=>`<option value="${i}">${t.n}</option>`).join('')}</select></label>`:''}
     <label>币种<select name="currency">${curOpts(c.currency)}</select></label>
     <label>卡片名称<input name="name" required value="${esc(c.name)}" placeholder="如 招行经典白"></label>
     <label>尾号<input name="last4" maxlength="4" value="${esc(c.last4)}"></label>
@@ -383,20 +431,20 @@ function cards(){
     <label>年费(每年)<input name="fee" type="number" min="0" step="any" value="${c.fee??0}"></label>
     <label>账单日(每月几号)<input name="billDay" type="number" min="1" max="31" value="${c.billDay??''}"></label>
     <label>还款日(每月几号)<input name="dueDay" type="number" min="1" max="31" value="${c.dueDay??''}"></label>
-    <label>基础收益率(%)<input name="base" type="number" min="0" step="any" value="${c.base??0}"></label>
-    <label>积分折算(1积分=?币种单位,返现填1)<input name="pv" type="number" min="0" step="any" value="${c.pv??1}"></label>
-    <label>每月收益封顶(0=不封顶)<input name="cap" type="number" min="0" step="any" value="${c.cap??0}"></label>
+    <label>基础返还(每消费100元得多少)<input name="base" type="number" min="0" step="any" value="${c.base??0}"></label>
+    <label>1返还单位=多少钱(返现填1;积分卡填 1积分值多少元)<input name="pv" type="number" min="0" step="any" value="${c.pv??1}"></label>
+    <label>每月返还封顶(同上单位,0=不封顶)<input name="cap" type="number" min="0" step="any" value="${c.cap??0}"></label>
     <label>免年费:全年消费满(0=无)<input name="waiveSpend" type="number" min="0" step="any" value="${c.waiveSpend??0}"></label>
     <label>或 全年刷满(笔,0=无)<input name="waiveCount" type="number" min="0" step="1" value="${c.waiveCount??0}"></label>
     <div class="full"><div class="sub" style="margin-bottom:6px">分类加成(消费类别需与记账时一致,可选:${CATS.join('、')})</div>
-      <div id="rules">${rules.map(r=>`<div class="rule"><input list="cats" placeholder="类别" value="${esc(r.cat)}"><input type="number" step="any" min="0" placeholder="收益率%" value="${r.rate}"></div>`).join('')}</div>
+      <div id="rules">${rules.map(r=>ruleRow(r.cat,r.rate)).join('')}</div>
       <datalist id="cats">${CATS.map(x=>`<option>${x}`).join('')}</datalist>
       <button type="button" class="b g" id="addrule">+ 加一条</button></div>
     <div class="full"><button class="b">保存</button> <button type="button" class="b g" id="cancel">取消</button></div></form></div>`:'';
   return `${form}<div class="box" style="display:flex;justify-content:space-between;align-items:center"><b>我的卡片(${db.cards.length})</b><button class="b" id="newcard">+ 添加</button></div>
   <div class="faces">${db.cards.map(c=>{const u=used(c),p=c.limit?Math.min(100,u/c.limit*100):0;return `<div class="cd">${faceHtml(c)}<div class="box"><div style="display:flex;justify-content:space-between"><b>${esc(c.name)} <span class="sub">${esc(c.last4)}</span>${c.currency&&c.currency!=='CNY'?` <span class="chip">${c.currency}</span>`:''}</b><span><button class="e" data-edit="${c.id}">编辑</button><button class="d" data-delc="${c.id}">删除</button></span></div>
-    <div class="sub">年费 ${money(c.fee||0,c.currency)} · 基础 ${c.base||0}%${c.pv&&c.pv!==1?` · 1积分=${c.pv}元`:''}${c.cap?` · 月封顶 ${money(c.cap,c.currency)}`:''}${c.billDay?` · 账单日 ${c.billDay}号`:''}${c.dueDay?` · 还款日 ${c.dueDay}号`:''}</div>
-    <div>${(c.rules||[]).filter(r=>r.cat).map(r=>`<span class="chip">${esc(r.cat)} ${r.rate}%</span>`).join('')}</div>
+    <div class="sub">年费 ${money(c.fee||0,c.currency)} · 基础每100元得 ${c.base||0}${c.pv&&c.pv!==1?` · 1积分=${c.pv}元`:''}${c.cap?` · 月封顶 ${money(c.cap,c.currency)}`:''}${c.billDay?` · 账单日 ${c.billDay}号`:''}${c.dueDay?` · 还款日 ${c.dueDay}号`:''}</div>
+    <div>${(c.rules||[]).filter(r=>r.cat).map(r=>`<span class="chip">${esc(r.cat)} 每100元得${r.rate}</span>`).join('')}</div>
     ${(()=>{if(!(c.fee>0))return '';const y=String(new Date().getFullYear()),t=db.txs.filter(t=>t.card===c.id&&t.date.startsWith(y)),w=waiver(c,t.reduce((a,t)=>a+t.amount,0),t.length);
       return w.has?`<div class="${w.ok?'good':'warn'}" style="margin-top:6px">${w.ok?'✅ 今年年费已减免':'⚠️ 免年费进度'}:${w.text}</div>`:''})()}
     ${c.limit?`<div class="sub" style="margin-top:6px">本月已用 ${money(u,c.currency)} / ${money(c.limit,c.currency)}</div><div class="bar"><i style="width:${p}%;${p>80?'background:var(--bad)':''}"></i></div>`:''}</div></div>`}).join('')||'<div class="empty" style="grid-column:1/-1">还没有卡片,点右上角「+ 添加」</div>'}</div>
@@ -411,11 +459,11 @@ function txs(){
     <label>日期<input name="date" type="date" required value="${today()}"></label>
     <label>卡片<select name="card">${db.cards.map(c=>`<option value="${c.id}">${esc(c.name)} ${esc(c.last4)}${c.currency&&c.currency!=='CNY'?' ('+c.currency+')':''}</option>`).join('')}</select></label>
     <label>类别<select name="cat">${CATS.map(x=>`<option>${x}`).join('')}</select></label>
-    <label>金额(卡片币种)<input name="amount" type="number" min="0.01" step="any" required></label>
+    <label>金额(卡片币种,退款填负数)<input name="amount" type="number" step="any" required></label>
     <label>备注<input name="note"></label>
     <button class="b">添加</button></form></div>
   <div class="box"><div class="tw"><table><tr><th>日期</th><th>卡片</th><th>类别</th><th>金额</th><th>收益</th><th>备注</th><th></th></tr>
-  ${list.map(t=>{const c=db.cards.find(x=>x.id===t.card);if(!c)return '';const e=earn(c,t);return `<tr><td>${t.date}</td><td>${cardDot(c)}${esc(c.name)}</td><td>${esc(t.cat)}</td><td>${money(t.amount,c.currency)}</td><td class="good">${money(e.v*(c.pv??1),c.currency)} <span class="sub">${e.rate}%</span></td><td>${esc(t.note)}</td><td><button class="d" data-delt="${t.id}">删</button></td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无记录</td></tr>'}
+  ${list.map(t=>{const c=db.cards.find(x=>x.id===t.card);if(!c)return '';const e=earn(c,t);return `<tr><td>${t.date}</td><td>${cardDot(c)}${esc(c.name)}</td><td>${esc(t.cat)}</td><td>${money(t.amount,c.currency)}</td><td class="good">${money(e.v*(c.pv??1),c.currency)} <span class="sub">每100元得${e.rate}</span></td><td>${esc(t.note)}</td><td><button class="d" data-delt="${t.id}">删</button></td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无记录</td></tr>'}
   </table></div><div class="sub">仅显示最近 200 条;月封顶在「总览」中统计。</div></div>`;
 }
 
@@ -423,11 +471,21 @@ function bind(){
   $('#yr')&&($('#yr').onchange=e=>{year=+e.target.value;render()});
   $('#newcard')&&($('#newcard').onclick=()=>{ff={color:db.cards.length%GRADS.length,img:''};editCard='new';render();scrollTo(0,0)});
   $('#cancel')&&($('#cancel').onclick=()=>{editCard=null;render()});
-  $('#addrule')&&($('#addrule').onclick=()=>{$('#rules').insertAdjacentHTML('beforeend','<div class="rule"><input list="cats" placeholder="类别"><input type="number" step="any" min="0" placeholder="收益率%"></div>')});
+  $('#addrule')&&($('#addrule').onclick=()=>{$('#rules').insertAdjacentHTML('beforeend',ruleRow())});
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const c0=db.cards.find(x=>x.id===b.dataset.edit);ff={color:Number.isInteger(c0.color)?c0.color:hashId(c0.id)%GRADS.length,img:c0.img||''};editCard=b.dataset.edit;render();scrollTo(0,0)});
   document.querySelectorAll('[data-delc]').forEach(b=>b.onclick=()=>{if(confirm('删除该卡片及其全部消费记录?')){const id=b.dataset.delc;db.cards=db.cards.filter(c=>c.id!==id);db.txs=db.txs.filter(t=>t.card!==id);save();render()}});
   document.querySelectorAll('[data-delt]').forEach(b=>b.onclick=()=>{db.txs=db.txs.filter(t=>t.id!==b.dataset.delt);save();render()});
   $('#bk')&&loadBackups();
+  $('#startcard')&&($('#startcard').onclick=()=>{tab='cards';ff={color:0,img:''};editCard='new';render()});
+  $('#demo')&&($('#demo').onclick=loadDemo);
+  $('#cleardemo')&&($('#cleardemo').onclick=()=>{if(confirm('清除全部示例数据?')){db=norm({cards:[],txs:[],offers:[],rates:db.rates});save();render()}});
+  $('#tplc')&&($('#tplc').onchange=e=>{const t=CARD_TPL[e.target.value];if(!t)return;const f=$('#cf').elements;
+    f.currency.value=t.currency||'CNY';f.fee.value=t.fee??0;f.base.value=t.base??0;f.pv.value=t.pv??1;f.cap.value=t.cap??0;f.waiveSpend.value=t.waiveSpend??0;f.waiveCount.value=t.waiveCount??0;
+    if(!f.name.value)f.name.value=t.n.split('(')[0];
+    $('#rules').innerHTML=(t.rules&&t.rules.length?t.rules:[{cat:'',rate:''}]).map(r=>ruleRow(r.cat,r.rate)).join('');$('#cf').dispatchEvent(new Event('input'))});
+  $('#tplo')&&($('#tplo').onchange=e=>{const t=OFFER_TPL[e.target.value];if(!t)return;const f=$('#of').elements;
+    if(!f.name.value)f.name.value=t.n.split('(')[0];f.type.value=t.type;f.amount.value=t.amount;f.days.value=t.days;f.reward.value=t.reward});
+  document.querySelectorAll('#app [data-t]').forEach(a=>a.onclick=e=>{e.preventDefault();tab=a.dataset.t;editCard=null;editOffer=null;render();scrollTo(0,0)});
   $('#xlsx')&&($('#xlsx').onclick=exportXlsx);
   document.querySelectorAll('[data-mx]').forEach(b=>b.onclick=()=>{matrix=b.dataset.mx;render()});
   $('#gooffers')&&($('#gooffers').onclick=()=>{tab='offers';render()});
@@ -510,6 +568,7 @@ $('#bell').onclick=async()=>{
   if(!alertTexts().length)alert('通知已开启。目前没有待办,有到期事项时打开本页会提醒你。注意:网页通知只在页面被打开时触发,想要准点后台提醒请用「日历提醒」。');
   notifyNow(true);
 };
+$('#aboutbtn').onclick=()=>{tab='about';editCard=null;editOffer=null;render();scrollTo(0,0)};
 $('#sync').onclick=async()=>{
   const cur=getTok();const t=prompt('输入服务器访问令牌(MOMO_TOKEN)。留空则关闭同步。',cur);if(t===null)return;
   try{if(t.trim())localStorage.setItem(TOK,t.trim());else localStorage.removeItem(TOK)}catch(e){}
@@ -546,8 +605,8 @@ function exportXlsx(){
   db.offers.forEach(o=>{if(o.rewardedDate&&o.rewardedDate.startsWith(Y))bonus[+o.rewardedDate.slice(5,7)-1]+=(o.got??o.reward)*fx(o.currency)});
   let run=0;
   const sheets=[
-   ['卡片',[['名称','币种','尾号','额度','年费','账单日','还款日','基础收益率%','1积分折算(元)','月收益封顶','免年费:年消费','免年费:年笔数','分类加成'],
-     ...db.cards.map(c=>[c.name,c.currency||'CNY',c.last4,c.limit,c.fee,c.billDay,c.dueDay,c.base,c.pv,c.cap,c.waiveSpend,c.waiveCount,(c.rules||[]).map(r=>r.cat+' '+r.rate+'%').join('; ')])]],
+   ['卡片',[['名称','币种','尾号','额度','年费','账单日','还款日','基础返还(每100元)','1积分折算(元)','月收益封顶','免年费:年消费','免年费:年笔数','分类加成'],
+     ...db.cards.map(c=>[c.name,c.currency||'CNY',c.last4,c.limit,c.fee,c.billDay,c.dueDay,c.base,c.pv,c.cap,c.waiveSpend,c.waiveCount,(c.rules||[]).map(r=>r.cat+' 每100元得'+r.rate).join('; ')])]],
    ['消费记录',[['日期','卡片','币种','类别','金额','收益','备注'],
      ...[...db.txs].sort((a,b)=>a.date.localeCompare(b.date)).map(t=>{const c=db.cards.find(x=>x.id===t.card);return [t.date,cardName(t.card),c?c.currency||'CNY':'',t.cat,t.amount,c?earn(c,t).v*(c.pv??1):0,t.note]})]],
    ['开户奖励',[['名称','类型','币种','本金','持有天数','存入日期','到期日','预计收益','年化收益率%','实收收益','到账日期','转走日期','状态','备注'],
