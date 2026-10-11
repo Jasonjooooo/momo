@@ -48,12 +48,24 @@ node tools/license.js issue "买家昵称或订单号"
 4. **个人信息。** 售卖版不收集信息。如果你的收款页、客服渠道收集了买家信息,你需要有对应的隐私说明。
 5. **使用条款。** `TERMS.md` 是一份简单的模板,发布前请自己或请专业人士审阅修改。
 
-## 五、发布新版本前
+## 五、Skill 版本
+
+`skill/credit-card-manager/` 是同一套功能的 Claude Skill 版本:Claude 通过命令行脚本记账和计算,数字与网页版完全一致,数据格式互通。
+
+```bash
+python3 tools/package_skill.py     # 生成 dist/credit-card-manager.skill
+```
+
+- 自用:把 `credit-card-manager` 目录放进 Claude 的 skills 目录即可。
+- 销售或分发:Skill 是纯文本和脚本,**没有办法加激活码或防复制**,拿到文件的人可以随意修改和转发。比较现实的做法是把它作为网页版的配套赠品,或者开源引流。需要真正收费的是网页打包版。
+- 只记住一点:**计算逻辑只改 `core/calc.js`**,然后 `node tools/sync-core.js`,网页和 Skill 才会一起更新。`npm test` 会检查三处是否一致。
+
+## 六、发布新版本前
 
 ```bash
 npm install            # 第一次需要
 npx playwright install chromium
-npm test               # 22 项计算测试 + 9 项服务端测试,全部通过再发布
+npm test               # 网页计算 22 项 + 核心与命令行 8 项 + 服务端 9 项,全部通过再发布
 node tools/build.js
 ```
 
