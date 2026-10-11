@@ -1,0 +1,10 @@
+{
+  "name": "momo",
+  "private": true,
+  "description": "信用卡管家:信用卡返现与开户奖励计算工具",
+  "scripts": {
+    "test": "node tests/calc.test.js && python3 -m unittest discover -s tests -p \"test_*.py\"",
+    "build": "node tools/build.js"
+  },
+  "devDependencies": { "playwright": "^1.56.1" }
+}
