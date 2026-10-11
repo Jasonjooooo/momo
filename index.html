@@ -52,15 +52,20 @@ const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>'¥'+(Math.round(n*100)/100).toLocaleString('zh-CN',{minimumFractionDigits:2,maximumFractionDigits:2});
 const uid=()=>Math.random().toString(36).slice(2,10);
-const today=()=>new Date().toISOString().slice(0,10);
+const ymd=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const today=()=>ymd(new Date());
+const pd=s=>new Date(s+'T00:00:00');
+const addDays=(s,n)=>{const d=pd(s);d.setDate(d.getDate()+n);return ymd(d)};
+const diff=s=>Math.round((pd(s)-pd(today()))/864e5);
 
 let db;
 try{db=JSON.parse(localStorage.getItem(KEY))}catch(e){}
 db=db&&db.cards?db:{cards:[],txs:[]};
+db.offers=db.offers||[];
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(db))}catch(e){}};
 
 let tab='dash',year=new Date().getFullYear(),editCard=null;
-const TABS=[['dash','总览'],['cards','我的卡片'],['txs','消费记录']];
+const TABS=[['dash','总览'],['cards','我的卡片'],['txs','消费记录'],['offers','开户奖励']];
 
 // 返现/积分:rules=[{cat,rate}],rate 为百分比;base 为默认比例;pv 为每1元积分折算价值(元)
 function earn(card,tx){
@@ -91,9 +96,40 @@ function nextDay(day){
   return {date:t,days:Math.round((t-new Date(y,m,d.getDate()))/864e5)};
 }
 
+// 开户奖励:存入 amount 元,持有 days 天,到期获得 reward 元;拿到后提醒转走本金
+function offerInfo(o){
+  const end=addDays(o.start,o.days);
+  if(o.movedDate) return {st:'done',end,label:'已完成',cls:'sub'};
+  if(o.rewardedDate) return {st:'move',end,label:'收益已到账,请把这笔钱转走',cls:'bad'};
+  const d=diff(end);
+  if(d<=0) return {st:'ready',end,label:d===0?'今天满期,等待收益到账':'已满期'+(-d)+'天,请确认收益是否到账',cls:'warn'};
+  return {st:'hold',end,d,label:'持有中,还需 '+d+' 天',cls:d<=7?'warn':'sub'};
+}
+function offerAlerts(){
+  return db.offers.map(o=>({o,...offerInfo(o)})).filter(x=>x.st==='move'||x.st==='ready'||(x.st==='hold'&&x.d<=7));
+}
+function offers(){
+  const list=db.offers.map(o=>({o,...offerInfo(o)})).sort((a,b)=>({move:0,ready:1,hold:2,done:3}[a.st]-({move:0,ready:1,hold:2,done:3}[b.st]))||a.end.localeCompare(b.end));
+  return `<div class="box"><b>添加开户 / 开卡奖励</b><div class="sub">例如:某券商存入 50000 元,持有 30 天,可得 200 元</div><form id="of" style="margin-top:10px">
+    <label>名称<input name="name" required placeholder="如 XX证券新户礼"></label>
+    <label>类型<select name="type"><option>证券</option><option>信用卡</option><option>银行</option><option>其他</option></select></label>
+    <label>存入金额(元)<input name="amount" type="number" min="0" step="any" required></label>
+    <label>持有天数<input name="days" type="number" min="0" step="1" required></label>
+    <label>可得收益(元)<input name="reward" type="number" min="0" step="any" required></label>
+    <label>存入日期<input name="start" type="date" required value="${today()}"></label>
+    <label>备注<input name="note"></label>
+    <button class="b">添加</button></form></div>
+  ${list.map(({o,st,end,label,cls})=>`<div class="box"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.name)} <span class="chip">${esc(o.type)}</span></b><button class="d" data-delo="${o.id}">删除</button></div>
+    <div class="sub">存入 ${money(o.amount)} · 持有 ${o.days} 天(${o.start} → ${end}) · 可得 ${money(o.reward)}${o.note?' · '+esc(o.note):''}</div>
+    <div class="${cls}" style="margin:6px 0"><b>${label}</b>${o.rewardedDate?`<span class="sub"> · ${o.rewardedDate} 实收 ${money(o.got)}</span>`:''}${o.movedDate?`<span class="sub"> · ${o.movedDate} 已转走</span>`:''}</div>
+    ${st==='ready'||st==='hold'?`<button class="b" data-got="${o.id}">已拿到收益</button>`:''}
+    ${st==='move'?`<button class="b" data-moved="${o.id}">已转走本金</button>`:''}
+    </div>`).join('')||'<div class="box empty">暂无记录</div>'}`;
+}
+
 function render(){
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
-  $('#app').innerHTML=({dash,cards,txs})[tab]();
+  $('#app').innerHTML=({dash,cards,txs,offers})[tab]();
   bind();
 }
 
@@ -101,7 +137,9 @@ function dash(){
   const ys=[...new Set([year,...db.txs.map(t=>+t.date.slice(0,4))])].sort((a,b)=>b-a);
   const rows=db.cards.map(c=>({c,...cardStats(c,String(year))}));
   const T=rows.reduce((a,r)=>({spend:a.spend+r.spend,reward:a.reward+r.reward,fee:a.fee+r.fee}),{spend:0,reward:0,fee:0});
-  const net=T.reward-T.fee;
+  const bonus=db.offers.filter(o=>o.rewardedDate&&o.rewardedDate.startsWith(String(year))).reduce((s,o)=>s+(o.got??o.reward),0);
+  const net=T.reward-T.fee+bonus;
+  const al=offerAlerts();
   const due=db.cards.flatMap(c=>[c.billDay&&{c,k:'账单日',...nextDay(c.billDay)},c.dueDay&&{c,k:'还款日',...nextDay(c.dueDay)}]).filter(Boolean).sort((a,b)=>a.days-b.days).slice(0,6);
   return `
   <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
@@ -109,8 +147,10 @@ function dash(){
     <div class="box stat"><div class="l">总消费</div><div class="n">${money(T.spend)}</div></div>
     <div class="box stat"><div class="l">累计收益(返现/积分折算)</div><div class="n good">${money(T.reward)}</div></div>
     <div class="box stat"><div class="l">年费支出</div><div class="n bad">${money(T.fee)}</div></div>
-    <div class="box stat"><div class="l">净收益</div><div class="n ${net>=0?'good':'bad'}">${money(net)}</div></div>
+    <div class="box stat"><div class="l">开户奖励(已到账)</div><div class="n good">${money(bonus)}</div></div>
+    <div class="box stat"><div class="l">净收益(含开户奖励)</div><div class="n ${net>=0?'good':'bad'}">${money(net)}</div></div>
   </div>
+  ${al.length?`<div class="box" style="border-color:var(--warn)"><b>⏰ 开户奖励提醒</b>${al.map(x=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="${x.cls}">${x.st==='move'?'💸 ':''}${esc(x.o.name)}(${money(x.o.amount)})</span> <span class="sub">${x.label}</span></div>`).join('')}<div style="margin-top:8px"><button class="b g" data-t="offers" id="gooffers">去处理</button></div></div>`:''}
   <div class="box"><b>各卡收益</b><div class="tw"><table><tr><th>卡片</th><th>消费</th><th>收益</th><th>年费</th><th>净收益</th></tr>
   ${rows.map(r=>`<tr><td>${esc(r.c.name)} <span class="sub">${esc(r.c.last4)}</span></td><td>${money(r.spend)}</td><td class="good">${money(r.reward)}</td><td>${money(r.fee)}</td><td class="${r.net>=0?'good':'bad'}">${money(r.net)}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">还没有卡片,先去添加吧</td></tr>'}
   </table></div></div>
@@ -165,6 +205,14 @@ function bind(){
   document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editCard=b.dataset.edit;render();scrollTo(0,0)});
   document.querySelectorAll('[data-delc]').forEach(b=>b.onclick=()=>{if(confirm('删除该卡片及其全部消费记录?')){const id=b.dataset.delc;db.cards=db.cards.filter(c=>c.id!==id);db.txs=db.txs.filter(t=>t.card!==id);save();render()}});
   document.querySelectorAll('[data-delt]').forEach(b=>b.onclick=()=>{db.txs=db.txs.filter(t=>t.id!==b.dataset.delt);save();render()});
+  $('#gooffers')&&($('#gooffers').onclick=()=>{tab='offers';render()});
+  document.querySelectorAll('[data-delo]').forEach(b=>b.onclick=()=>{if(confirm('删除这条记录?')){db.offers=db.offers.filter(o=>o.id!==b.dataset.delo);save();render()}});
+  document.querySelectorAll('[data-got]').forEach(b=>b.onclick=()=>{const o=db.offers.find(o=>o.id===b.dataset.got);const v=prompt('实际收到的收益(元)',o.reward);if(v===null)return;const n=parseFloat(v);if(isNaN(n)||n<0)return alert('请输入有效金额');o.got=n;o.rewardedDate=today();save();render()});
+  document.querySelectorAll('[data-moved]').forEach(b=>b.onclick=()=>{db.offers.find(o=>o.id===b.dataset.moved).movedDate=today();save();render()});
+  const of=$('#of');
+  if(of)of.onsubmit=e=>{e.preventDefault();const f=new FormData(of);
+    db.offers.push({id:uid(),name:f.get('name').trim(),type:f.get('type'),amount:+f.get('amount'),days:parseInt(f.get('days')),reward:+f.get('reward'),start:f.get('start'),note:f.get('note').trim()});
+    save();render()};
   const cf=$('#cf');
   if(cf)cf.onsubmit=e=>{e.preventDefault();const f=new FormData(cf),n=k=>+f.get(k)||0;
     const rules=[...cf.querySelectorAll('.rule')].map(r=>{const i=r.querySelectorAll('input');return{cat:i[0].value.trim(),rate:+i[1].value||0}}).filter(r=>r.cat);
@@ -178,7 +226,7 @@ function bind(){
 }
 $('#nav').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;editCard=null;render()}};
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='cards-backup-'+today()+'.json';a.click()};
-$('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.cards)||!Array.isArray(d.txs))throw 0;if(confirm('导入将覆盖当前数据,继续?')){db=d;save();render()}}catch{alert('文件格式不正确')}e.target.value=''};
+$('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.cards)||!Array.isArray(d.txs))throw 0;if(confirm('导入将覆盖当前数据,继续?')){db=d;db.offers=db.offers||[];save();render()}}catch{alert('文件格式不正确')}e.target.value=''};
 render();
 </script>
 </body>
