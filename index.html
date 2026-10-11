@@ -10,7 +10,18 @@
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--text:#1d2129;--sub:#6b7280;--line:#e5e7eb;--pri:#2563eb;--good:#059669;--bad:#dc2626;--warn:#d97706}
 @media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#1a1d24;--text:#e6e8ec;--sub:#9aa3b2;--line:#2a2f3a;--pri:#60a5fa;--good:#34d399;--bad:#f87171;--warn:#fbbf24}}
+:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--neg:#e34948}
+@media (prefers-color-scheme:dark){:root{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--neg:#e66767}}
 *{box-sizing:border-box}
+svg.ch{width:100%;height:auto;display:block;overflow:visible}
+svg.ch text{fill:var(--sub);font-size:15px}
+svg.ch .v{fill:var(--text)}
+svg.ch .grid{stroke:var(--line);stroke-width:1}
+svg.ch rect[data-tip]{cursor:pointer}
+.leg{display:flex;gap:14px;font-size:13px;margin:4px 0 8px}
+.leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
+#tip{position:fixed;z-index:9;pointer-events:none;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;white-space:pre-line}
+details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:8px}
 body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
 header{padding:16px;display:flex;justify-content:space-between;align-items:center;max-width:960px;margin:0 auto}
 h1{font-size:20px;margin:0}
@@ -18,7 +29,7 @@ nav{display:flex;gap:4px;max-width:960px;margin:0 auto;padding:0 16px;overflow-x
 nav button{border:0;background:none;color:var(--sub);padding:10px 14px;font-size:15px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
 nav button.on{color:var(--pri);border-color:var(--pri);font-weight:600}
 main{max-width:960px;margin:0 auto;padding:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
 .box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
 .stat .n{font-size:24px;font-weight:700}.stat .l{color:var(--sub);font-size:13px}
 .good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}.sub{color:var(--sub);font-size:13px}
@@ -27,7 +38,9 @@ th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-s
 th{color:var(--sub);font-weight:500}
 .tw{overflow-x:auto}
 button.b,.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
-button.g{background:none;color:var(--pri);border:1px solid var(--line)}
+button.g,.b.g{background:none;color:var(--pri);border:1px solid var(--line)}
+.tw th,.tw td{white-space:nowrap}
+header{flex-wrap:wrap;gap:8px}
 button.d{background:none;color:var(--bad);border:0;padding:4px 8px;cursor:pointer}
 button.e{background:none;color:var(--pri);border:0;padding:4px 8px;cursor:pointer}
 form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
@@ -44,7 +57,7 @@ input,select{padding:8px;border:1px solid var(--line);border-radius:8px;backgrou
 </head>
 <body>
 <header><h1>💳 信用卡管家</h1>
-<div><button class="b g" id="sync">☁️ 同步</button> <button class="b g" id="bell">🔔 通知</button> <button class="b g" id="ics">📅 日历提醒</button> <button class="b g" id="exp">导出</button> <label class="b g" style="display:inline;cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
+<div style="display:flex;flex-wrap:wrap;gap:6px"><button class="b g" id="sync">☁️ 同步</button> <button class="b g" id="bell">🔔 通知</button> <button class="b g" id="ics">📅 日历提醒</button> <button class="b g" id="exp">导出</button><label class="b g" style="cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
 <nav id="nav"></nav>
 <main id="app"></main>
 
@@ -84,13 +97,19 @@ async function pullRemote(){const t=getTok();if(!t)return setSync('off');
     setSync('ok')}catch(e){setSync('err')}}
 
 let tab='dash',year=new Date().getFullYear(),editCard=null,editOffer=null;
-const TABS=[['dash','总览'],['cards','我的卡片'],['txs','消费记录'],['offers','开户奖励']];
+const TABS=[['dash','总览'],['stats','收益分析'],['cards','我的卡片'],['txs','消费记录'],['offers','开户奖励']];
 
 // 返现/积分:rules=[{cat,rate}],rate 为百分比;base 为默认比例;pv 为每1元积分折算价值(元)
 function earn(card,tx){
   const r=(card.rules||[]).find(r=>r.cat===tx.cat);
   const rate=r?r.rate:card.base;
   return {v:tx.amount*rate/100,rate};
+}
+// 某卡某年各月收益(已含月封顶和积分折算),返回长度 12 的数组
+function cardMonthly(card,y){
+  const m=Array(12).fill(0);
+  db.txs.filter(t=>t.card===card.id&&t.date.startsWith(y)).forEach(t=>{m[+t.date.slice(5,7)-1]+=earn(card,t).v});
+  return m.map(v=>(card.cap>0?Math.min(v,card.cap):v)*(card.pv??1));
 }
 function cardStats(card,y){
   const txs=db.txs.filter(t=>t.card===card.id&&t.date.startsWith(y));
@@ -135,6 +154,8 @@ function offerInfo(o){
   if(d<=0) return {st:'ready',end,label:d===0?'今天满期,等待收益到账':'已满期'+(-d)+'天,请确认收益是否到账',cls:'warn'};
   return {st:'hold',end,d,label:'持有中,还需 '+d+' 天',cls:d<=7?'warn':'sub'};
 }
+// 年化收益率 = 收益 ÷ 本金 × 365 ÷ 持有天数
+const annual=o=>o.amount>0&&o.days>0?o.reward/o.amount*365/o.days*100:0;
 function offerAlerts(){
   return db.offers.map(o=>({o,...offerInfo(o)})).filter(x=>x.st==='move'||x.st==='ready'||(x.st==='hold'&&x.d<=7));
 }
@@ -151,16 +172,79 @@ function offers(){
     <label>备注<input name="note" value="${esc(eo?.note)}"></label>
     <div><button class="b">${eo?'保存':'添加'}</button>${eo?' <button type="button" class="b g" id="ocancel">取消</button>':''}</div></form></div>
   ${list.map(({o,st,end,label,cls})=>`<div class="box"><div style="display:flex;justify-content:space-between;gap:8px"><b>${esc(o.name)} <span class="chip">${esc(o.type)}</span></b><span><button class="e" data-edito="${o.id}">编辑</button><button class="d" data-delo="${o.id}">删除</button></span></div>
-    <div class="sub">存入 ${money(o.amount)} · 持有 ${o.days} 天(${o.start} → ${end}) · 可得 ${money(o.reward)}${o.note?' · '+esc(o.note):''}</div>
+    <div class="sub">存入 ${money(o.amount)} · 持有 ${o.days} 天(${o.start} → ${end}) · 可得 ${money(o.reward)} · 年化 ${annual(o).toFixed(2)}%${o.note?' · '+esc(o.note):''}</div>
     <div class="${cls}" style="margin:6px 0"><b>${label}</b>${o.rewardedDate?`<span class="sub"> · ${o.rewardedDate} 实收 ${money(o.got)}</span>`:''}${o.movedDate?`<span class="sub"> · ${o.movedDate} 已转走</span>`:''}</div>
     ${st==='ready'||st==='hold'?`<button class="b" data-got="${o.id}">已拿到收益</button>`:''}
     ${st==='move'?`<button class="b" data-moved="${o.id}">已转走本金</button>`:''}
     </div>`).join('')||'<div class="box empty">暂无记录</div>'}`;
 }
 
+// ---------- 图表(内联 SVG,无外部依赖) ----------
+const nice=v=>{if(v<=0)return 1;const e=Math.pow(10,Math.floor(Math.log10(v))),f=v/e;return (f<=1?1:f<=2?2:f<=5?5:10)*e};
+const short=n=>Math.abs(n)>=1e4?(n/1e4).toFixed(1).replace(/\.0$/,'')+'万':String(Math.round(n*100)/100);
+function colChart(months,series){ // series:[{name,color,vals[12]}] 堆叠柱
+  const W=640,H=250,L=52,R=8,T=10,B=30,pw=W-L-R,ph=H-T-B;
+  const tot=months.map((_,i)=>series.reduce((a,s)=>a+s.vals[i],0));
+  const max=nice(Math.max(...tot,1)),bw=pw/12*0.6;
+  let g='';
+  for(let k=0;k<=4;k++){const y=T+ph-ph*k/4;g+=`<line class="grid" x1="${L}" x2="${W-R}" y1="${y}" y2="${y}"/><text x="${L-6}" y="${y+4}" text-anchor="end">${short(max*k/4)}</text>`}
+  months.forEach((m,i)=>{const x=L+pw/12*i+(pw/12-bw)/2;let acc=0;
+    series.forEach((s,j)=>{const v=s.vals[i];if(v<=0)return;const h=ph*v/max,y=T+ph-ph*acc/max-h;acc+=v;
+      g+=`<rect x="${x}" y="${y}" width="${bw}" height="${h}" rx="3" fill="${s.color}" stroke="var(--card)" stroke-width="2" data-tip="${m}\n${s.name} ${money(v)}\n当月合计 ${money(tot[i])}"/>`});
+    g+=`<text x="${x+bw/2}" y="${H-8}" text-anchor="middle">${i+1}</text>`});
+  return `<svg class="ch" viewBox="0 0 ${W} ${H}" role="img" aria-label="每月收益堆叠柱状图">${g}</svg>`;
+}
+function barChart(rows,fmt,color){ // rows:[{label,val,tip}] 水平条,支持负值;数值固定在右侧列
+  if(!rows.length)return '<div class="empty">暂无数据</div>';
+  const rh=36,W=640,L=120,R=100,H=rows.length*rh+4,pw=W-L-R-10;
+  const mx=Math.max(0,...rows.map(r=>r.val)),mn=Math.min(0,...rows.map(r=>r.val)),span=(mx-mn)||1;
+  const z=L+pw*(-mn)/span;
+  let g=mn<0?`<line class="grid" x1="${z}" x2="${z}" y1="0" y2="${H}"/>`:'';
+  rows.forEach((r,i)=>{const y=i*rh+6,w=Math.abs(r.val)/span*pw,x=r.val>=0?z:z-w,c=r.val<0?'var(--neg)':color;
+    g+=`<text x="${L-8}" y="${y+16}" text-anchor="end">${esc(r.label.length>7?r.label.slice(0,6)+'…':r.label)}</text>
+    <rect x="${x}" y="${y}" width="${Math.max(w,2)}" height="22" rx="3" fill="${c}" data-tip="${esc(r.tip)}"/>
+    <text class="v" x="${W}" y="${y+16}" text-anchor="end">${fmt(r.val)}</text>`});
+  return `<svg class="ch" viewBox="0 0 ${W} ${H}" role="img">${g}</svg>`;
+}
+function stats(){
+  const Y=String(year),ys=[...new Set([year,...db.txs.map(t=>+t.date.slice(0,4))])].sort((a,b)=>b-a);
+  const months=Array.from({length:12},(_,i)=>Y+'年'+(i+1)+'月');
+  const cardM=Array(12).fill(0),bonusM=Array(12).fill(0);
+  db.cards.forEach(c=>cardMonthly(c,Y).forEach((v,i)=>cardM[i]+=v));
+  db.offers.forEach(o=>{if(o.rewardedDate&&o.rewardedDate.startsWith(Y))bonusM[+o.rewardedDate.slice(5,7)-1]+=o.got??o.reward});
+  const rows=db.cards.map(c=>({c,...cardStats(c,Y)}));
+  const spend=rows.reduce((a,r)=>a+r.spend,0),cr=rows.reduce((a,r)=>a+r.reward,0),fee=rows.reduce((a,r)=>a+r.fee,0),bn=bonusM.reduce((a,b)=>a+b,0);
+  // 开户奖励资金加权年化:总收益 ÷ Σ(本金×天数) × 365
+  const done=db.offers.filter(o=>o.rewardedDate&&o.days>0);
+  const cap=done.reduce((a,o)=>a+o.amount*o.days,0),aw=cap?done.reduce((a,o)=>a+(o.got??o.reward),0)/cap*365*100:0;
+  const cat={};db.txs.filter(t=>t.date.startsWith(Y)).forEach(t=>cat[t.cat]=(cat[t.cat]||0)+t.amount);
+  const catRows=Object.entries(cat).sort((a,b)=>b[1]-a[1]).map(([k,v])=>({label:k,val:v,tip:k+'\n'+money(v)+'  占 '+(spend?v/spend*100:0).toFixed(1)+'%'}));
+  const netRows=rows.map(r=>({label:r.c.name,val:r.net+0,tip:`${r.c.name}\n收益 ${money(r.reward)}\n年费 ${money(r.fee)}${r.waived?'(已减免)':''}\n净收益 ${money(r.net)}`}));
+  const offRows=[...db.offers].sort((a,b)=>annual(b)-annual(a)).map(o=>({label:o.name,val:annual(o),tip:`${o.name}\n本金 ${money(o.amount)} · ${o.days} 天\n收益 ${money(o.reward)}\n年化 ${annual(o).toFixed(2)}%`}));
+  return `
+  <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
+  <div class="grid">
+    <div class="box stat"><div class="l">综合返现率(收益 ÷ 消费)</div><div class="n">${spend?(cr/spend*100).toFixed(2):'0.00'}%</div></div>
+    <div class="box stat"><div class="l">卡片收益 + 开户奖励</div><div class="n good">${money(cr+bn)}</div></div>
+    <div class="box stat"><div class="l">开户奖励资金加权年化</div><div class="n">${aw.toFixed(2)}%</div></div>
+    <div class="box stat"><div class="l">扣年费后净收益</div><div class="n ${cr+bn-fee>=0?'good':'bad'}">${money(cr+bn-fee)}</div></div>
+  </div>
+  <div class="box"><b>每月收益</b>
+    <div class="leg"><span><i style="background:var(--s1)"></i>消费返现/积分</span><span><i style="background:var(--s2)"></i>开户奖励(按到账月)</span></div>
+    ${colChart(months,[{name:'消费返现/积分',color:'var(--s1)',vals:cardM},{name:'开户奖励',color:'var(--s2)',vals:bonusM}])}
+    <details><summary>查看数据表</summary><div class="tw"><table><tr><th>月份</th><th>返现/积分</th><th>开户奖励</th><th>合计</th></tr>
+    ${cardM.map((v,i)=>`<tr><td>${i+1}月</td><td>${money(v)}</td><td>${money(bonusM[i])}</td><td>${money(v+bonusM[i])}</td></tr>`).join('')}</table></div></details></div>
+  <div class="box"><b>各卡净收益(收益 − 年费)</b>${barChart(netRows,v=>money(v),'var(--s1)')}<div class="sub">红色为亏损,即收益不足以覆盖年费。</div></div>
+  <div class="box"><b>年费回本分析</b><div class="tw"><table><tr><th>卡片</th><th>年费</th><th>已得收益</th><th>返现率</th><th>回本所需消费</th><th>状态</th></tr>
+  ${rows.map(r=>{const rate=r.spend?r.reward/r.spend:0,need=rate>0?r.c.fee/rate:0,ok=r.waived||r.reward>=(r.c.fee||0);
+    return `<tr><td>${esc(r.c.name)}</td><td>${money(r.c.fee||0)}</td><td>${money(r.reward)}</td><td>${(rate*100).toFixed(2)}%</td><td>${r.waived||!(r.c.fee>0)?'—':rate>0?money(need):'无消费数据'}</td><td class="${ok?'good':'warn'}">${!(r.c.fee>0)?'无年费':r.waived?'✅ 已减免':ok?'✅ 已回本':'未回本'}</td></tr>`}).join('')||'<tr><td colspan=6 class="empty">暂无</td></tr>'}</table></div></div>
+  <div class="box"><b>消费类别占比</b>${barChart(catRows,v=>short(v),'var(--s1)')}</div>
+  <div class="box"><b>开户奖励年化收益率</b><div class="sub">年化 = 收益 ÷ 本金 × 365 ÷ 持有天数</div>${barChart(offRows,v=>v.toFixed(2)+'%','var(--s3)')}</div>`;
+}
+
 function render(){
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
-  $('#app').innerHTML=({dash,cards,txs,offers})[tab]();
+  $('#app').innerHTML=({dash,stats,cards,txs,offers})[tab]();
   bind();
 }
 
@@ -312,6 +396,12 @@ $('#sync').onclick=async()=>{
   await pullRemote()};
 pullRemote();
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+const tip=document.createElement('div');tip.id='tip';document.body.appendChild(tip);
+const showTip=e=>{const t=e.target.closest&&e.target.closest('[data-tip]');if(!t){tip.style.display='none';return}
+  tip.textContent=t.dataset.tip;tip.style.display='block';
+  const x=Math.min(e.clientX+12,innerWidth-tip.offsetWidth-8),y=Math.max(8,e.clientY-tip.offsetHeight-12);
+  tip.style.left=x+'px';tip.style.top=y+'px'};
+document.addEventListener('mousemove',showTip);document.addEventListener('click',showTip);
 render();
 notifyNow();
 </script>
