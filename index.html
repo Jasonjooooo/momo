@@ -104,6 +104,11 @@ ul.help{padding-left:18px;margin:8px 0 0;line-height:1.8;font-size:14px}
 
 <script>
 const KEY='momo-cards-v1';
+// ---- 售卖版配置(由 tools/build.js 写入;源码默认为自用,不限制、保留同步)----
+const BUILD={sync:true};
+const LICENSE_PUBKEY=null;                 // 写入 ECDSA P-256 公钥(JWK)后启用试用限制
+const TRIAL={cards:2,offers:3};            // 未激活时最多可添加的卡片/开户奖励数
+const LIC_KEY='momo-license';
 const CATS=['餐饮','超市','出行','网购','娱乐','话费水电','其他'];
 const $=(s,r=document)=>r.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -369,7 +374,7 @@ function welcome(){return `<div class="box"><b style="font-size:18px">欢迎使�
   <p class="sub" style="font-size:14px;margin:8px 0 12px">记录信用卡的返现/积分规则和开户存款奖励,自动算出收益、年费是否回本、奖励年化,并提醒你到期确认收益和转走本金。数据只保存在这台设备的浏览器里。</p>
   <ol style="padding-left:20px;margin:0 0 14px;line-height:1.9"><li>在「卡片」添加你的卡,填写返现规则和年费;可以套用模板再修改。</li><li>在「记账」记录消费,收益自动计算。</li><li>在「开户奖励」记录存款活动,到期会提醒你。</li></ol>
   <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="b" id="startcard">添加第一张卡</button><button class="b g" id="demo">先看看示例数据</button></div></div>`}
-function about(){return `<div class="box"><b>使用说明</b>
+function about(){return `${licenseBox()}<div class="box"><b>使用说明</b>
   <ul class="help"><li><b>返还怎么填:</b>「每消费100元得多少」。返现卡填 1 就是 1% 返现;积分卡填每100元得多少积分,再把「1返还单位=多少钱」填成 1 积分值多少元。</li>
   <li><b>分类加成:</b>类别名要和记账时选的类别一致,没有加成的类别按基础返还算。</li>
   <li><b>月封顶:</b>按自然月把当月所有返还加总后封顶,单位与返还一致。</li>
@@ -379,6 +384,23 @@ function about(){return `<div class="box"><b>使用说明</b>
   <div class="box"><b>数据与备份</b><p class="sub" style="font-size:14px">所有数据只保存在当前浏览器里,不会上传。清除浏览器数据、换设备或换浏览器都会丢失,请定期点页面右上角的「⬇️」导出备份,需要时用「⬆️」导入。</p></div>
   <div class="box"><b>免责声明</b><p class="sub" style="font-size:14px">本工具只根据你自己填写的规则做计算和提醒,结果仅供参考,不构成任何理财、投资或信贷建议,也不保证与银行或券商的实际结算一致。银行和券商的活动规则以其官方公告和合同为准。请勿在备注等位置记录完整卡号、密码或验证码。</p></div>
   <div class="box"><b>关于</b><p class="sub" style="font-size:14px">信用卡管家 v${APP_VERSION}</p></div>`}
+// ---------- 激活码:ECDSA P-256 签名,浏览器本地验证,无需联网 ----------
+let lic=null;
+const b64u=s=>Uint8Array.from(atob(s.replace(/-/g,'+').replace(/_/g,'/')+'==='.slice((s.length+3)%4)),c=>c.charCodeAt(0));
+async function checkLicense(code){
+  try{if(!LICENSE_PUBKEY||!crypto.subtle)return null;
+    const [pl,sg]=String(code).trim().split('.');if(!pl||!sg)return null;
+    const key=await crypto.subtle.importKey('jwk',LICENSE_PUBKEY,{name:'ECDSA',namedCurve:'P-256'},false,['verify']);
+    const ok=await crypto.subtle.verify({name:'ECDSA',hash:'SHA-256'},key,b64u(sg),b64u(pl));
+    return ok?JSON.parse(new TextDecoder().decode(b64u(pl))):null}catch(e){return null}
+}
+const limited=()=>!!LICENSE_PUBKEY&&!lic;
+function needLicense(kind){alert('试用版最多添加 '+TRIAL[kind]+' '+(kind==='cards'?'张卡片':'条开户奖励')+'。请在「使用说明」页输入激活码解锁全部功能。');tab='about';editCard=null;editOffer=null;render();scrollTo(0,0)}
+function licenseBox(){
+  if(!LICENSE_PUBKEY)return '';
+  return `<div class="box"><b>激活</b>${lic?`<p class="good" style="margin:8px 0 0">✅ 已激活,授权给:${esc(lic.n)}</p>`:`<p class="sub" style="font-size:14px;margin:6px 0 10px">当前为试用版:最多 ${TRIAL.cards} 张卡片、${TRIAL.offers} 条开户奖励。输入购买后收到的激活码即可解锁。激活码在本机验证,不需要联网。</p>
+    <label>激活码<input id="liccode" placeholder="粘贴激活码" autocomplete="off"></label><div style="margin-top:10px"><button class="b" id="activate">激活</button></div>`}</div>`;
+}
 function render(){
   $('#nav').innerHTML=TABS.map(([k,l,i])=>`<button class="${k===tab?'on':''}" data-t="${k}"><span class="ic">${i}</span>${l}</button>`).join('');
   $('#app').innerHTML=({dash,stats,cards,txs,offers,about})[tab]()+(tab==='about'?'':'<div class="disc">计算结果仅供参考,以银行/券商实际结算为准。<a href="#" data-t="about">使用说明与免责声明</a></div>');
@@ -396,7 +418,8 @@ function dash(){
   const al=offerAlerts();
   const multi=db.cards.some(c=>c.currency&&c.currency!=='CNY')||db.offers.some(o=>o.currency&&o.currency!=='CNY');
   const due=db.cards.flatMap(c=>[c.billDay&&{c,k:'账单日',...nextDay(c.billDay)},c.dueDay&&{c,k:'还款日',...nextDay(c.dueDay)}]).filter(Boolean).sort((a,b)=>a.days-b.days).slice(0,6);
-  return `${demoBar}
+  const trialBar=limited()?`<div class="box" style="border-color:var(--warn)"><b>试用版</b><div class="sub" style="margin:4px 0 8px">最多 ${TRIAL.cards} 张卡片、${TRIAL.offers} 条开户奖励(已用 ${db.cards.length} / ${db.offers.length})。</div><button class="b g" data-t="about">输入激活码</button></div>`:'';
+  return `${demoBar}${trialBar}
   <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
   ${rows.length?`<div class="wall">${rows.map(r=>`<div class="item">${faceHtml(r.c)}<div class="cap"><span class="sub">${r.n} 笔 · ${money(r.spend,r.c.currency)}</span><span class="${r.net>=0?'good':'bad'}">净 ${money(r.net,r.c.currency)}</span></div></div>`).join('')}</div>`:''}
   <div class="grid">
@@ -476,6 +499,8 @@ function bind(){
   document.querySelectorAll('[data-delc]').forEach(b=>b.onclick=()=>{if(confirm('删除该卡片及其全部消费记录?')){const id=b.dataset.delc;db.cards=db.cards.filter(c=>c.id!==id);db.txs=db.txs.filter(t=>t.card!==id);save();render()}});
   document.querySelectorAll('[data-delt]').forEach(b=>b.onclick=()=>{db.txs=db.txs.filter(t=>t.id!==b.dataset.delt);save();render()});
   $('#bk')&&loadBackups();
+  $('#activate')&&($('#activate').onclick=async()=>{const code=$('#liccode').value.trim(),r=await checkLicense(code);
+    if(!r)return alert('激活码无效,请检查是否完整复制。');lic=r;try{localStorage.setItem(LIC_KEY,code)}catch(e){}alert('激活成功,感谢购买!');render()});
   $('#startcard')&&($('#startcard').onclick=()=>{tab='cards';ff={color:0,img:''};editCard='new';render()});
   $('#demo')&&($('#demo').onclick=loadDemo);
   $('#cleardemo')&&($('#cleardemo').onclick=()=>{if(confirm('清除全部示例数据?')){db=norm({cards:[],txs:[],offers:[],rates:db.rates});save();render()}});
@@ -495,6 +520,7 @@ function bind(){
   const of=$('#of');
   if(of)of.onsubmit=e=>{e.preventDefault();const f=new FormData(of);
     const o={name:f.get('name').trim(),type:f.get('type'),currency:f.get('currency'),amount:+f.get('amount'),days:parseInt(f.get('days')),reward:+f.get('reward'),start:f.get('start'),note:f.get('note').trim()};
+    if(!editOffer&&limited()&&db.offers.length>=TRIAL.offers)return needLicense('offers');
     if(editOffer)Object.assign(db.offers.find(x=>x.id===editOffer),o);else db.offers.push({id:uid(),...o});
     editOffer=null;save();render()};
   $('#ocancel')&&($('#ocancel').onclick=()=>{editOffer=null;render()});
@@ -517,6 +543,7 @@ function bind(){
   if(cf)cf.onsubmit=e=>{e.preventDefault();const f=new FormData(cf),n=k=>+f.get(k)||0;
     const rules=[...cf.querySelectorAll('.rule')].map(r=>{const i=r.querySelectorAll('input');return{cat:i[0].value.trim(),rate:+i[1].value||0}}).filter(r=>r.cat);
     const o={color:ff.color,img:ff.img,currency:f.get('currency'),name:f.get('name').trim(),last4:f.get('last4').trim(),limit:n('limit'),fee:n('fee'),billDay:n('billDay')||'',dueDay:n('dueDay')||'',base:n('base'),pv:f.get('pv')===''?1:n('pv'),cap:n('cap'),waiveSpend:n('waiveSpend'),waiveCount:parseInt(f.get('waiveCount'))||0,rules};
+    if(editCard==='new'&&limited()&&db.cards.length>=TRIAL.cards)return needLicense('cards');
     if(editCard==='new')db.cards.push({id:uid(),...o});else Object.assign(db.cards.find(c=>c.id===editCard),o);
     editCard=null;save();render()};
   const tf=$('#tf');
@@ -573,7 +600,8 @@ $('#sync').onclick=async()=>{
   const cur=getTok();const t=prompt('输入服务器访问令牌(MOMO_TOKEN)。留空则关闭同步。',cur);if(t===null)return;
   try{if(t.trim())localStorage.setItem(TOK,t.trim());else localStorage.removeItem(TOK)}catch(e){}
   await pullRemote()};
-pullRemote();
+if(!BUILD.sync){const sb=$('#sync');sb&&sb.remove()}else pullRemote();
+try{const saved=localStorage.getItem(LIC_KEY);if(saved)checkLicense(saved).then(r=>{if(r){lic=r;render()}})}catch(e){}
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
 // ---------- 导出 .xlsx(无依赖:手写最小 zip + SpreadsheetML) ----------
 const CRC=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();

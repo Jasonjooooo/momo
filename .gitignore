@@ -1,3 +1,6 @@
 data/
 .env
 __pycache__/
+tools/private.jwk.json
+dist/
+node_modules/
