@@ -8,56 +8,94 @@
 <link rel="icon" href="icon.svg">
 <meta name="theme-color" content="#2563eb">
 <style>
-:root{--bg:#f5f6f8;--card:#fff;--text:#1d2129;--sub:#6b7280;--line:#e5e7eb;--pri:#2563eb;--good:#059669;--bad:#dc2626;--warn:#d97706}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#1a1d24;--text:#e6e8ec;--sub:#9aa3b2;--line:#2a2f3a;--pri:#60a5fa;--good:#34d399;--bad:#f87171;--warn:#fbbf24}}
-:root{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--neg:#e34948}
-@media (prefers-color-scheme:dark){:root{--s1:#3987e5;--s2:#d95926;--s3:#199e70;--neg:#e66767}}
-*{box-sizing:border-box}
+:root{--bg:#f3f4f8;--card:#fff;--text:#161a23;--sub:#6b7280;--line:#e6e8ee;--pri:#2563eb;--good:#059669;--bad:#dc2626;--warn:#d97706;--shadow:0 1px 2px rgba(16,24,40,.05),0 4px 14px rgba(16,24,40,.05);--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;--neg:#e34948}
+@media (prefers-color-scheme:dark){:root{--bg:#0e1015;--card:#181b22;--text:#e8eaef;--sub:#98a1b2;--line:#272c37;--pri:#6aa5ff;--good:#34d399;--bad:#f87171;--warn:#fbbf24;--shadow:0 1px 2px rgba(0,0,0,.4);--s1:#3987e5;--s2:#d95926;--s3:#199e70;--neg:#e66767}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:6;display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 16px;background:color-mix(in srgb,var(--card) 88%,transparent);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+h1{font-size:18px;margin:0;letter-spacing:.2px}
+.hb{display:flex;gap:6px}
+.ib{min-width:36px;height:36px;padding:0 8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--text);font-size:15px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.ib:hover{border-color:var(--pri)}
+nav{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(12px);border-top:1px solid var(--line);padding:4px 4px calc(4px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:0;background:none;color:var(--sub);display:flex;flex-direction:column;align-items:center;gap:1px;font-size:11px;padding:6px 2px;cursor:pointer;border-radius:10px}
+nav button .ic{font-size:20px;line-height:1.2}
+nav button.on{color:var(--pri);font-weight:600}
+main{max-width:980px;margin:0 auto;padding:16px 16px 92px}
+@media (min-width:900px){
+  nav{top:57px;bottom:0;right:auto;width:196px;flex-direction:column;justify-content:flex-start;border-top:0;border-right:1px solid var(--line);padding:16px 12px;gap:4px;backdrop-filter:none;background:var(--card)}
+  nav button{flex:none;flex-direction:row;gap:10px;font-size:15px;padding:10px 12px;justify-content:flex-start}
+  nav button .ic{font-size:18px}
+  nav button.on{background:color-mix(in srgb,var(--pri) 12%,transparent)}
+  main{max-width:none;margin:0 0 0 196px;padding:24px 32px 40px}
+  #app{max-width:980px}
+}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:12px}
+.grid .box{margin-bottom:0}
+.box{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+.box>b:first-child{font-size:16px}
+.stat .n{font-size:22px;font-weight:700;margin-top:2px}.stat .l{color:var(--sub);font-size:12.5px}
+.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}.sub{color:var(--sub);font-size:13px}
+table{width:100%;border-collapse:collapse}
+th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);font-size:14px}
+th{color:var(--sub);font-weight:500;font-size:12.5px}
+tr:last-child td{border-bottom:0}
+.tw{overflow-x:auto}.tw th,.tw td{white-space:nowrap}
+button.b,.b{background:var(--pri);color:#fff;border:0;border-radius:10px;padding:9px 16px;font-size:14px;cursor:pointer;font-weight:500}
+@media (prefers-color-scheme:dark){button.b,.b{color:#0b1220}}
+button.b:active{transform:scale(.97)}
+button.g,.b.g{background:none;color:var(--pri);border:1px solid var(--line)}
+button.d{background:none;color:var(--bad);border:0;padding:4px 8px;cursor:pointer}
+button.e{background:none;color:var(--pri);border:0;padding:4px 8px;cursor:pointer}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;align-items:end}
+label{display:flex;flex-direction:column;font-size:12.5px;color:var(--sub);gap:5px}
+input,select{padding:10px;min-height:40px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--text);font-size:15px;width:100%}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--pri) 45%,transparent);border-color:var(--pri)}
+.full{grid-column:1/-1}
+.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--pri);border-radius:4px}
+.rule{display:flex;gap:6px;margin-bottom:6px}
+.rule input:first-child{flex:2}.rule input:nth-child(2){flex:1}
+.chip{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 9px;font-size:12px;margin:2px 4px 2px 0}
+.empty{text-align:center;color:var(--sub);padding:24px}
+/* 卡面 */
+.face{position:relative;aspect-ratio:1.586;border-radius:18px;color:#fff;padding:16px 18px;display:flex;flex-direction:column;justify-content:space-between;overflow:hidden;background-size:cover;background-position:center;box-shadow:0 10px 24px rgba(0,0,0,.22)}
+.face::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 88% -8%,rgba(255,255,255,.3),transparent 55%),radial-gradient(circle at -10% 110%,rgba(255,255,255,.12),transparent 50%)}
+.face>*{position:relative}
+.face .t{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;font-weight:700;font-size:16px;text-shadow:0 1px 3px rgba(0,0,0,.25)}
+.face .chipic{width:36px;height:27px;border-radius:6px;background:linear-gradient(135deg,#f6dd8b,#c79a1f);box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+.face .num{font-size:17px;letter-spacing:.14em;text-shadow:0 1px 3px rgba(0,0,0,.35)}
+.face .bt{display:flex;justify-content:space-between;align-items:flex-end;font-size:12px;text-shadow:0 1px 2px rgba(0,0,0,.35)}
+.face.img::before{background:linear-gradient(transparent 55%,rgba(0,0,0,.55))}
+.face.img{justify-content:flex-end}
+.pill{background:rgba(0,0,0,.45);padding:3px 10px;border-radius:999px;backdrop-filter:blur(4px)}
+.face .cur{font-size:11px;border:1px solid rgba(255,255,255,.7);border-radius:6px;padding:0 6px}
+.faces{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:18px}
+.cd .box{margin:-26px 6px 0;padding-top:34px;position:relative;z-index:0;border-radius:0 0 16px 16px}
+.cd .face{position:relative;z-index:1}
+.wall{display:flex;gap:14px;overflow-x:auto;scroll-snap-type:x mandatory;padding:4px 2px 14px;margin-bottom:6px}
+.wall .item{flex:0 0 min(270px,78%);scroll-snap-align:start}
+.wall .cap{display:flex;justify-content:space-between;font-size:13px;margin-top:8px;padding:0 4px}
+.dot{display:inline-block;width:16px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px;background-size:cover;background-position:center}
+.sw{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.swb{width:30px;height:30px;border-radius:50%;border:2px solid var(--card);box-shadow:0 0 0 1px var(--line);cursor:pointer;padding:0}
+.swb.on{box-shadow:0 0 0 2px var(--pri)}
+#prev{max-width:340px}
+/* 图表 */
 svg.ch{width:100%;height:auto;display:block;overflow:visible}
 svg.ch text{fill:var(--sub);font-size:15px}
 svg.ch .v{fill:var(--text)}
 svg.ch .grid{stroke:var(--line);stroke-width:1}
 svg.ch rect[data-tip]{cursor:pointer}
-.leg{display:flex;gap:14px;font-size:13px;margin:4px 0 8px}
+.leg{display:flex;gap:14px;font-size:13px;margin:4px 0 8px;flex-wrap:wrap}
 .leg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px}
 #tip{position:fixed;z-index:9;pointer-events:none;background:var(--card);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.18);display:none;white-space:pre-line}
 details summary{cursor:pointer;color:var(--sub);font-size:13px;margin-top:8px}
-body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
-header{padding:16px;display:flex;justify-content:space-between;align-items:center;max-width:960px;margin:0 auto}
-h1{font-size:20px;margin:0}
-nav{display:flex;gap:4px;max-width:960px;margin:0 auto;padding:0 16px;overflow-x:auto}
-nav button{border:0;background:none;color:var(--sub);padding:10px 14px;font-size:15px;cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
-nav button.on{color:var(--pri);border-color:var(--pri);font-weight:600}
-main{max-width:960px;margin:0 auto;padding:16px}
-.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
-.box{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
-.stat .n{font-size:24px;font-weight:700}.stat .l{color:var(--sub);font-size:13px}
-.good{color:var(--good)}.bad{color:var(--bad)}.warn{color:var(--warn)}.sub{color:var(--sub);font-size:13px}
-table{width:100%;border-collapse:collapse}
-th,td{text-align:left;padding:8px 6px;border-bottom:1px solid var(--line);font-size:14px}
-th{color:var(--sub);font-weight:500}
-.tw{overflow-x:auto}
-button.b,.b{background:var(--pri);color:#fff;border:0;border-radius:8px;padding:8px 14px;font-size:14px;cursor:pointer}
-button.g,.b.g{background:none;color:var(--pri);border:1px solid var(--line)}
-.tw th,.tw td{white-space:nowrap}
-header{flex-wrap:wrap;gap:8px}
-button.d{background:none;color:var(--bad);border:0;padding:4px 8px;cursor:pointer}
-button.e{background:none;color:var(--pri);border:0;padding:4px 8px;cursor:pointer}
-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;align-items:end}
-label{display:flex;flex-direction:column;font-size:13px;color:var(--sub);gap:4px}
-input,select{padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--text);font-size:14px;width:100%}
-.full{grid-column:1/-1}
-.bar{height:8px;background:var(--line);border-radius:4px;overflow:hidden;margin-top:6px}
-.bar i{display:block;height:100%;background:var(--pri)}
-.rule{display:flex;gap:6px;margin-bottom:6px}
-.rule input:first-child{flex:2}.rule input:nth-child(2){flex:1}
-.chip{display:inline-block;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px;font-size:12px;margin:2px 4px 2px 0}
-.empty{text-align:center;color:var(--sub);padding:24px}
 </style>
 </head>
 <body>
 <header><h1>💳 信用卡管家</h1>
-<div style="display:flex;flex-wrap:wrap;gap:6px"><button class="b g" id="sync">☁️ 同步</button> <button class="b g" id="bell">🔔 通知</button> <button class="b g" id="ics">📅 日历提醒</button> <button class="b g" id="exp">导出</button><label class="b g" style="cursor:pointer">导入<input type="file" id="imp" accept=".json" hidden></label></div></header>
+<div class="hb"><button class="ib" id="sync" title="同步到服务器">☁️</button><button class="ib" id="bell" title="浏览器通知">🔔</button><button class="ib" id="ics" title="导出日历提醒(.ics)">📅</button><button class="ib" id="exp" title="导出备份(JSON)">⬇️</button><label class="ib" title="导入备份(JSON)" style="cursor:pointer">⬆️<input type="file" id="imp" accept=".json" hidden></label></div></header>
 <nav id="nav"></nav>
 <main id="app"></main>
 
@@ -84,8 +122,8 @@ db=db&&db.cards?db:{cards:[],txs:[]};
 norm(db);
 const TOK='momo-token';
 const getTok=()=>{try{return localStorage.getItem(TOK)||''}catch(e){return ''}};
-const SYNC={off:'☁️ 同步',ok:'☁️ 已同步',auth:'☁️ 令牌错误',err:'☁️ 离线'};
-function setSync(k){const b=document.getElementById('sync');if(b)b.textContent=SYNC[k]}
+const SYNC={off:['☁️','未开启同步,点击设置令牌'],ok:['☁️✓','已同步'],auth:['☁️⚠️','令牌错误'],err:['☁️✕','离线,稍后重试']};
+function setSync(k){const b=document.getElementById('sync');if(b){b.textContent=SYNC[k][0];b.title=SYNC[k][1]}}
 let pushT;
 function pushRemote(){const t=getTok();if(!t)return;clearTimeout(pushT);pushT=setTimeout(async()=>{
   try{const r=await fetch('api/data',{method:'PUT',headers:{'X-Token':t,'Content-Type':'application/json'},body:JSON.stringify(db)});
@@ -101,7 +139,7 @@ async function pullRemote(){const t=getTok();if(!t)return setSync('off');
     setSync('ok')}catch(e){setSync('err')}}
 
 let matrix='reward',tab='dash',year=new Date().getFullYear(),editCard=null,editOffer=null;
-const TABS=[['dash','总览'],['stats','收益分析'],['cards','我的卡片'],['txs','消费记录'],['offers','开户奖励']];
+const TABS=[['dash','总览','🏠'],['stats','分析','📈'],['cards','卡片','💳'],['txs','记账','🧾'],['offers','开户奖励','🎁']];
 
 // 返现/积分:rules=[{cat,rate}],rate 为百分比;base 为默认比例;pv 为每1元积分折算价值(元)
 function earn(card,tx){
@@ -275,8 +313,29 @@ function stats(){
   <div class="box"><b>开户奖励年化收益率</b><div class="sub">年化 = 收益 ÷ 本金 × 365 ÷ 持有天数</div>${barChart(offRows,v=>v.toFixed(2)+'%','var(--s3)')}</div>`;
 }
 
+// ---------- 卡面 ----------
+const GRADS=[['#3b82f6','#1e3a8a'],['#8b5cf6','#4c1d95'],['#f43f5e','#881337'],['#fb923c','#9a3412'],['#10b981','#064e3b'],['#06b6d4','#164e63'],['#52525b','#18181b'],['#d97706','#78350f']];
+const hashId=id=>[...String(id||'')].reduce((a,c)=>a*31+c.charCodeAt(0)>>>0,7);
+const gradOf=c=>GRADS[(Number.isInteger(c.color)?c.color:hashId(c.id))%GRADS.length];
+const faceBg=c=>c.img?`background-image:url('${c.img}')`:`background:linear-gradient(135deg,${gradOf(c)[0]},${gradOf(c)[1]})`;
+const cardDot=c=>`<i class="dot" style="${faceBg(c)}"></i>`;
+function faceHtml(c){
+  const nm=esc(c.name||'卡片名称'),l4=esc(c.last4||'0000'),cur=c.currency&&c.currency!=='CNY'?`<span class="cur">${c.currency}</span>`:'';
+  if(c.img)return `<div class="face img" style="${faceBg(c)}"><div class="bt"><span class="pill">${nm} · ${l4}</span>${cur}</div></div>`;
+  return `<div class="face" style="${faceBg(c)}"><div class="t"><span>${nm}</span><span style="display:flex;gap:8px;align-items:center">${cur}<i class="chipic"></i></span></div>
+    <div class="num">•••• •••• •••• ${l4}</div>
+    <div class="bt"><span>${c.limit?'额度 '+money(c.limit,c.currency):''}</span><span>${c.dueDay?'还款日 '+c.dueDay+'号':''}</span></div></div>`;
+}
+let ff={color:0,img:''};   // 卡片表单里正在编辑的卡面
+
+// 换卡面时重绘表单但保留已填内容
+function keepForm(form){const vals=[...form.elements].filter(e=>e.name).map(e=>[e.name,e.value]),rules=[...form.querySelectorAll('.rule')].map(r=>[...r.querySelectorAll('input')].map(i=>i.value));
+  render();const nf=$('#cf');vals.forEach(([n,v])=>{if(nf.elements[n])nf.elements[n].value=v});
+  nf.querySelectorAll('.rule').forEach((r,i)=>{if(rules[i])r.querySelectorAll('input').forEach((inp,j)=>inp.value=rules[i][j])});
+  const box=$('#rules');while(box&&box.children.length<rules.length)$('#addrule').click();
+  [...nf.querySelectorAll('.rule')].forEach((r,i)=>r.querySelectorAll('input').forEach((inp,j)=>inp.value=rules[i]?.[j]??''));nf.dispatchEvent(new Event('input'))}
 function render(){
-  $('#nav').innerHTML=TABS.map(([k,l])=>`<button class="${k===tab?'on':''}" data-t="${k}">${l}</button>`).join('');
+  $('#nav').innerHTML=TABS.map(([k,l,i])=>`<button class="${k===tab?'on':''}" data-t="${k}"><span class="ic">${i}</span>${l}</button>`).join('');
   $('#app').innerHTML=({dash,stats,cards,txs,offers})[tab]();
   bind();
 }
@@ -292,6 +351,7 @@ function dash(){
   const due=db.cards.flatMap(c=>[c.billDay&&{c,k:'账单日',...nextDay(c.billDay)},c.dueDay&&{c,k:'还款日',...nextDay(c.dueDay)}]).filter(Boolean).sort((a,b)=>a.days-b.days).slice(0,6);
   return `
   <div class="box"><label style="max-width:140px">年份<select id="yr">${ys.map(y=>`<option ${y===year?'selected':''}>${y}</option>`).join('')}</select></label></div>
+  ${rows.length?`<div class="wall">${rows.map(r=>`<div class="item">${faceHtml(r.c)}<div class="cap"><span class="sub">${r.n} 笔 · ${money(r.spend,r.c.currency)}</span><span class="${r.net>=0?'good':'bad'}">净 ${money(r.net,r.c.currency)}</span></div></div>`).join('')}</div>`:''}
   <div class="grid">
     <div class="box stat"><div class="l">总消费${multi?"(折合¥)":""}</div><div class="n">${money(T.spend)}</div></div>
     <div class="box stat"><div class="l">累计收益(返现/积分折算)</div><div class="n good">${money(T.reward)}</div></div>
@@ -301,7 +361,7 @@ function dash(){
   </div>
   ${al.length?`<div class="box" style="border-color:var(--warn)"><b>⏰ 开户奖励提醒</b>${al.map(x=>`<div style="padding:6px 0;border-bottom:1px solid var(--line)"><span class="${x.cls}">${x.st==='move'?'💸 ':''}${esc(x.o.name)}(${money(x.o.amount,x.o.currency)})</span> <span class="sub">${x.label}</span></div>`).join('')}<div style="margin-top:8px"><button class="b g" data-t="offers" id="gooffers">去处理</button></div></div>`:''}
   <div class="box"><b>各卡收益</b><div class="tw"><table><tr><th>卡片</th><th>消费</th><th>收益</th><th>年费</th><th>净收益</th></tr>
-  ${rows.map(r=>`<tr><td>${esc(r.c.name)} <span class="sub">${esc(r.c.last4)}</span></td><td>${money(r.spend,r.c.currency)}</td><td class="good">${money(r.reward,r.c.currency)}</td><td>${money(r.fee,r.c.currency)}${r.waived?' <span class="chip good">已减免</span>':''}</td><td class="${r.net>=0?'good':'bad'}">${money(r.net,r.c.currency)}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">还没有卡片,先去添加吧</td></tr>'}
+  ${rows.map(r=>`<tr><td>${cardDot(r.c)}${esc(r.c.name)} <span class="sub">${esc(r.c.last4)}</span></td><td>${money(r.spend,r.c.currency)}</td><td class="good">${money(r.reward,r.c.currency)}</td><td>${money(r.fee,r.c.currency)}${r.waived?' <span class="chip good">已减免</span>':''}</td><td class="${r.net>=0?'good':'bad'}">${money(r.net,r.c.currency)}</td></tr>`).join('')||'<tr><td colspan=5 class="empty">还没有卡片,先去添加吧</td></tr>'}
   </table></div></div>
   <div id="bk"></div>
   <div class="box"><b>近期账单 / 还款提醒</b>${due.length?due.map(d=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--line)"><span>${esc(d.c.name)} · ${d.k}</span><span class="${d.days<=3?'bad':d.days<=7?'warn':'sub'}">${d.date.getMonth()+1}月${d.date.getDate()}日(${d.days===0?'今天':d.days+'天后'})</span></div>`).join(''):'<div class="empty">暂无,在卡片里填写账单日/还款日即可</div>'}</div>`;
@@ -311,6 +371,11 @@ function cards(){
   const c=editCard&&editCard!=='new'?db.cards.find(x=>x.id===editCard):{};
   const rules=(c.rules&&c.rules.length?c.rules:[{cat:'',rate:''}]);
   const form=editCard?`<div class="box"><b>${editCard==='new'?'添加卡片':'编辑卡片'}</b><form id="cf" style="margin-top:10px">
+    <div class="full"><div class="sub" style="margin-bottom:6px">卡面:选一个颜色,或上传你自己的卡面图片</div>
+      <div class="sw">${GRADS.map((g,i)=>`<button type="button" class="swb ${!ff.img&&ff.color===i?'on':''}" data-sw="${i}" style="background:linear-gradient(135deg,${g[0]},${g[1]})" aria-label="颜色${i+1}"></button>`).join('')}
+        <label class="b g" style="cursor:pointer;flex-direction:row">上传图片<input type="file" id="faceimg" accept="image/*" hidden></label>
+        ${ff.img?'<button type="button" class="b g" id="clearimg">清除图片</button>':''}</div>
+      <div id="prev" style="margin-top:10px"></div></div>
     <label>币种<select name="currency">${curOpts(c.currency)}</select></label>
     <label>卡片名称<input name="name" required value="${esc(c.name)}" placeholder="如 招行经典白"></label>
     <label>尾号<input name="last4" maxlength="4" value="${esc(c.last4)}"></label>
@@ -329,12 +394,12 @@ function cards(){
       <button type="button" class="b g" id="addrule">+ 加一条</button></div>
     <div class="full"><button class="b">保存</button> <button type="button" class="b g" id="cancel">取消</button></div></form></div>`:'';
   return `${form}<div class="box" style="display:flex;justify-content:space-between;align-items:center"><b>我的卡片(${db.cards.length})</b><button class="b" id="newcard">+ 添加</button></div>
-  ${db.cards.map(c=>{const u=used(c),p=c.limit?Math.min(100,u/c.limit*100):0;return `<div class="box"><div style="display:flex;justify-content:space-between"><b>${esc(c.name)} <span class="sub">${esc(c.last4)}</span>${c.currency&&c.currency!=='CNY'?` <span class="chip">${c.currency}</span>`:''}</b><span><button class="e" data-edit="${c.id}">编辑</button><button class="d" data-delc="${c.id}">删除</button></span></div>
+  <div class="faces">${db.cards.map(c=>{const u=used(c),p=c.limit?Math.min(100,u/c.limit*100):0;return `<div class="cd">${faceHtml(c)}<div class="box"><div style="display:flex;justify-content:space-between"><b>${esc(c.name)} <span class="sub">${esc(c.last4)}</span>${c.currency&&c.currency!=='CNY'?` <span class="chip">${c.currency}</span>`:''}</b><span><button class="e" data-edit="${c.id}">编辑</button><button class="d" data-delc="${c.id}">删除</button></span></div>
     <div class="sub">年费 ${money(c.fee||0,c.currency)} · 基础 ${c.base||0}%${c.pv&&c.pv!==1?` · 1积分=${c.pv}元`:''}${c.cap?` · 月封顶 ${money(c.cap,c.currency)}`:''}${c.billDay?` · 账单日 ${c.billDay}号`:''}${c.dueDay?` · 还款日 ${c.dueDay}号`:''}</div>
     <div>${(c.rules||[]).filter(r=>r.cat).map(r=>`<span class="chip">${esc(r.cat)} ${r.rate}%</span>`).join('')}</div>
     ${(()=>{if(!(c.fee>0))return '';const y=String(new Date().getFullYear()),t=db.txs.filter(t=>t.card===c.id&&t.date.startsWith(y)),w=waiver(c,t.reduce((a,t)=>a+t.amount,0),t.length);
       return w.has?`<div class="${w.ok?'good':'warn'}" style="margin-top:6px">${w.ok?'✅ 今年年费已减免':'⚠️ 免年费进度'}:${w.text}</div>`:''})()}
-    ${c.limit?`<div class="sub" style="margin-top:6px">本月已用 ${money(u,c.currency)} / ${money(c.limit,c.currency)}</div><div class="bar"><i style="width:${p}%;${p>80?'background:var(--bad)':''}"></i></div>`:''}</div>`}).join('')||'<div class="empty">还没有卡片</div>'}
+    ${c.limit?`<div class="sub" style="margin-top:6px">本月已用 ${money(u,c.currency)} / ${money(c.limit,c.currency)}</div><div class="bar"><i style="width:${p}%;${p>80?'background:var(--bad)':''}"></i></div>`:''}</div></div>`}).join('')||'<div class="empty" style="grid-column:1/-1">还没有卡片,点右上角「+ 添加」</div>'}</div>
   <div class="box"><b>汇率设置</b><div class="sub">1 单位外币 = 多少人民币。用于总览和分析里的折合统计,请定期更新。</div>
     <form id="rf" style="margin-top:10px">${Object.keys(CURS).filter(c=>c!=='CNY').map(c=>`<label>${c}<input name="${c}" type="number" min="0" step="any" value="${db.rates[c]}"></label>`).join('')}<button class="b">保存汇率</button></form></div>`;
 }
@@ -350,16 +415,16 @@ function txs(){
     <label>备注<input name="note"></label>
     <button class="b">添加</button></form></div>
   <div class="box"><div class="tw"><table><tr><th>日期</th><th>卡片</th><th>类别</th><th>金额</th><th>收益</th><th>备注</th><th></th></tr>
-  ${list.map(t=>{const c=db.cards.find(x=>x.id===t.card);if(!c)return '';const e=earn(c,t);return `<tr><td>${t.date}</td><td>${esc(c.name)}</td><td>${esc(t.cat)}</td><td>${money(t.amount,c.currency)}</td><td class="good">${money(e.v*(c.pv??1),c.currency)} <span class="sub">${e.rate}%</span></td><td>${esc(t.note)}</td><td><button class="d" data-delt="${t.id}">删</button></td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无记录</td></tr>'}
+  ${list.map(t=>{const c=db.cards.find(x=>x.id===t.card);if(!c)return '';const e=earn(c,t);return `<tr><td>${t.date}</td><td>${cardDot(c)}${esc(c.name)}</td><td>${esc(t.cat)}</td><td>${money(t.amount,c.currency)}</td><td class="good">${money(e.v*(c.pv??1),c.currency)} <span class="sub">${e.rate}%</span></td><td>${esc(t.note)}</td><td><button class="d" data-delt="${t.id}">删</button></td></tr>`}).join('')||'<tr><td colspan=7 class="empty">暂无记录</td></tr>'}
   </table></div><div class="sub">仅显示最近 200 条;月封顶在「总览」中统计。</div></div>`;
 }
 
 function bind(){
   $('#yr')&&($('#yr').onchange=e=>{year=+e.target.value;render()});
-  $('#newcard')&&($('#newcard').onclick=()=>{editCard='new';render();scrollTo(0,0)});
+  $('#newcard')&&($('#newcard').onclick=()=>{ff={color:db.cards.length%GRADS.length,img:''};editCard='new';render();scrollTo(0,0)});
   $('#cancel')&&($('#cancel').onclick=()=>{editCard=null;render()});
   $('#addrule')&&($('#addrule').onclick=()=>{$('#rules').insertAdjacentHTML('beforeend','<div class="rule"><input list="cats" placeholder="类别"><input type="number" step="any" min="0" placeholder="收益率%"></div>')});
-  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{editCard=b.dataset.edit;render();scrollTo(0,0)});
+  document.querySelectorAll('[data-edit]').forEach(b=>b.onclick=()=>{const c0=db.cards.find(x=>x.id===b.dataset.edit);ff={color:Number.isInteger(c0.color)?c0.color:hashId(c0.id)%GRADS.length,img:c0.img||''};editCard=b.dataset.edit;render();scrollTo(0,0)});
   document.querySelectorAll('[data-delc]').forEach(b=>b.onclick=()=>{if(confirm('删除该卡片及其全部消费记录?')){const id=b.dataset.delc;db.cards=db.cards.filter(c=>c.id!==id);db.txs=db.txs.filter(t=>t.card!==id);save();render()}});
   document.querySelectorAll('[data-delt]').forEach(b=>b.onclick=()=>{db.txs=db.txs.filter(t=>t.id!==b.dataset.delt);save();render()});
   $('#bk')&&loadBackups();
@@ -378,10 +443,22 @@ function bind(){
   document.querySelectorAll('[data-edito]').forEach(b=>b.onclick=()=>{editOffer=b.dataset.edito;render();scrollTo(0,0)});
   const rf=$('#rf');
   if(rf)rf.onsubmit=e=>{e.preventDefault();const f=new FormData(rf);Object.keys(CURS).filter(c=>c!=='CNY').forEach(c=>{const v=+f.get(c);if(v>0)db.rates[c]=v});save();render();alert('汇率已保存')};
+  const cf0=$('#cf');
+  if(cf0){
+    const prev=()=>{const f=new FormData(cf0);$('#prev').innerHTML=faceHtml({id:editCard,name:f.get('name'),last4:f.get('last4'),limit:+f.get('limit')||0,dueDay:f.get('dueDay'),currency:f.get('currency'),color:ff.color,img:ff.img})};
+    prev();cf0.addEventListener('input',prev);
+    cf0.querySelectorAll('[data-sw]').forEach(b=>b.onclick=()=>{ff.color=+b.dataset.sw;ff.img='';keepForm(cf0)});
+    $('#clearimg')&&($('#clearimg').onclick=()=>{ff.img='';keepForm(cf0)});
+    $('#faceimg').onchange=e=>{const file=e.target.files[0];if(!file)return;const im=new Image();
+      im.onload=()=>{const W=640,H=Math.round(W/1.586),cv=document.createElement('canvas');cv.width=W;cv.height=H;
+        const k=Math.max(W/im.width,H/im.height),w=im.width*k,h=im.height*k;cv.getContext('2d').drawImage(im,(W-w)/2,(H-h)/2,w,h);   // 按卡片比例居中裁剪
+        ff.img=cv.toDataURL('image/jpeg',0.82);URL.revokeObjectURL(im.src);keepForm(cf0)};
+      im.onerror=()=>alert('图片读取失败');im.src=URL.createObjectURL(file)};
+  }
   const cf=$('#cf');
   if(cf)cf.onsubmit=e=>{e.preventDefault();const f=new FormData(cf),n=k=>+f.get(k)||0;
     const rules=[...cf.querySelectorAll('.rule')].map(r=>{const i=r.querySelectorAll('input');return{cat:i[0].value.trim(),rate:+i[1].value||0}}).filter(r=>r.cat);
-    const o={currency:f.get('currency'),name:f.get('name').trim(),last4:f.get('last4').trim(),limit:n('limit'),fee:n('fee'),billDay:n('billDay')||'',dueDay:n('dueDay')||'',base:n('base'),pv:f.get('pv')===''?1:n('pv'),cap:n('cap'),waiveSpend:n('waiveSpend'),waiveCount:parseInt(f.get('waiveCount'))||0,rules};
+    const o={color:ff.color,img:ff.img,currency:f.get('currency'),name:f.get('name').trim(),last4:f.get('last4').trim(),limit:n('limit'),fee:n('fee'),billDay:n('billDay')||'',dueDay:n('dueDay')||'',base:n('base'),pv:f.get('pv')===''?1:n('pv'),cap:n('cap'),waiveSpend:n('waiveSpend'),waiveCount:parseInt(f.get('waiveCount'))||0,rules};
     if(editCard==='new')db.cards.push({id:uid(),...o});else Object.assign(db.cards.find(c=>c.id===editCard),o);
     editCard=null;save();render()};
   const tf=$('#tf');
@@ -389,7 +466,7 @@ function bind(){
     db.txs.push({id:uid(),date:f.get('date'),card:f.get('card'),cat:f.get('cat'),amount:+f.get('amount'),note:f.get('note').trim()});
     save();render()};
 }
-$('#nav').onclick=e=>{const t=e.target.dataset.t;if(t){tab=t;editCard=null;editOffer=null;render()}};
+$('#nav').onclick=e=>{const t=e.target.closest('[data-t]')?.dataset.t;if(t){tab=t;editCard=null;editOffer=null;render()}};
 $('#exp').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(db,null,2)],{type:'application/json'}));a.download='cards-backup-'+today()+'.json';a.click()};
 $('#imp').onchange=async e=>{const f=e.target.files[0];if(!f)return;try{const d=JSON.parse(await f.text());if(!Array.isArray(d.cards)||!Array.isArray(d.txs))throw 0;if(confirm('导入将覆盖当前数据,继续?')){db=norm(d);save();render()}}catch{alert('文件格式不正确')}e.target.value=''};
 
