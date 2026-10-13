@@ -123,7 +123,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .navscrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(10,23,51,.55),rgba(10,23,51,0) 22%)}
 @media (max-aspect-ratio:3/2){.stage video{object-position:40% 50%}.poster{background-position:40% 50%}}
 
-.bands{position:absolute;left:6vw;top:calc(64px + 2.5vh);width:min(640px,42vw)}
+.bands{position:absolute;left:6vw;top:calc(64px + 2.5vh);width:min(680px,42vw)}
 .band{position:absolute;left:0;top:0;width:100%;opacity:0;pointer-events:none;isolation:isolate;text-shadow:var(--tshadow)}
 .band.b1{opacity:1;--k:1}
 .js .band.b1{--k:0}
@@ -170,6 +170,9 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .tape-strip text{fill:var(--text-primary);font:400 12px var(--font-mono)}
 .tape-strip .bug{fill:var(--signal);stroke:none}
 .tape-strip .bugline{stroke:var(--signal);stroke-width:2}
+.tape-strip .gnd{fill:url(#tp-hatch)}
+.tape-strip .gline{stroke:var(--text-primary);stroke-width:2}
+.tape-strip pattern line{stroke:rgba(169,168,192,.55);stroke-width:2}
 .tape-read{position:absolute;left:-12px;right:-3px;top:50%;height:46px;transform:translateY(-50%);display:flex;align-items:center;justify-content:flex-end;padding-right:5px;background:var(--canvas);border:1px solid var(--text-primary);border-radius:3px;z-index:2}
 .tape-read::before{content:"";position:absolute;left:-7px;top:50%;width:12px;height:12px;margin-top:-6px;background:var(--canvas);border-left:1px solid var(--text-primary);border-bottom:1px solid var(--text-primary);transform:rotate(45deg)}
 .tape-hund{position:relative;font:700 22px/1 var(--font-mono);min-width:2.2ch;text-align:right;font-variant-numeric:tabular-nums}
@@ -205,7 +208,16 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .st-strip{margin:0;font:400 12px/1.5 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary);padding:6px 10px;background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px}
 .st-strip b{font-weight:700;color:var(--signal)}
 .st-bot .cta-row{margin-top:6px}
-@media (min-width:721px){.st-top,.st-bot{max-width:min(640px,48vw)}}
+@media (min-width:721px){.st-top,.st-bot{max-width:min(640px,48vw)}.st-top .sub{max-width:33em;max-inline-size:33ic}}
+@media (max-height:560px){
+  .static-hero{padding-top:calc(64px + 8px);padding-bottom:20px}
+  .static-hero::before{background:linear-gradient(90deg,rgba(10,23,51,.88) 0%,rgba(10,23,51,.62) 36%,rgba(10,23,51,0) 62%),linear-gradient(180deg,rgba(10,23,51,.5),rgba(10,23,51,0) 30%,rgba(10,23,51,0) 70%,rgba(10,23,51,.6))}
+  .st-top h1{font-size:clamp(22px,7vh,30px)}
+  .st-top .sub{margin-top:6px;font-size:14px;line-height:1.65}
+  .st-bot{gap:8px}
+  .st-bot .chip{display:none}
+  .st-bot .cta-row{margin-top:2px}
+}
 
 /* ============ SECTIONS (shared) ============ */
 .sec{position:relative;padding:clamp(80px,11vh,140px) 0;scroll-margin-top:64px}
@@ -249,9 +261,10 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .ap .cock{fill:rgba(10,23,51,.9)}
 .ap .stair{stroke:var(--text-secondary);stroke-width:1;vector-effect:non-scaling-stroke;fill:none}
 .about-text{grid-column:8 / span 5}
+.about-text h2{margin-bottom:.55em}
 .about-text p{font-size:17px}
 .about-text .staccato{font:600 19px/1.6 var(--font-head);letter-spacing:.04em;margin-top:1.4em}
-.logbook{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));margin:26px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.logbook{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1.6fr);margin:26px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
 .logbook div{padding:12px 14px;border-right:1px solid var(--line);margin-right:-1px}
 .logbook dt{font:400 11px/1.4 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
 .logbook dd{margin:4px 0 0;font:600 15px/1.5 var(--font-head)}
@@ -319,6 +332,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ 03 TYPE ============ */
 .type .wrap{text-align:center}
+.type .wrap>[data-io]>p{margin-inline:auto}
 .icao{display:inline-flex;flex-wrap:wrap;justify-content:center;margin:0 auto;padding:0;list-style:none;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
 .icao li{padding:10px 16px;font:400 12px/1.2 var(--font-mono);letter-spacing:.1em;border-right:1px solid var(--line);margin-right:-1px;white-space:nowrap}
 .icao-gloss{margin:12px auto 0;font-size:14px;color:var(--text-secondary);max-inline-size:none}
@@ -332,7 +346,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .outline .lead{stroke:var(--line-strong);stroke-width:1}
 .outline .mk circle{fill:var(--canvas);stroke:var(--line-strong);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .outline .mk text{fill:var(--text-primary);font:400 20px var(--font-mono);text-anchor:middle;dominant-baseline:central}
-.ghost-blades path{fill:rgba(169,168,192,.10);stroke:rgba(169,168,192,.35);stroke-width:1;vector-effect:non-scaling-stroke}
+.ghost-blades path{fill:rgba(169,168,192,.07);stroke:rgba(169,168,192,.24);stroke-width:1;vector-effect:non-scaling-stroke}
 .type.live .ghost-rot{animation:prop 12s linear -3s infinite}
 @keyframes prop{to{transform:rotate(360deg)}}
 .callouts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;margin:22px 0 0;padding:0;list-style:none}
@@ -351,7 +365,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ 04 AI ============ */
 .ai{padding-top:0}
-.ai-banner{position:relative;aspect-ratio:21/6;min-height:260px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);
+.ai-banner{position:relative;height:max(260px,28.57vw);max-height:520px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);
   background:
    radial-gradient(circle 26px at 9% 71%,rgba(242,201,138,.5),rgba(242,201,138,.38) 55%,rgba(242,201,138,0) 100%),
    radial-gradient(circle 34px at 19% 74%,rgba(242,201,138,.38),rgba(242,201,138,.26) 55%,rgba(242,201,138,0) 100%),
@@ -392,7 +406,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .badge{align-self:flex-start;padding:3px 8px;font:400 12px/1.4 var(--font-head);color:var(--text-secondary);border:1px solid var(--line-strong);border-radius:999px}
 .card .note{margin:0;font-size:13.5px;line-height:1.75;color:var(--text-secondary);border-left:2px solid var(--line);padding-left:10px}
 .card .open{margin-top:auto;padding-top:4px;display:inline-flex;align-items:baseline;gap:8px;font:600 14px/1.6 var(--font-head);text-decoration:none;color:var(--text-primary)}
-.card .open .dom{font:400 12px/1 var(--font-mono);letter-spacing:.04em;color:var(--text-secondary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px;transition:color .3s var(--ease-out)}
+.card .open .dom{font:400 12px/1 var(--font-mono);letter-spacing:0;color:var(--text-secondary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px;transition:color .3s var(--ease-out)}
 .card .open:hover .dom{color:var(--text-primary)}
 .shelf-note{font-size:14px;color:var(--text-secondary);margin-top:-8px}
 
@@ -442,21 +456,23 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,rgba(169,168,192,0),rgba(169,168,192,.35),rgba(169,168,192,0))}
 .faq.live .scan{animation:scan 10s var(--ease-io) -3s infinite}
 @keyframes scan{0%{transform:translateY(-100%)}60%,100%{transform:translateY(0)}}
-.faq .after{text-align:center;margin-top:30px}
+.faq .after{text-align:center;margin:30px auto 0}
 
 /* ============ 06 SUBSCRIBE ============ */
-.subscribe{min-height:100vh;display:grid;align-items:center;overflow:hidden;padding:clamp(80px,12vh,140px) 0 clamp(150px,22vh,240px)}
-.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.82) 22%,rgba(10,23,51,.80) 70%,rgba(10,23,51,.94) 100%),url(assets/hero-end.webp) 50% 60%/cover no-repeat}
-.runway{position:absolute;inset:0;width:100%;height:100%}
+.subscribe{overflow:hidden;padding:clamp(80px,12vh,140px) 0 0}
+.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.86) 24%,rgba(10,23,51,.84) 62%,rgba(10,23,51,.97) 100%),url(assets/hero-end.webp) 50% 40%/cover no-repeat}
+.sub-stage{position:relative;width:min(520px,100%);margin:0 auto;padding-bottom:var(--rwh,440px)}
+.runway{position:absolute;left:50%;top:calc(100% - var(--rwh,440px));width:1600px;height:var(--rwh,440px);max-width:none;transform:translateX(-50%);pointer-events:none}
 .runway .ln{stroke:var(--line-strong);stroke-width:1}
-.runway .cl{fill:none;stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:16 20;vector-effect:non-scaling-stroke}
-.runway .edge{fill:var(--edge-light);opacity:.75}
-.runway .bar{fill:var(--text-primary);opacity:.55}
+.runway .cl{fill:none;stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:12 14;vector-effect:non-scaling-stroke}
+.runway .edge{fill:var(--edge-light);opacity:.8}
+.runway .thl{fill:var(--threshold);opacity:.85}
+.runway .bar{fill:var(--text-primary);opacity:.6}
 .runway .rab{fill:#fff;opacity:0}
 .subscribe.live .runway .rab{animation:rabbit 5s linear infinite;animation-delay:calc(var(--r)*90ms - 2s)}
 @keyframes rabbit{0%{opacity:0}1%{opacity:1}3.5%{opacity:0}100%{opacity:0}}
 .sub-card{position:relative;width:min(520px,100%);margin:0 auto;padding:clamp(26px,3vw,40px);border:1px solid var(--line-strong);border-radius:12px;background:rgba(18,36,82,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center;box-shadow:0 30px 80px rgba(6,14,32,.55)}
-.sub-card .lede{margin:14px auto 6px;font:600 18px/1.7 var(--font-head)}
+.sub-card .lede{margin:14px auto 6px;font:600 18px/1.7 var(--font-head);text-wrap:balance}
 .sub-card .sub2{margin:0 auto 22px;color:var(--text-secondary);font-size:15.5px}
 .sub-form{display:grid;gap:10px;text-align:left}
 .sub-form label{font:600 14px/1.4 var(--font-head)}
@@ -482,6 +498,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .foot-links a{font:400 15px/1.8 var(--font-head);color:var(--text-secondary);text-decoration:none;transition:color .3s var(--ease-out)}
 .foot-links a:hover{color:var(--text-primary)}
 .foot-notes{grid-column:1 / -1;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.foot-notes .brand-name{font:inherit;letter-spacing:.04em}
 .foot-notes p{margin:0 0 6px;font-size:13px;line-height:1.8;color:var(--text-secondary);max-inline-size:none}
 
 /* ============ RESPONSIVE ============ */
@@ -489,6 +506,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .about-grid{grid-template-columns:1fr;padding-right:0;row-gap:36px}
   .about-fig{grid-column:1;margin-right:var(--gutter)}
   .about-text{grid-column:1;width:var(--wrap);margin-inline:auto}
+  .logbook{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .logbook div{border-bottom:1px solid var(--line);margin-bottom:-1px}
   .ai-grid{grid-template-columns:1fr}
   .chat{position:relative;top:auto}
   .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -508,14 +527,17 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .strip-main{grid-column:2;grid-row:2;padding:10px 16px 6px}
   .strip-time{grid-column:2;grid-row:3;justify-content:flex-start;padding:4px 16px 16px;border-left:0}
   .strip-bar{grid-row:1 / span 3}
-  .icao li{padding:9px 11px;font-size:11px}
+  .icao{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
+  .icao li{padding:10px 8px;font-size:11px;border-bottom:1px solid var(--line);margin-bottom:-1px;white-space:normal}
   .facts{grid-template-columns:1fr}
-  .ai-banner{aspect-ratio:auto;min-height:230px}
+  .ai-banner{height:auto;min-height:230px}
   .cards{grid-template-columns:1fr}
   .chat-log{max-height:300px}
   .chat-form{flex-direction:column;align-items:stretch}
   .foot-grid{grid-template-columns:1fr}
   .gs-div{height:72px}
+  .subscribe{--rwh:330px}
+  .runway{width:1200px}
 }
 @media (pointer:coarse){
   .btn,.nav-links a,.chips button,.foot-links a,.card .open{min-height:44px;display:inline-flex;align-items:center}
@@ -633,14 +655,14 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
               <stop offset="0" stop-color="#16295A"/><stop offset=".3" stop-color="#1B2F62"/><stop offset=".575" stop-color="#3D446B"/><stop offset=".58" stop-color="#18234A"/><stop offset=".8" stop-color="#0F1B3C"/><stop offset="1" stop-color="#0B1532"/>
             </linearGradient>
             <linearGradient id="ap-cone" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#F2C98A" stop-opacity=".16"/><stop offset="1" stop-color="#F2C98A" stop-opacity="0"/>
+              <stop offset="0" stop-color="#F2C98A" stop-opacity=".075"/><stop offset=".7" stop-color="#F2C98A" stop-opacity="0"/>
             </linearGradient>
             <radialGradient id="ap-pool"><stop offset="0" stop-color="#F2C98A" stop-opacity=".34"/><stop offset="1" stop-color="#F2C98A" stop-opacity="0"/></radialGradient>
             <pattern id="ap-rip" width="10" height="7" patternUnits="userSpaceOnUse"><rect width="10" height="3" fill="#fff"/></pattern>
             <mask id="ap-mask" maskUnits="userSpaceOnUse" x="0" y="640" width="1200" height="260"><rect x="0" y="640" width="1200" height="260" fill="url(#ap-rip)"/></mask>
           </defs>
           <rect width="1200" height="900" fill="url(#ap-sky)"/>
-          <path d="M1200,0 L1200,40 L560,900 L300,900 Z" fill="url(#ap-cone)"/>
+          <path d="M1200,0 L1200,160 L760,900 L260,900 Z" fill="url(#ap-cone)"/>
           <path class="o dim" d="M0,522 H1200"/>
           <g fill="#7C93D8" opacity=".85">
             <circle cx="36" cy="532" r="2.4"/><circle cx="82" cy="533" r="2.4"/><circle cx="128" cy="534" r="2.4"/><circle cx="174" cy="535" r="2.4"/><circle cx="220" cy="536" r="2.4"/><circle cx="266" cy="537" r="2.4"/><circle cx="312" cy="538" r="2.4"/><circle cx="358" cy="539" r="2.4"/>
@@ -663,7 +685,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
             <path class="o dim" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z M1452,578 L1476,598 L1480,580"/>
             <path class="o dim" d="M316,566 L306,404 M316,566 L330,712 M316,566 L298,640"/>
             <path class="stair" d="M790,603 L768,790 M853,603 L842,790 M786,634 H850 M782,666 H848 M778,698 H846 M774,730 H845 M771,762 H843"/>
-            <path class="o" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
+            <path class="o" d="M548,650 L552,728 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
           </g>
         </svg>
       </div>
@@ -914,14 +936,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 <!-- ============ 06 SUBSCRIBE (the one call to action) ============ -->
 <section class="sec subscribe" id="subscribe" aria-labelledby="sub-h" data-io data-live>
   <div class="sub-bg" aria-hidden="true"></div>
-  <svg class="runway draw" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-    <path class="ln" pathLength="1" d="M460,760 L771,120"/>
-    <path class="ln" pathLength="1" d="M1140,760 L829,120"/>
-    <path class="cl fade" d="M800,740 V110" style="--d:.6s"/>
-    <g class="fade" style="--d:.8s" id="rw-edges"></g>
-    <g class="fade" style="--d:1s" id="rw-bars"></g>
-  </svg>
   <div class="wrap">
+    <div class="sub-stage">
     <div class="sub-card rv" style="--i:0">
       <p class="kicker">06 / SUBSCRIBE</p>
       <h2 id="sub-h">订阅飞行日志</h2>
@@ -936,6 +952,15 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <p class="micro">只发飞行日志。不发广告，随时退订。</p>
       </form>
       <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
+    </div>
+    <!-- the runway runs from the card (its far end) toward you: edge lights, green threshold, approach lights with the rabbit -->
+    <svg class="runway draw" viewBox="0 0 1600 440" aria-hidden="true" focusable="false">
+      <path class="ln" pathLength="1" d="M409,300 L644,0"/>
+      <path class="ln" pathLength="1" d="M1191,300 L956,0"/>
+      <path class="cl fade" d="M800,292 V4" style="--d:.6s"/>
+      <g class="fade" style="--d:.8s" id="rw-edges"></g>
+      <g class="fade" style="--d:1s" id="rw-bars"></g>
+    </svg>
     </div>
   </div>
 </section>
@@ -1236,18 +1261,23 @@ const RANGE_VH = 500;                  // 600vh hero minus the 100vh viewport
 
 let heroOnScreen = true;
 new IntersectionObserver(entries => {
-  for (const e of entries) {
-    heroOnScreen = e.isIntersecting;
-    nav.classList.toggle('solid', !e.isIntersecting);
-  }
-}, { rootMargin: '-64px 0px 0px 0px' }).observe(hero);
+  for (const e of entries) heroOnScreen = e.isIntersecting;
+}).observe(hero);
 
-let heroTop = 0, heroRange = 1;
+let heroTop = 0, heroRange = 1, heroBottom = 0;
 function measure() {
   heroTop = hero.getBoundingClientRect().top + scrollY;
+  heroBottom = heroTop + hero.offsetHeight;
   heroRange = Math.max(1, hero.offsetHeight - innerHeight);
   tapeH = tapeWin.clientHeight || tapeH;
 }
+/* nav: transparent over the scrub stage, solid once content can slide under it */
+let navSolid = null;
+function navCheck() {
+  const solid = scrubOn ? scrollY > heroBottom - 66 : scrollY > 24;
+  if (solid !== navSolid) { nav.classList.toggle('solid', solid); navSolid = solid; }
+}
+addEventListener('scroll', navCheck, { passive: true });
 function heroProgress() { return clamp((scrollY - heroTop) / heroRange, 0, 1); }
 
 /* split text, once, with seeded offsets */
@@ -1327,8 +1357,10 @@ let tapeH = 480;
 (function buildStrip() {
   const H = (TOP_FT - BOT_FT) * PX_FT;
   strip.setAttribute('height', H); strip.setAttribute('viewBox', '0 0 84 ' + H);
-  let s = '';
-  for (let ft = TOP_FT; ft >= BOT_FT; ft -= 20) {
+  let s = '<defs><pattern id="tp-hatch" width="9" height="9" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="9"/></pattern></defs>';
+  const y0 = TOP_FT * PX_FT;
+  s += '<rect class="gnd" x="0" y="' + y0 + '" width="84" height="' + (H - y0) + '"/><line class="gline" x1="0" x2="84" y1="' + y0 + '" y2="' + y0 + '"/>';
+  for (let ft = TOP_FT; ft >= 0; ft -= 20) {
     const y = (TOP_FT - ft) * PX_FT + 0.5;
     const major = ft % 100 === 0;
     s += '<line x1="0" x2="' + (major ? 14 : 7) + '" y1="' + y + '" y2="' + y + '"/>';
@@ -1408,7 +1440,7 @@ function onScroll() {
   target = heroProgress();
   if (rafId === null && heroOnScreen) rafId = requestAnimationFrame(tick);
 }
-function onResize() { measure(); lastStripY = 1e9; if (scrubOn) { onScroll(); updateTape(shown, performance.now(), true); } }
+function onResize() { measure(); navCheck(); lastStripY = 1e9; if (scrubOn) { onScroll(); updateTape(shown, performance.now(), true); } }
 addEventListener('resize', onResize, { passive: true });
 
 /* ---------- band one's one-time load ramp ---------- */
@@ -1510,6 +1542,8 @@ function disableScrub() {
 function applyHeroMode() {
   if (GATES.some(q => matchMedia(q).matches)) disableScrub();
   else enableScrub();
+  measure();
+  navSolid = null; navCheck();
 }
 
 /* ============ 02: hold to fly the glide slope ============ */
@@ -1614,31 +1648,20 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
 (function buildRunway() {
   const ns = 'http://www.w3.org/2000/svg';
   const edges = $('#rw-edges'), bars = $('#rw-bars');
-  const ys = [760, 612, 508, 432, 376, 334, 300, 273, 251, 233, 218, 205, 194, 185];
-  for (const y of ys) {
-    const s = (y - 60) / 700;
-    for (const side of [-1, 1]) {
-      const c = document.createElementNS(ns, 'circle');
-      c.setAttribute('cx', (800 + side * (340 * s + 0.5)).toFixed(1));
-      c.setAttribute('cy', y); c.setAttribute('r', (1.2 + 4.4 * s).toFixed(2)); c.setAttribute('class', 'edge');
-      edges.appendChild(c);
-    }
+  const VPY = -200, HALF = 500, NEAR = 640;          // vanishing point above the card; half-width 500 at y = 440
+  const sc = y => (y - VPY) / NEAR;
+  const dot = (g, x, y, r, cls) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y.toFixed(1)); c.setAttribute('r', r.toFixed(2)); c.setAttribute('class', cls); g.appendChild(c); return c; };
+  for (const y of [300, 232, 180, 140, 108, 82, 60, 42, 27, 14, 3]) {
+    const s = sc(y);
+    for (const side of [-1, 1]) dot(edges, 800 + side * (HALF * s + 6 * s), y, 1.1 + 3.4 * s, 'edge');
   }
-  const barYs = [960, 905, 862, 828, 800];
-  barYs.forEach((y, i) => {
-    const s = (y - 60) / 700;
-    const n = y === 862 ? 9 : 5;
-    const gap = (y === 862 ? 26 : 12) * s;
-    for (let j = 0; j < n; j++) {
-      const c = document.createElementNS(ns, 'circle');
-      c.setAttribute('cx', (800 + (j - (n - 1) / 2) * gap).toFixed(1));
-      c.setAttribute('cy', y); c.setAttribute('r', (1.4 + 3 * s).toFixed(2)); c.setAttribute('class', 'bar');
-      bars.appendChild(c);
-    }
-    const r = document.createElementNS(ns, 'circle');
-    r.setAttribute('cx', 800); r.setAttribute('cy', y); r.setAttribute('r', (3 + 4 * s).toFixed(2));
-    r.setAttribute('class', 'rab'); r.style.setProperty('--r', i);
-    bars.appendChild(r);
+  const th = sc(300);
+  for (let j = 0; j <= 16; j++) dot(edges, 800 - HALF * th + j * (2 * HALF * th / 16), 300, 1.2 + 3 * th, 'thl');
+  [420, 380, 348, 322].forEach((y, i) => {          // nearest bar first: the rabbit runs toward the threshold
+    const s = sc(y);
+    const n = y === 380 ? 11 : 5, gap = (y === 380 ? 26 : 13) * s;
+    for (let j = 0; j < n; j++) dot(bars, 800 + (j - (n - 1) / 2) * gap, y, 1.2 + 2.6 * s, 'bar');
+    dot(bars, 800, y, 3 + 3.5 * s, 'rab').style.setProperty('--r', i);
   });
 })();
 
