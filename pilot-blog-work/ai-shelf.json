@@ -1,0 +1,183 @@
+{
+  "shelves": [
+    {
+      "id": "chat",
+      "title": "对话与写作",
+      "blurb": "日常问答、改稿子、写东西，先从这几个聊起。",
+      "tools": [
+        {
+          "name": "DeepSeek",
+          "category": "对话与写作",
+          "desc": "免费的国产大模型，推理和写作都在行",
+          "url": "https://chat.deepseek.com",
+          "cn_access": "能直接访问",
+          "note": "写博客卡住的时候，我会让它先帮我列个提纲，正文还是自己一句句写。"
+        },
+        {
+          "name": "豆包",
+          "category": "对话与写作",
+          "desc": "字节出品，能聊天、写东西、看图",
+          "url": "https://www.doubao.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Kimi",
+          "category": "对话与写作",
+          "desc": "擅长读长文档，资料一多就找它",
+          "url": "https://www.kimi.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Claude",
+          "category": "对话与写作",
+          "desc": "写长文、改稿子很细，语气比较自然",
+          "url": "https://claude.ai",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "ChatGPT",
+          "category": "对话与写作",
+          "desc": "OpenAI 出品，日常问答和写作都能用",
+          "url": "https://chatgpt.com",
+          "cn_access": "需要国际网络"
+        }
+      ]
+    },
+    {
+      "id": "image-video",
+      "title": "图像与视频",
+      "blurb": "一句话出图、做短片，博客配图和封面靠它们。",
+      "tools": [
+        {
+          "name": "即梦",
+          "category": "图像与视频",
+          "desc": "字节出品，用中文描述就能出图做视频",
+          "url": "https://jimeng.jianying.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "可灵",
+          "category": "图像与视频",
+          "desc": "快手的视频生成，也能让图片动起来",
+          "url": "https://klingai.kuaishou.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Midjourney",
+          "category": "图像与视频",
+          "desc": "出图质感好，适合做封面和氛围图",
+          "url": "https://www.midjourney.com",
+          "cn_access": "需要国际网络"
+        }
+      ]
+    },
+    {
+      "id": "learn",
+      "title": "学习与研究",
+      "blurb": "查资料、啃手册、复习理论，答案带出处才放心。",
+      "tools": [
+        {
+          "name": "秘塔AI搜索",
+          "category": "学习与研究",
+          "desc": "没有广告的 AI 搜索，答案附来源",
+          "url": "https://metaso.cn",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Perplexity",
+          "category": "学习与研究",
+          "desc": "边搜边答，每段话都标了出处",
+          "url": "https://www.perplexity.ai",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "NotebookLM",
+          "category": "学习与研究",
+          "desc": "上传自己的资料，只按资料回答你",
+          "url": "https://notebooklm.google.com",
+          "cn_access": "需要国际网络",
+          "note": "复习机型手册时，我把 PDF 放进去提问，它会标出答案在原文哪一段。数字我还是回手册核对。"
+        },
+        {
+          "name": "文心（原文心一言）",
+          "category": "学习与研究",
+          "desc": "百度的 AI 助手，查中文资料顺手",
+          "url": "https://wenxin.baidu.com",
+          "cn_access": "能直接访问"
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "title": "效率与办公",
+      "blurb": "总结文档、做 PPT、读英文资料，省下的时间拿去飞。",
+      "tools": [
+        {
+          "name": "千问（原通义）",
+          "category": "效率与办公",
+          "desc": "阿里的 AI 助手，能总结网页、做 PPT",
+          "url": "https://www.qianwen.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "智谱清言",
+          "category": "效率与办公",
+          "desc": "智谱出品，问答之外还能分析表格",
+          "url": "https://chatglm.cn",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "沉浸式翻译",
+          "category": "效率与办公",
+          "desc": "网页和 PDF 双语对照，读英文资料用",
+          "url": "https://immersivetranslate.com",
+          "cn_access": "能直接访问"
+        }
+      ]
+    },
+    {
+      "id": "aviation",
+      "title": "航空工具",
+      "blurb": "这一格不是 AI，是我飞行前后真会打开的网站。",
+      "tools": [
+        {
+          "name": "Windy",
+          "category": "航空工具",
+          "desc": "风、云、降水预报图，一眼看清趋势",
+          "url": "https://www.windy.com",
+          "cn_access": "不确定",
+          "note": "飞之前我先在这里看风和云的走势，心里有个底。正式决策还是以官方气象资料为准。"
+        },
+        {
+          "name": "aviationweather.gov",
+          "category": "航空工具",
+          "desc": "美国航空气象中心，查 METAR 和 TAF",
+          "url": "https://aviationweather.gov",
+          "cn_access": "不确定",
+          "note": "查 METAR 和 TAF 我常来这里，输入机场四字码就行，比如上海浦东是 ZSPD。"
+        },
+        {
+          "name": "Flightradar24",
+          "category": "航空工具",
+          "desc": "全球航班的实时位置和飞行轨迹",
+          "url": "https://www.flightradar24.com",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "飞常准",
+          "category": "航空工具",
+          "desc": "国内航班动态，还能看 ADS-B 航迹",
+          "url": "https://www.variflight.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "SkyVector",
+          "category": "航空工具",
+          "desc": "在线航图，规划航线时拿来对照",
+          "url": "https://skyvector.com",
+          "cn_access": "不确定"
+        }
+      ]
+    }
+  ]
+}
