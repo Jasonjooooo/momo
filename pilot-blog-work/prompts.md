@@ -16,6 +16,16 @@ The subject is one single Pilatus PC-12 NGX single-engine turboprop, alone in th
 Edit the attached reference image. Keep the orange-and-white Pilatus PC-12 single-engine turboprop with T-tail exactly as it is in the reference: same shape, same pose, same size, same position in the frame, same livery, same propeller blur disc, same gear and lights. Change only the surroundings. The aircraft is now on short final just below a low overcast: a flat, even, dim blue-grey cloud base forms a soft ceiling across the top fifth of the frame, with a few slow shreds of mist hanging under it. Far ahead of the aircraft's nose, low in the left part of the frame and below the nose, steady white approach-light bars lead to a green threshold bar and two rows of warm white runway edge lights receding toward a hazy horizon, lined up with the aircraft's heading. The runway is unmarked, with no painted numbers, letters or signs. Below the aircraft are wet fields and dark hedgerows in deep blue-grey dusk light, never pure black. The upper-left part of the frame is calm, evenly lit cloud base and dusk haze with no bright spots. The lens is clean. Photorealistic air-to-air aviation photography, 16:9. No text, no logos, no lettering anywhere.
 ```
 
+## 2b. 结束图第三次尝试（Nano Banana Pro，只换背景）
+
+模型选 Nano Banana Pro（没有的话用 GPT Image 2.5）。把起始图（第 2 张）上传作参考图，确认缩略图出现在输入框里。比例 16:9（或"与输入相同"），分辨率 2K。提示词：
+
+```
+Change only the background of this photo. Do not redraw the airplane. Keep it exactly as it is: the same left side view with the nose pointing left, the same size and position in the frame, the same paint (white upper body and white tail fin, orange-red belly, thin yellow stripe), the same blurred propeller disc, the same wheels and lights. Do not add any text, letters, numbers or logos anywhere.
+
+New background: the airplane is now just below a low, flat, dark blue-grey cloud layer at dusk, a few hundred feet above wet green fields and hedgerows. Far below and ahead of the airplane, in the lower left of the frame, a lit runway seen from the side lies in the direction the airplane is flying: two long thin rows of warm white edge lights running toward the left edge of the frame, a short green threshold bar at their right end, and rows of white approach lights leading to it from beneath the airplane. Soft, flat, cool dusk light. The upper left of the frame is calm, even cloud. Photorealistic.
+```
+
 ## 3. 视频（等我确认结束图之后再做）
 
 模型选 FLUX 3 Video：分辨率 1080p，时长 6 秒，比例 16:9，关掉声音（Generate audio）。Start frame 放起始图，End frame 放结束图，再粘贴下面这段：
