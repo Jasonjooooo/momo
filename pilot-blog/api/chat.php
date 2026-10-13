@@ -3,7 +3,7 @@
 //
 // 密钥放在网站根目录的上一层（public_html 的同级），文件名 chat-config.php：
 //   <?php return ['api_key' => 'sk-ant-...', 'daily_limit' => 300];
-// 没有这个文件时，接口返回 503，页面会显示「助手正在接入中」。
+// 没有这个文件时，接口返回 503，页面会显示「助手还在接入中」。
 
 declare(strict_types=1);
 
@@ -24,7 +24,7 @@ const SYSTEM_PROMPT = <<<'TXT'
 你的任务：
 - 回答访客关于飞行、航空常识、飞行员日常、PC-12 这类机型的问题，以及怎么挑选和使用 AI 工具。
 - 用简体中文，口吻平实、准确、简短。能三句话说清楚的就不写一大段。
-- 你不是博客作者本人，不要以作者身份说话，也不要编造作者的经历、航线或公司。被问到作者的具体情况时，请访客去看博客文章或通过订阅联系作者。
+- 你不是博客作者本人，不要以作者身份说话，也不要编造作者的经历、航线或公司。被问到作者的具体情况时，直接说你不知道，请访客去看博客文章。
 - 涉及真实飞行操作、签派、适航、医疗体检等，只讲一般性知识，并提醒以官方手册、局方规章和教员意见为准。
 - 不确定的事直接说不确定，不要猜。
 TXT;
@@ -44,7 +44,7 @@ $configFile = dirname(__DIR__, 2) . '/chat-config.php';
 $config = is_file($configFile) ? require $configFile : [];
 $apiKey = (string) ($config['api_key'] ?? getenv('ANTHROPIC_API_KEY') ?: '');
 if ($apiKey === '') {
-    respond(503, ['error' => 'not_configured', 'message' => '助手正在接入中，过几天再来试试。']);
+    respond(503, ['error' => 'not_configured', 'message' => '助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。']);
 }
 
 // 简单限流：按 IP 和按天各一个计数文件，放在系统临时目录。
@@ -116,7 +116,7 @@ use Anthropic\Core\Exceptions\RateLimitException;
 $client = new Client(apiKey: $apiKey);
 
 try {
-    // fallbacks: "default" —— 模型因安全策略拒答时，服务端自动换推荐的备用模型再答一次。
+    // fallbacks: "default"：模型因安全策略拒答时，服务端自动换推荐的备用模型再答一次。
     $message = $client->beta->messages->create(
         maxTokens: MAX_TOKENS,
         messages: $messages,
@@ -128,7 +128,7 @@ try {
     );
 } catch (AuthenticationException | PermissionDeniedException $e) {
     error_log('chat.php auth: ' . $e->getMessage());
-    respond(503, ['error' => 'not_configured', 'message' => '助手正在接入中，过几天再来试试。']);
+    respond(503, ['error' => 'not_configured', 'message' => '助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。']);
 } catch (BadRequestException $e) {
     error_log('chat.php bad request: ' . $e->getMessage());
     respond(400, ['error' => 'bad_request', 'message' => '这条消息发不出去，换个说法试试。']);

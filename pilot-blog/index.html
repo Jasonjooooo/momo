@@ -13,8 +13,8 @@
 <meta property="og:title" content="云底之下 · 一位 PC-12 机长的飞行日志">
 <meta property="og:site_name" content="云底之下">
 <meta property="og:description" content="PC-12 NGX 机长的飞行日志：低云进近、短跑道、结冰天气、单发涡桨的日常。">
-<!-- DEPLOY STEP: og:image and og:url need absolute URLs. Replace DEPLOY-DOMAIN with the live address before zipping (see deploy.md). -->
-<meta property="og:image" content="https://DEPLOY-DOMAIN/assets/hero-poster.webp">
+<!-- DEPLOY STEP --><!-- og:image and og:url need absolute URLs. Replace DEPLOY-DOMAIN with the live address before zipping (see deploy.md). -->
+<meta property="og:image" content="https://DEPLOY-DOMAIN/assets/og.jpg">
 <meta property="og:url" content="https://DEPLOY-DOMAIN/">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cpath d='M5 8 L22 22' stroke='%23A9A8C0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M19 24 H29' stroke='%23ECE9F1' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='12.9' r='2.8' fill='%23EA4C22'/%3E%3C/svg%3E">
 <link rel="preload" href="assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
@@ -49,6 +49,7 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}   /* author display rules (.sub-form{display:grid}) must never beat the hidden attribute */
 html{overflow-x:hidden;overflow-x:clip;scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
 body{margin:0;overflow-x:hidden;overflow-x:clip;background:var(--canvas);color:var(--text-primary);font:400 17px/1.85 var(--font-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;animation:pagein .9s var(--ease-out) backwards}
 @keyframes pagein{from{opacity:0}}
@@ -98,8 +99,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .brand-name{font:600 18px/1 var(--font-head);letter-spacing:.06em}
 .wordmark .mono{font-size:11px;color:var(--text-secondary)}
 .nav-links{display:flex;gap:clamp(14px,2vw,28px);margin:0 0 0 auto;padding:0;list-style:none}
-.nav-links a{font:400 15px/1 var(--font-head);text-decoration:none;color:var(--text-secondary);padding:10px 0;transition:color .3s var(--ease-out);text-shadow:0 1px 3px rgba(6,14,32,.8)}
-.nav-links a:hover{color:var(--text-primary)}
+.nav-links a{font:400 15px/1 var(--font-head);text-decoration:underline;text-decoration-color:transparent;text-decoration-thickness:1px;text-underline-offset:6px;color:var(--text-secondary);padding:10px 0;transition:color .3s var(--ease-out),text-decoration-color .3s var(--ease-out);text-shadow:0 1px 3px rgba(6,14,32,.8)}
+.nav-links a:hover{color:var(--text-primary);text-decoration-color:currentColor}
+/* transparent over the moving hero: --text-secondary fell to 2.95:1 on the lit cloud base, so links and the mono tag go primary
+   (5.7:1 on the worst measured pixel); the hover cue is the underline, which does not rely on color */
+.nav:not(.solid) .nav-links a,.nav:not(.solid) .wordmark .mono{color:var(--text-primary)}
 .nav-cta{min-height:40px;padding:0 18px;font-size:15px}
 .nav-cta:hover,.nav-cta:focus-visible{background:var(--accent);border-color:var(--accent);color:var(--canvas)}
 .nav-toggle{display:none;margin-left:auto;min-height:40px;padding:0 14px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;font:400 15px/1 var(--font-head);cursor:pointer}
@@ -112,10 +116,18 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 }
 
 /* ============ HERO (scrub) ============ */
-.hero{position:relative;height:600vh}
+/* 700vh = a 600vh scroll range: four beats with 83-100vh plateaus plus two short caption lulls (cloud entry, breakout).
+   Scroll progress is time-warped onto the footage (see WARP in the script), so the 1.2s settle gets two full beats. */
+.hero{position:relative;height:700vh}
 .stage{position:sticky;top:0;height:100vh;overflow:hidden;background:var(--canvas)}
 .poster,.stage video{position:absolute;inset:0;width:100%;height:100%}
 .poster{background:var(--sky) 50% 50%/cover no-repeat}
+/* still-image journey while the video is missing or still streaming: cloud fog (sampled from the footage's interior frames)
+   rises over the start frame through band 2, and the ending frame comes up under it at the breakout lull, so bands 3 and 4
+   land on the runway lights. Scroll-driven opacity via --pf/--pe; once the video is in, both drop out after its .9s fade. */
+.poster-end{opacity:var(--pe,0)}
+.poster-fog{position:absolute;inset:0;pointer-events:none;opacity:var(--pf,0);background:linear-gradient(180deg,#56668C 0%,#4C5A80 48%,#37425F 100%)}
+.stage.video-ready .poster-end,.stage.video-ready .poster-fog{opacity:0;transition:opacity 0s linear .9s}
 .stage video{object-fit:cover;object-position:50% 50%;opacity:0;transition:opacity .9s var(--ease-out);transform:translateZ(0);will-change:transform}
 .stage.video-ready video{opacity:1}
 .stage.video-failed video{display:none}
@@ -130,19 +142,26 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .band.on{pointer-events:auto}
 .band::before{content:"";position:absolute;inset:-30% -18% -36% -22%;z-index:-1;pointer-events:none;opacity:calc(.25 + .75*var(--k,1));background:radial-gradient(ellipse 60% 56% at 44% 46%,rgba(10,23,51,var(--sa,.62)) 0%,rgba(10,23,51,calc(var(--sa,.62)*.67)) 46%,rgba(10,23,51,0) 76%)}
 .band .btn{text-shadow:none}
+/* bands 2-4 sit on light fog and the lit cloud base: the scrim is re-centered on the text block and widened so the whole
+   block (sub-line included) stays inside the ellipse's plateau; still dies out by 76%, so the frame edges stay live.
+   Worst-pixel audit at 1440x900 with glyphs hidden: b2 7.5:1, b3 6.0:1, b4 4.9:1 and up. */
+.band.b2::before,.band.b3::before,.band.b4::before{inset:-60% -45% -100% -25%;background:radial-gradient(ellipse 62% 62% at 40% 42%,rgba(10,23,51,var(--sa,.62)) 0%,rgba(10,23,51,calc(var(--sa,.62)*.82)) 50%,rgba(10,23,51,0) 76%)}
 .chip{display:inline-block;max-width:100%;margin:0;padding:6px 10px;font:400 clamp(11px,.8vw,12px)/1.5 var(--font-mono);letter-spacing:.08em;color:var(--text-primary);background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-shadow:0 1px 3px rgba(6,14,32,.85)}
 @media (min-width:1180px){.band .chip{white-space:nowrap}}
 .hl{margin:14px 0 0;font:600 clamp(28px,min(3.4vw,5.4vh),54px)/1.25 var(--font-head);letter-spacing:.02em;text-wrap:balance;max-inline-size:none}
 .sub{margin:10px 0 0;font:400 clamp(16px,1.25vw,19px)/1.75 var(--font-body);max-width:33em;max-inline-size:33ic}
 .split .w{display:inline-block;white-space:nowrap}
 .split .c{display:inline-block;white-space:pre}
-/* band 1: drift-down (the aircraft sinks toward the deck) */
+/* band 1: drift-down (the aircraft sinks toward the stratus deck) */
 .drift .w{--kc:clamp(0,(var(--k,0) - var(--th,0))*2.8,1);opacity:var(--kc);transform:translateY(calc((1 - var(--kc))*-24px))}
 .drift .chip{opacity:clamp(0,var(--k,0)*2,1)}
 /* band 2: drum-roll (each character rolls up into its slot like the altimeter drum beside it) */
 .drum .c{clip-path:inset(-.12em -.04em -.25em -.04em)}
+/* only the tight edge layer of --tshadow fits inside a character slot; the wide layers were cut into a dark tile per character.
+   The band's own scrim carries the contrast (7.1:1 shadowless at 1440, 5.8:1 at 1024), so the clip never has to be released. */
+.drum .ci{text-shadow:0 1px 2px rgba(6,14,32,.95)}
 .drum .ci{display:inline-block;--kc:clamp(0,(var(--k,0) - var(--th,0))*2.6,1);opacity:var(--kc);transform:translateY(calc((1 - var(--kc))*.9em))}
-/* band 3: blur-to-sharp (mist clears off the lens); blur is static on the soft copy, only opacity moves */
+/* band 3: blur-to-sharp (the last mist clears and the lights come up); blur is static on the soft copy, only opacity moves */
 .focus-wrap{display:grid}
 .focus-wrap>.copy{grid-area:1/1}
 .copy.soft{filter:blur(10px);opacity:calc((1 - var(--k,0))*.9)}
@@ -153,6 +172,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .settle .kb{--kb:clamp(0,(var(--k,0) - .78)*5,1);opacity:var(--kb);transform:translateY(calc((1 - var(--kb))*10px))}
 .cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
 .band:not(.on) .cta-row{visibility:hidden}
+.band.b4:not(.cta) .cta-row{visibility:hidden}   /* .cta is set from k >= .78, when the row's own fade (--kb) starts: no invisible, focusable buttons */
 
 /* Scroll cue with the inline loading ring */
 .cue{position:absolute;left:6vw;bottom:5vh;margin:0;display:flex;align-items:center;gap:10px;padding:7px 12px;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-primary);background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -161,7 +181,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .ring .ring-fg{transition:stroke-dashoffset .2s linear}
 
 /* PFD altitude tape (the signature) */
-.tape{position:absolute;right:clamp(12px,1.6vw,28px);top:44%;width:84px;height:min(56vh,480px);transform:translateY(-50%);font-family:var(--font-mono);color:var(--text-primary);user-select:none}
+/* Anchored low-right, under the aircraft: on both held frames (start and settle) the aircraft's right end (stabilizer, fin,
+   wingtip) fills the tape column from ~20% down to ~57% of the height, at 4:3 as at 16:9. The stack (metric box 42px above the
+   window, MIN box and QNH 102px below it) ends level with the scroll cue at 5vh, and the window is sized so the stack's top
+   stays at or below 58% of the viewport: 0.95H - 102 - win - 42 >= 0.58H. */
+.tape{position:absolute;right:clamp(12px,1.6vw,28px);bottom:calc(5vh + 102px);width:84px;height:clamp(110px,37vh - 144px,300px);font-family:var(--font-mono);color:var(--text-primary);user-select:none}
 .tchip{position:relative;isolation:isolate;background:rgba(10,23,51,.60);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(94,110,162,.35);border-radius:6px}
 .tchip::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(10,23,51,.30);opacity:var(--deep,0);pointer-events:none}
 .tape-win{position:absolute;inset:0;overflow:hidden}
@@ -188,7 +212,9 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .tape-min.mins .min-l1{font-weight:700;font-size:11px;background:var(--canvas);border-color:var(--signal)}
 .tape-min.blink .min-l1{animation:blink2 .9s steps(1) 1}
 @keyframes blink2{0%,50%{opacity:1}25%,75%{opacity:0}}
-.tape-qnh{top:calc(100% + 76px);font-size:12px;color:var(--text-secondary);letter-spacing:.04em}
+.tape-qnh{top:calc(100% + 72px);padding:4px 0;font-size:12px;color:var(--text-secondary);letter-spacing:.04em;background:rgba(10,23,51,.6);border-radius:6px;-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+/* short laptop windows: no room for the moving scale under the aircraft, so the tape folds to its readout drum, MIN box and QNH */
+@media (max-height:640px){.tape{height:66px}.tape-win,.tape-m{display:none}}
 @media (max-height:560px){.tape,.cue{display:none}}
 
 /* ============ STATIC HERO (the five gates) ============ */
@@ -196,10 +222,14 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 @media (max-width: 720px), (orientation: portrait) and (max-width: 1024px), (orientation: portrait) and (pointer: coarse), (orientation: landscape) and (pointer: coarse) and (max-height: 560px), (prefers-reduced-motion: reduce){
   .hero{height:auto}
   .stage{display:none}
-  .static-hero{display:grid;grid-template-rows:auto 1fr auto;position:relative;isolation:isolate;min-height:100vh;min-height:100svh;padding:calc(64px + 4vh) var(--gutter) max(32px,env(safe-area-inset-bottom));background:var(--sky) url(assets/hero-poster.webp) 14% 50%/cover no-repeat}
+  .static-hero{display:grid;grid-template-rows:auto 1fr auto;position:relative;isolation:isolate;min-height:100vh;min-height:100svh;padding:calc(64px + 4vh) var(--gutter) max(32px,env(safe-area-inset-bottom));background:var(--sky) url(assets/hero-poster.webp) 12% 50%/cover no-repeat}
 }
+/* Static hero image: the start frame (checked against the ending frame at 390x844: the start frame's nose, prop disc and cockpit
+   sit between a navy sky for the H1 and the cloud deck for the buttons; the ending crop puts light cloud base behind the H1).
+   Phones show frame x ~9-35% (prop disc to cockpit); portrait tablets ~11-50%; landscape shows the whole aircraft. */
 .static-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(10,23,51,.78) 0%,rgba(10,23,51,.42) 24%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 56%,rgba(10,23,51,.6) 74%,rgba(10,23,51,.9) 100%)}
-@media (min-width:721px){.static-hero{background-position:50% 50%!important}}
+@media (min-width:721px) and (orientation:portrait){.static-hero{background-position:16% 50%!important}}
+@media (min-width:721px) and (orientation:landscape){.static-hero{background-position:50% 50%!important}}
 .st-top,.st-bot{text-shadow:var(--tshadow)}
 .st-top h1{font:600 clamp(28px,7.4vw,48px)/1.3 var(--font-head);letter-spacing:.02em;max-width:14em}
 .st-top .sub{margin-top:12px;font-size:clamp(16px,4.2vw,19px);max-width:20em;max-inline-size:20ic}
@@ -247,19 +277,15 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .about{padding-top:clamp(96px,14vh,170px)}
 .about-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:clamp(20px,3vw,48px);align-items:center;padding-right:var(--gutter)}
 .about-fig{grid-column:1 / span 7;margin:0}
-.about-art{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid var(--line);border-left:0;border-radius:0 10px 10px 0;background:#0D1C40}
-.about-art svg{position:absolute;inset:0;width:100%;height:100%}
-.about-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 94% 4%,rgba(242,201,138,.30),rgba(242,201,138,.10) 22%,rgba(242,201,138,0) 46%);opacity:.75}
+.about-art{position:relative;aspect-ratio:16/10;overflow:hidden;border:1px solid var(--line);border-left:0;border-radius:0 10px 10px 0;background:#132D61}
+/* the cruise still is 16:9 with the aircraft spanning frame x 12%-94%: 16:10 at 80% keeps prop disc to wingtip with even margins */
+.about-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:80% 50%}
+/* living element: the afterglow on the right horizon breathes */
+.about-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 34% 22% at 97% 39%,rgba(244,139,69,.26),rgba(244,139,69,.09) 50%,rgba(244,139,69,0) 100%);opacity:.75}
 .about.live .about-art::after{animation:breathe 7s var(--ease-io) -2.4s infinite alternate}
 @keyframes breathe{from{opacity:.45}to{opacity:1}}
 .about-fig figcaption{display:flex;align-items:center;gap:12px;margin:14px 0 0 var(--gutter);font:400 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
 .about-fig figcaption::before{content:"";width:40px;height:1px;background:var(--ember)}
-.ap .o{fill:none;stroke:var(--text-secondary);stroke-width:1.25;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
-.ap .o.dim{stroke:var(--line-strong)}
-.ap .win{fill:rgba(242,201,138,.78);stroke:none}
-.ap .door{fill:rgba(242,201,138,.5)}
-.ap .cock{fill:rgba(10,23,51,.9)}
-.ap .stair{stroke:var(--text-secondary);stroke-width:1;vector-effect:non-scaling-stroke;fill:none}
 .about-text{grid-column:8 / span 5}
 .about-text h2{margin-bottom:.55em}
 .about-text p{font-size:17px}
@@ -278,8 +304,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .plate-head h2{font-size:clamp(26px,2.6vw,38px)}
 .log .lede{margin:26px 0 34px}
 .fly{position:relative;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse 80% 120% at 85% 110%,rgba(61,68,107,.55),rgba(61,68,107,0) 60%),linear-gradient(180deg,#0F2152,#0C1A3E)}
-/* when the wing still exists: .fly-plate{background:url(assets/log-wing.webp) 50% 40%/cover} plus a navy dim */
 .fly-plate{position:relative;aspect-ratio:1000/320}
+/* backdrop: the breakout still (rear three-quarter under the cloud base), cropped to keep the whole aircraft
+   (frame y 17%-60%) and dimmed to navy so the drawn plate and its 12px labels keep 4.5:1 */
+.fly-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%}
+.fly-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(10,23,51,0) 36%,rgba(10,23,51,.5) 60%,rgba(10,23,51,.56) 100%),linear-gradient(180deg,rgba(10,23,51,.80) 0%,rgba(10,23,51,.70) 55%,rgba(10,23,51,.86) 100%)}   /* deeper over the right half, where the photographed aircraft sits under the glide slope, the lamps and the deviation scale: it reads as backdrop, not a second subject */
 .plate{position:absolute;inset:0;width:100%;height:100%}
 .plate .ln{stroke:var(--line-strong);stroke-width:1.25}
 .plate .gs{stroke:var(--text-secondary);stroke-width:1.5}
@@ -301,6 +330,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .fly.done .plate .thr{transition-delay:.5s}
 .fly.done .plate .edge{transition-delay:.62s}
 .plate-lbl{position:absolute;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap;pointer-events:none}
+/* plate coordinates: viewBox 1000x320 maps 1:1 to the box, so x% = x/10 and y% = y/3.2 (GS line (150,70)-(760,280), DA y 252, ground y 280) */
+.lbl-fap{left:15%;top:6%;transform:translateX(-50%)}
+.lbl-gs{left:41%;top:41%;transform:rotate(19deg)}
+.lbl-da{left:4%;top:71%}
+.lbl-rwy{left:86%;top:92%;transform:translateX(-50%)}
 .mins-tag{position:absolute;left:68%;top:56%;margin:0;padding:3px 6px;font:700 11px/1 var(--font-mono);letter-spacing:.06em;color:var(--signal);background:var(--canvas);border:1px solid var(--signal);border-radius:2px;opacity:0;transition:opacity .3s var(--ease-out)}
 .fly.done .mins-tag{opacity:1;animation:blink2 .9s steps(1) 1}
 .fly-ctl{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px 40px;align-items:end;padding:24px clamp(18px,2.4vw,32px) 28px;border-top:1px solid var(--line)}
@@ -315,7 +349,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .fly-read{margin:0;font:700 13px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
 
 .strips{list-style:none;margin:40px 0 0;padding:0;display:grid;gap:12px}
-.strip{position:relative;display:grid;grid-template-columns:8px 150px minmax(0,1fr) 92px;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:linear-gradient(90deg,rgba(18,36,82,.55),rgba(18,36,82,.25));transition:border-color .35s var(--ease-out),background-color .35s var(--ease-out)}
+.strip{position:relative;display:grid;grid-template-columns:8px 150px minmax(0,1fr) 120px;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:linear-gradient(90deg,rgba(18,36,82,.55),rgba(18,36,82,.25));transition:border-color .35s var(--ease-out),background-color .35s var(--ease-out)}
 .strip:hover{border-color:var(--line-strong)}
 .strip-bar{position:relative;background:var(--line);border-radius:5px 0 0 5px}
 .strip-bar::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--text-primary);box-shadow:0 0 14px rgba(236,233,241,.55);opacity:0;transition:opacity .45s var(--ease-out)}
@@ -365,26 +399,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ 04 AI ============ */
 .ai{padding-top:0}
-.ai-banner{position:relative;height:max(260px,28.57vw);max-height:520px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);
-  background:
-   radial-gradient(circle 26px at 9% 71%,rgba(242,201,138,.5),rgba(242,201,138,.38) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 34px at 19% 74%,rgba(242,201,138,.38),rgba(242,201,138,.26) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 22px at 31% 69%,rgba(242,201,138,.42),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 40px at 44% 76%,rgba(242,201,138,.3),rgba(242,201,138,.2) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 24px at 57% 70%,rgba(242,201,138,.44),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 30px at 69% 73%,rgba(242,201,138,.34),rgba(242,201,138,.22) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 20px at 80% 68%,rgba(242,201,138,.46),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 36px at 92% 75%,rgba(242,201,138,.3),rgba(242,201,138,.2) 55%,rgba(242,201,138,0) 100%),
-   radial-gradient(circle 18px at 36% 86%,rgba(79,208,138,.5),rgba(79,208,138,.32) 55%,rgba(79,208,138,0) 100%),
-   radial-gradient(circle 18px at 41% 87%,rgba(79,208,138,.45),rgba(79,208,138,.3) 55%,rgba(79,208,138,0) 100%),
-   radial-gradient(circle 18px at 46% 86%,rgba(79,208,138,.5),rgba(79,208,138,.32) 55%,rgba(79,208,138,0) 100%),
-   radial-gradient(circle 16px at 64% 90%,rgba(230,169,72,.4),rgba(230,169,72,.26) 55%,rgba(230,169,72,0) 100%),
-   radial-gradient(circle 22px at 14% 90%,rgba(124,147,216,.45),rgba(124,147,216,.28) 55%,rgba(124,147,216,0) 100%),
-   radial-gradient(circle 20px at 86% 89%,rgba(124,147,216,.4),rgba(124,147,216,.26) 55%,rgba(124,147,216,0) 100%),
-   radial-gradient(circle 46px at 74% 84%,rgba(244,139,69,.22),rgba(244,139,69,.12) 55%,rgba(244,139,69,0) 100%),
-   radial-gradient(ellipse 70% 40% at 50% 100%,rgba(73,80,113,.55),rgba(73,80,113,0)),
-   linear-gradient(180deg,#0A1733 0%,#0E1D44 48%,#14275A 100%)}
-/* when the rain-on-glass still exists: replace the background above with url(assets/ai-banner.webp) center/cover */
+.ai-banner{position:relative;height:max(260px,28.57vw);max-height:520px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);background:linear-gradient(180deg,#0A1733 0%,#0E1D44 48%,#14275A 100%)}
+/* banner still: runway approach lights at dusk, no aircraft. Cropped to keep the green threshold bar and the approach-light bars
+   (source y 30%-62%) in view; the navy dim is deepest at the upper left, where the kicker and H2 sit. */
+.ai-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 35%}
+.ai-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,rgba(10,23,51,.86) 0%,rgba(10,23,51,.66) 34%,rgba(10,23,51,.18) 62%,rgba(10,23,51,.30) 100%),linear-gradient(180deg,rgba(10,23,51,.35) 0%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 75%,rgba(10,23,51,.55) 100%)}
 .ai-banner .wrap{position:relative;padding-top:clamp(40px,6vw,76px);text-shadow:var(--tshadow)}
 .ai-banner h2{font-size:clamp(34px,4vw,56px)}
 .drz{position:absolute;inset:0;pointer-events:none}
@@ -437,7 +456,10 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .chat-form textarea::placeholder,.sub-form input::placeholder{color:var(--text-secondary);opacity:1}
 .chat-form textarea:focus-visible,.sub-form input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--text-primary)}
 .chat-form .btn{flex:none}
-.chat-form .btn[disabled]{opacity:.65;cursor:progress}
+.chat-form .btn[aria-disabled="true"],.chips button[aria-disabled="true"]{opacity:.65;cursor:progress}
+.chips button[aria-disabled="true"]:hover{border-color:var(--line-strong);background:transparent}
+.chat-limit{margin:8px 20px 0;font-size:12.5px;line-height:1.6;color:var(--text-secondary);max-inline-size:none}
+.chat-limit:empty{margin:0}   /* stays in the accessibility tree so the live region announces when it fills */
 .chat-privacy{margin:10px 20px 18px;font-size:12.5px;line-height:1.7;color:var(--text-secondary)}
 
 /* ============ 05 FAQ ============ */
@@ -460,7 +482,9 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ 06 SUBSCRIBE ============ */
 .subscribe{overflow:hidden;padding:clamp(80px,12vh,140px) 0 0}
-.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.86) 24%,rgba(10,23,51,.84) 62%,rgba(10,23,51,.97) 100%),url(assets/hero-end.webp) 50% 40%/cover no-repeat}
+/* the ending frame keeps only its cloud base and a faint aircraft around the card; its own runway and lights (lower half)
+   are dimmed out so the page lands on one runway, the drawn one */
+.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.86) 24%,rgba(10,23,51,.9) 42%,rgba(10,23,51,.97) 58%,rgba(10,23,51,.99) 100%),url(assets/hero-end.webp) 50% 40%/cover no-repeat}
 .sub-stage{position:relative;width:min(520px,100%);margin:0 auto;padding-bottom:var(--rwh,440px)}
 .runway{position:absolute;left:50%;top:calc(100% - var(--rwh,440px));width:1600px;height:var(--rwh,440px);max-width:none;transform:translateX(-50%);pointer-events:none}
 .runway .ln{stroke:var(--line-strong);stroke-width:1}
@@ -521,6 +545,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .plate-head>.kicker:last-child{border-left:1px solid var(--line)}
   .fly-ctl{grid-template-columns:1fr}
   .plate-lbl{font-size:10px;letter-spacing:.02em}
+  /* the plate is only 105-220px tall here: GS 3.0° rides parallel to and above its line, DA 200 above the dashed DA line,
+     RWY 24 above the edge-light row instead of under the plate's bottom edge */
+  .lbl-gs{left:30%;top:calc(42% - 18px)}
+  .lbl-da{top:calc(79% - 15px)}
+  .lbl-rwy{top:calc(84% - 14px)}
   .mins-tag{font-size:10px;padding:2px 4px}
   .strip{grid-template-columns:6px minmax(0,1fr)}
   .strip-meta{grid-column:2;grid-row:1;display:flex;align-items:center;gap:12px;padding:14px 16px 0;border-right:0}
@@ -533,6 +562,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .ai-banner{height:auto;min-height:230px}
   .cards{grid-template-columns:1fr}
   .chat-log{max-height:300px}
+  .chat-form textarea{font-size:16px}   /* under 16px, iOS Safari zooms the page on focus */
   .chat-form{flex-direction:column;align-items:stretch}
   .foot-grid{grid-template-columns:1fr}
   .gs-div{height:72px}
@@ -581,22 +611,31 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 <header class="hero" id="top">
   <div class="stage" id="stage">
     <div class="poster" aria-hidden="true"></div>
+    <div class="poster poster-end" aria-hidden="true"></div>
+    <div class="poster-fog" aria-hidden="true"></div>
     <video id="hero-video" preload="none" muted playsinline disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
     <div class="scrim" aria-hidden="true"></div>
     <div class="navscrim" aria-hidden="true"></div>
 
+    <!-- Band ranges are scroll progress through the 600vh range; WARP maps them onto footage time.
+         b1 0-.19     footage .00-.17  side profile above the stratus deck at dusk
+         lull .19-.27 footage .17-.34  sinking into the cloud tops, frame greys out
+         b2 .27-.50   footage .34-.68  inside the cloud, uniform blue-grey fog
+         lull .50-.585 footage .68-.85 breakout under the base, wet fields, rear three-quarter
+         b3 .585-.79  footage .85-.93  runway lights in view low-left: approach bars, green threshold, edge rows
+         b4 .80-1     footage .935-1   the settle, aircraft right of center flying at the lights -->
     <div class="bands">
-      <div class="band b1 drift" data-a="0" data-b="0.22" data-spread="0.42" style="--sa:.62">
+      <div class="band b1 drift" data-a="0" data-b="0.19" data-spread="0.42" style="--sa:.62">
         <p class="chip" aria-hidden="true">METAR ZZZZ 131030Z 24003MPS 2000 BR OVC003 08/07 Q1016 NOSIG</p>
         <h1 class="hl split">三千英尺，<wbr>云顶之上。</h1>
         <p class="sub split">我是 PC-12 机长，<wbr>飞短途支线。<wbr>跟我飞完这次进近。</p>
       </div>
-      <div class="band b2 drum" data-a="0.24" data-b="0.50" data-ramp="0.04" data-spread="0.5" style="--sa:.72">
+      <div class="band b2 drum" data-a="0.27" data-b="0.50" data-ramp="0.04" data-spread="0.5" style="--sa:.5">
         <p class="chip" aria-hidden="true">IMC · ILS RWY 24</p>
         <p class="hl split" data-mode="char">进云之后，<wbr>只信仪表。</p>
         <p class="sub split" data-mode="char">窗外只剩灰色。<wbr>姿态、<wbr>空速、<wbr>航向道、<wbr>下滑道，<wbr>轮流扫视。</p>
       </div>
-      <div class="band b3 focus" data-a="0.52" data-b="0.76" data-ramp="0.036" style="--sa:.68">
+      <div class="band b3 focus" data-a="0.585" data-b="0.79" data-ramp="0.036" style="--sa:.68">
         <p class="chip" aria-hidden="true">BREAKOUT · 云底 300 英尺</p>
         <div class="focus-wrap">
           <p class="sr">穿出云底，灯光亮着。白色进近灯，绿色入口灯，两排边灯一直铺进雾里。</p>
@@ -604,7 +643,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           <div class="copy sharp" aria-hidden="true"><p class="hl">穿出云底，灯光亮着。</p><p class="sub">白色进近灯，绿色入口灯，两排边灯一直铺进雾里。</p></div>
         </div>
       </div>
-      <div class="band b4 settle" data-a="0.78" data-b="1" data-ramp="0.06" data-spread="0.24" style="--sa:.66">
+      <div class="band b4 settle" data-a="0.80" data-b="1" data-ramp="0.06" data-spread="0.24" style="--sa:.7">
         <p class="hl split">最低标准，<wbr>起飞前<wbr>就定好。</p>
         <p class="sub ks">到了决断高度：看得见，继续；看不见，复飞。</p>
         <div class="cta-row kb">
@@ -646,50 +685,10 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 <section class="sec about" id="about" aria-labelledby="about-h" data-io data-live>
   <div class="about-grid">
     <figure class="about-fig rv" style="--i:0">
-      <!-- PLACEHOLDER ART until the apron still passes review. Swap this .about-art for:
-           <img src="assets/about.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="雨后的停机坪上，一架 PC-12 停在蓝调时刻的灯光里，登机梯放下，舱内亮着暖光。"> -->
       <div class="about-art">
-        <svg class="ap" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="雨后的停机坪上，一架 PC-12 停在蓝调时刻的灯光里，登机梯放下，舱内亮着暖光。">
-          <defs>
-            <linearGradient id="ap-sky" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#16295A"/><stop offset=".3" stop-color="#1B2F62"/><stop offset=".575" stop-color="#3D446B"/><stop offset=".58" stop-color="#18234A"/><stop offset=".8" stop-color="#0F1B3C"/><stop offset="1" stop-color="#0B1532"/>
-            </linearGradient>
-            <linearGradient id="ap-cone" x1="1" y1="0" x2="0" y2="1">
-              <stop offset="0" stop-color="#F2C98A" stop-opacity=".075"/><stop offset=".7" stop-color="#F2C98A" stop-opacity="0"/>
-            </linearGradient>
-            <radialGradient id="ap-pool"><stop offset="0" stop-color="#F2C98A" stop-opacity=".34"/><stop offset="1" stop-color="#F2C98A" stop-opacity="0"/></radialGradient>
-            <pattern id="ap-rip" width="10" height="7" patternUnits="userSpaceOnUse"><rect width="10" height="3" fill="#fff"/></pattern>
-            <mask id="ap-mask" maskUnits="userSpaceOnUse" x="0" y="640" width="1200" height="260"><rect x="0" y="640" width="1200" height="260" fill="url(#ap-rip)"/></mask>
-          </defs>
-          <rect width="1200" height="900" fill="url(#ap-sky)"/>
-          <path d="M1200,0 L1200,160 L760,900 L260,900 Z" fill="url(#ap-cone)"/>
-          <path class="o dim" d="M0,522 H1200"/>
-          <g fill="#7C93D8" opacity=".85">
-            <circle cx="36" cy="532" r="2.4"/><circle cx="82" cy="533" r="2.4"/><circle cx="128" cy="534" r="2.4"/><circle cx="174" cy="535" r="2.4"/><circle cx="220" cy="536" r="2.4"/><circle cx="266" cy="537" r="2.4"/><circle cx="312" cy="538" r="2.4"/><circle cx="358" cy="539" r="2.4"/>
-          </g>
-          <g fill="#F2C98A" opacity=".7"><circle cx="980" cy="531" r="2"/><circle cx="1040" cy="531" r="2"/><circle cx="1100" cy="531" r="2"/></g>
-          <g stroke="#A9A8C0" stroke-width="1" fill="none" opacity=".12">
-            <path d="M40,600 H340 M420,612 H520 M700,690 H1150 M120,760 H480 M60,840 H300 M820,830 H1160"/>
-          </g>
-          <ellipse cx="600" cy="690" rx="190" ry="26" fill="url(#ap-pool)"/>
-          <ellipse cx="900" cy="700" rx="150" ry="20" fill="url(#ap-pool)"/>
-          <!-- wet-apron reflection: the parked aircraft mirrored on the ground line, rippled -->
-          <g mask="url(#ap-mask)" opacity=".22"><use href="#ap-plane" transform="translate(0 1289) scale(1 -1)"/></g>
-          <g id="ap-plane" transform="translate(281 284.5) scale(.45)">
-            <path class="cock" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z"/>
-            <path class="win" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z"/>
-            <path class="door" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z"/>
-            <path class="o" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
-            <path class="o" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z"/>
-            <path class="o" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273"/>
-            <path class="o dim" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z M1452,578 L1476,598 L1480,580"/>
-            <path class="o dim" d="M316,566 L306,404 M316,566 L330,712 M316,566 L298,640"/>
-            <path class="stair" d="M790,603 L768,790 M853,603 L842,790 M786,634 H850 M782,666 H848 M778,698 H846 M774,730 H845 M771,762 H843"/>
-            <path class="o" d="M548,650 L552,728 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
-          </g>
-        </svg>
+        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。">
       </div>
-      <figcaption>APRON · 雨后 · 蓝调时刻</figcaption>
+      <figcaption>ON TOP · 云层上方 · 日落之后</figcaption>
     </figure>
     <div class="about-text">
       <p class="kicker rv" style="--i:1">01 / ABOUT</p>
@@ -717,12 +716,14 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     <div class="plate-head rv" style="--i:0">
       <p class="kicker">02 / LOG</p>
       <h2 id="log-h">飞行日志</h2>
-      <p class="kicker">最新 5 篇</p>
+      <p class="kicker">在写 5 篇</p>
     </div>
     <p class="lede rv" style="--i:1">落地之后写。每篇只讲一件事，写完先对一遍手册。</p>
 
     <div class="fly rv" id="fly" style="--i:2" data-live>
       <div class="fly-plate">
+        <img class="fly-img" src="assets/log-breakout.webp" width="1920" height="1088" loading="lazy" decoding="async" alt="">
+        <span class="fly-dim" aria-hidden="true"></span>
         <svg class="plate draw" viewBox="0 0 1000 320" aria-hidden="true" focusable="false">
           <path class="ln" pathLength="1" d="M20,280 H980"/>
           <path class="ln" pathLength="1" d="M40,70 H150" style="--d:.2s"/>
@@ -742,10 +743,10 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           </g>
           <g class="glyph" id="glyph" transform="translate(150 70) rotate(19)"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></g>
         </svg>
-        <p class="plate-lbl" style="left:15%;top:6%;transform:translateX(-50%)">FAP 1500</p>
-        <p class="plate-lbl" style="left:41%;top:41%;transform:rotate(19deg)">GS 3.0°</p>
-        <p class="plate-lbl" style="left:4%;top:71%">DA 200</p>
-        <p class="plate-lbl" style="left:86%;top:92%;transform:translateX(-50%)">RWY 24</p>
+        <p class="plate-lbl lbl-fap">FAP 1500</p>
+        <p class="plate-lbl lbl-gs">GS 3.0°</p>
+        <p class="plate-lbl lbl-da">DA 200</p>
+        <p class="plate-lbl lbl-rwy">RWY 24</p>
         <p class="mins-tag" aria-hidden="true">MINIMUMS</p>
       </div>
       <div class="fly-ctl">
@@ -763,41 +764,42 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     </div>
     </div>
 
-    <!-- SAMPLE POSTS: placeholder content to replace with real posts. Titles are not links in v1;
-         when a post page exists, wrap its title in <a href="posts/<slug>.html">. -->
+    <!-- SAMPLE POSTS: drafts, shown on screen as DRAFT with an estimated read time. Titles are not links in v1.
+         When a post is published: replace DRAFT with <time datetime="YYYY-MM-DD">YYYY.MM.DD</time>, drop 预计 from its read time,
+         wrap its title in <a href="posts/<slug>.html">, and once every strip is live, put 最新 5 篇 back in the plate header. -->
     <ol class="strips" data-io>
       <li class="rv" style="--i:0"><article class="strip" style="--i:0">
         <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date"><time datetime="2026-10-08">2026.10.08</time></p><p class="strip-tag">IMC</p></div>
+        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">IMC</p></div>
         <div class="strip-main"><h3>低云进近：决断高度前的那两秒</h3><p>云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p></div>
-        <p class="strip-time">8 分钟</p>
+        <p class="strip-time">预计 8 分钟</p>
       </article></li>
       <li class="rv" style="--i:1"><article class="strip" style="--i:1">
         <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date"><time datetime="2026-09-21">2026.09.21</time></p><p class="strip-tag">PERF</p></div>
+        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PERF</p></div>
         <div class="strip-main"><h3>短跑道上的 PC-12：先算数，再上跑道</h3><p>起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p></div>
-        <p class="strip-time">7 分钟</p>
+        <p class="strip-time">预计 7 分钟</p>
       </article></li>
       <li class="rv" style="--i:2"><article class="strip" style="--i:2">
         <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date"><time datetime="2026-09-03">2026.09.03</time></p><p class="strip-tag">WX</p></div>
+        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">WX</p></div>
         <div class="strip-main"><h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p>PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。这篇讲我怎么看云、看温度，什么情况下直接改天。</p></div>
-        <p class="strip-time">9 分钟</p>
+        <p class="strip-time">预计 9 分钟</p>
       </article></li>
       <li class="rv" style="--i:3"><article class="strip" style="--i:3">
         <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date"><time datetime="2026-08-17">2026.08.17</time></p><p class="strip-tag">OPS</p></div>
+        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">OPS</p></div>
         <div class="strip-main"><h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p>PT6 很少停车，可飞机上只有这一台。每一段起飞前，我先找好滑翔得到的落地点，再定航路和高度。</p></div>
-        <p class="strip-time">6 分钟</p>
+        <p class="strip-time">预计 6 分钟</p>
       </article></li>
       <li class="rv" style="--i:4"><article class="strip" style="--i:4">
         <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date"><time datetime="2026-07-30">2026.07.30</time></p><p class="strip-tag">PREFLT</p></div>
+        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PREFLT</p></div>
         <div class="strip-main"><h3>绕机一圈：我的航前检查顺序</h3><p>从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。</p></div>
-        <p class="strip-time">5 分钟</p>
+        <p class="strip-time">预计 5 分钟</p>
       </article></li>
     </ol>
-    <p class="list-end">下一篇还在写。</p>
+    <p class="list-end">这几篇还在写，写完一篇放一篇。</p>
     <a class="tlink" href="#subscribe">订阅飞行日志</a>
   </div>
 </section>
@@ -866,6 +868,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 <!-- ============ 04 AI ============ -->
 <section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
   <div class="ai-banner">
+    <img class="ai-img" src="assets/ai-banner.webp" width="1600" height="800" loading="lazy" decoding="async" alt="">
+    <span class="ai-dim" aria-hidden="true"></span>
     <div class="drz" aria-hidden="true">
       <i style="--x:6%;--t:7.2s;--dl:-1.1s;--o:.12"></i><i style="--x:15%;--t:8.4s;--dl:-5.3s;--o:.16"></i><i style="--x:24%;--t:6.3s;--dl:-2.7s;--o:.1"></i><i style="--x:37%;--t:9s;--dl:-6.1s;--o:.14"></i><i style="--x:48%;--t:7.7s;--dl:-3.9s;--o:.18"></i>
       <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
@@ -901,6 +905,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           <textarea id="chat-in" rows="2" maxlength="500" placeholder="输入你的问题" autocomplete="off"></textarea>
           <button class="btn btn-ghost" id="chat-send" type="submit">发送</button>
         </form>
+        <p class="chat-limit" id="chat-limit" aria-live="polite"></p>
         <p class="chat-privacy">对话会经本站服务器转给 AI 服务商处理，请不要输入个人信息。</p>
       </aside>
     </div>
@@ -950,6 +955,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
         <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
         <p class="micro">只发飞行日志。不发广告，随时退订。</p>
+        <p class="micro mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</p>
       </form>
       <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
     </div>
@@ -1180,8 +1186,9 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ---------- swap points (one line each) ---------- */
 const VIDEO_URL = 'assets/hero-scrub.mp4';
-const VIDEO_BYTES = 7000000;        // replace with the real byte size of hero-scrub.mp4 (ring fallback when Content-Length is missing)
+const VIDEO_BYTES = 4640306;        // the real byte size of assets/hero-scrub.mp4 (ring fallback when Content-Length is missing)
 const POSTER_URL = 'assets/hero-poster.webp';
+const POSTER_END_URL = 'assets/hero-end.webp';
 const CHAT_LIVE = false;            // set true once api/chat.php answers
 const CHAT_URL = 'api/chat.php';    // relative; the key lives server-side in that file, never here
 const SUBSCRIBE_ENDPOINT = '';      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
@@ -1196,13 +1203,15 @@ const T = {
   holdAgain: '再飞一次',
   welcomeInop: '你好。助手还在接入中（INOP），接通以后可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。',
   welcomeLive: '你好。我可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。',
-  chatInop: '助手还在接入中（INOP），这个问题暂时没有回答。接通以后，在这里直接问就行。',
-  chatTimeout: '等了 20 秒没有回应。稍后再试一次。',
+  chatInop: '助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。',   // always shown after an INOP placard
+  chatDown: '助手暂时连不上，稍后再试。',                                           // network failure or a 5xx without a message (same words as api/chat.php's 502)
+  chatTimeout: '等了 60 秒没有回应。稍后再试一次。',
   chatRate: '问得有点快。请过一会儿再问。',
+  chatLimit: '最多 500 字，多出的部分没有收进来。',
   send: '发送', sending: '发送中', answering: '正在回答',
   subEmpty: '请先填写邮箱。',
   subFormat: '邮箱格式不对，请再检查一遍。',
-  subModeA: '订阅通道还没接通（INOP）。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。',
+  subModeA: '订阅通道还没接通。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。',   // shown after an INOP placard
   subBusy: '提交中',
   subOkPre: '已订阅。下一篇日志写完，会发到 ', subOkPost: '。',
   subFail: '这次没有提交成功。稍后再试一次。'
@@ -1257,11 +1266,38 @@ const video = $('#hero-video');
 const posterLayer = $('.poster');
 const cue = $('.cue');
 let ring = $('.ring');
-const RANGE_VH = 500;                  // 600vh hero minus the 100vh viewport
+const RANGE_VH = 600;                  // 700vh hero minus the 100vh viewport
+
+/* Scroll progress (what the bands use) -> footage progress (video time / duration, what the tape uses).
+   The approved shot spends its first 5s on the cloud and only ~1.2s with the runway lights in view, so the scroll range is
+   time-warped: each beat sits on its footage moment with a full plateau, and the two caption lulls move fast through the
+   cloud entry and the breakout. Monotone cubic (Fritsch-Carlson / PCHIP) through the keys: the footage speed eases between
+   beats instead of jumping, never runs backwards, and passes every key exactly. Keys: [scroll, footage]. */
+const WARP = [[0, 0], [0.19, 0.17], [0.27, 0.34], [0.50, 0.68], [0.585, 0.85], [0.79, 0.93], [0.80, 0.935], [1, 1]];
+const footageAt = (() => {
+  const n = WARP.length, X = WARP.map(k => k[0]), Y = WARP.map(k => k[1]), h = [], d = [], m = [];
+  for (let i = 0; i < n - 1; i++) { h.push(X[i + 1] - X[i]); d.push((Y[i + 1] - Y[i]) / h[i]); }
+  m[0] = d[0]; m[n - 1] = d[n - 2];
+  for (let i = 1; i < n - 1; i++) {
+    if (d[i - 1] * d[i] <= 0) { m[i] = 0; continue; }
+    const w1 = 2 * h[i] + h[i - 1], w2 = h[i] + 2 * h[i - 1];
+    m[i] = (w1 + w2) / (w1 / d[i - 1] + w2 / d[i]);
+  }
+  return s => {
+    s = clamp(s, 0, 1);
+    let i = 0;
+    while (i < n - 2 && s > X[i + 1]) i++;
+    const t = (s - X[i]) / h[i], t2 = t * t, t3 = t2 * t;
+    return clamp((2 * t3 - 3 * t2 + 1) * Y[i] + (t3 - 2 * t2 + t) * h[i] * m[i] + (-2 * t3 + 3 * t2) * Y[i + 1] + (t3 - t2) * h[i] * m[i + 1], 0, 1);
+  };
+})();
 
 let heroOnScreen = true;
 new IntersectionObserver(entries => {
   for (const e of entries) heroOnScreen = e.isIntersecting;
+  // A single jump into the hero (scrollbar thumb, instant scrollTo) fires its one scroll event before this callback reports,
+  // so onScroll saw heroOnScreen false and never started the loop: wake it here so the hero catches up.
+  if (heroOnScreen && scrubOn) onScroll();
 }).observe(hero);
 
 let heroTop = 0, heroRange = 1, heroBottom = 0;
@@ -1320,7 +1356,7 @@ const bandEls = $$('.band');
 bandEls.forEach((b, i) => { if ($('.split', b)) splitBand(b, 1013 + i * 97); });
 const bands = bandEls.map((el, i) => ({
   el, a: Number(el.dataset.a), b: Number(el.dataset.b), ramp: Number(el.dataset.ramp || 0),
-  first: i === 0, last: i === bandEls.length - 1, op: -1, k: -1, on: null
+  first: i === 0, last: i === bandEls.length - 1, op: -1, k: -1, on: null, k1: null, cta: null
 }));
 
 let loadK = 0;
@@ -1337,11 +1373,25 @@ function updateCaptions(p) {
     if (k !== B.k && (Math.abs(k - B.k) > 0.008 || k === 0 || k === 1)) { B.el.style.setProperty('--k', k.toFixed(3)); B.k = k; }
     const on = op > 0.02;
     if (on !== B.on) { B.el.classList.toggle('on', on); B.on = on; }
+    const k1 = k >= 1;
+    if (k1 !== B.k1) { B.el.classList.toggle('k1', k1); B.k1 = k1; }
+    if (B.last) {                       // the CTA row is hittable and focusable only once its own fade (--kb, k > .78) begins
+      const cta = k >= 0.78;
+      if (cta !== B.cta) { B.el.classList.toggle('cta', cta); B.cta = cta; }
+    }
   }
   const co = 1 - smoothstep(p, 0, 0.05);
   if (Math.abs(co - cueOp) > 0.01 || (co !== cueOp && (co === 0 || co === 1))) { cue.style.opacity = co.toFixed(3); cueOp = co; }
+  if (!videoReady) {                    // the still journey: fog through the cloud beats, the ending frame from the breakout lull on
+    const pe = smoothstep(p, 0.50, 0.585);
+    const pf = smoothstep(p, 0.19, 0.27) * (1 - pe) * 0.92;
+    if (Math.abs(pe - peOp) > 0.01 || (pe !== peOp && (pe === 0 || pe === 1))) { posterEnd.style.setProperty('--pe', pe.toFixed(3)); peOp = pe; }
+    if (Math.abs(pf - pfOp) > 0.01 || (pf !== pfOp && (pf === 0 || pf === 0.92))) { posterFog.style.setProperty('--pf', pf.toFixed(3)); pfOp = pf; }
+  }
 }
-let cueOp = 1;
+let cueOp = 1, peOp = -1, pfOp = -1, videoReady = false;
+const posterEnd = $('.poster-end');
+const posterFog = $('.poster-fog');
 
 /* ---------- PFD tape ---------- */
 const tape = $('#tape');
@@ -1370,7 +1420,9 @@ let tapeH = 480;
   s += '<line class="bugline" x1="0" x2="18" y1="' + yb + '" y2="' + yb + '"/><path class="bug" d="M0,' + (yb - 7) + ' L9,' + yb + ' L0,' + (yb + 7) + ' Z"/>';
   strip.innerHTML = s;
 })();
-const ALT_KEYS = [[0, 3000], [0.22, 2870], [0.30, 2500], [0.50, 1000], [0.60, 320], [0.76, 260], [0.92, 200], [1, 200]];
+/* altitude keyed on FOOTAGE progress, so the tape always agrees with the picture: crawl above the deck, spin in the cloud,
+   breakout at ~320 ft (footage .74, fields under the base), lights in view at ~265 ft, onto the MIN bug at the settle */
+const ALT_KEYS = [[0, 3000], [0.17, 2880], [0.30, 2450], [0.62, 700], [0.74, 320], [0.86, 265], [0.965, 200], [1, 200]];
 function altAt(p) {
   for (let i = 1; i < ALT_KEYS.length; i++) {
     const [p1, a1] = ALT_KEYS[i];
@@ -1379,7 +1431,8 @@ function altAt(p) {
   return 200;
 }
 let lastStripY = 1e9, lastDrumY = 1e9, lastHund = '', lastMetric = '', lastTxtAt = 0, minsOn = false, lastDeep = -1;
-function updateTape(p, now, force) {
+function updateTape(s, now, force) {
+  const p = footageAt(s);              // footage progress
   const alt = altAt(p);
   const y = tapeH / 2 - (TOP_FT - alt) * PX_FT;
   if (Math.abs(y - lastStripY) > 0.5 || force) { strip.style.transform = 'translate3d(0,' + y.toFixed(1) + 'px,0)'; lastStripY = y; }
@@ -1392,14 +1445,14 @@ function updateTape(p, now, force) {
     if (h !== lastHund) { hundEl.textContent = h; lastHund = h; lastTxtAt = now; }
     if (m !== lastMetric) { metricEl.textContent = m; lastMetric = m; lastTxtAt = now; }
   }
-  if (!minsOn && p >= 0.915) {
+  if (!minsOn && p >= 0.962) {        // footage .962 = scroll ~.88, after the settle band has landed (~.86)
     minsOn = true; minL1.textContent = 'MINIMUMS';
     minBox.classList.add('mins', 'blink');
-  } else if (minsOn && p < 0.905) {
+  } else if (minsOn && p < 0.955) {
     minsOn = false; minL1.textContent = 'BARO MIN';
     minBox.classList.remove('mins', 'blink');
   }
-  const deep = smoothstep(p, 0.22, 0.25) * (1 - smoothstep(p, 0.62, 0.65));
+  const deep = smoothstep(p, 0.20, 0.28);   // from the cloud tops down, every frame behind the tape is lighter than the dusk sky
   if (Math.abs(deep - lastDeep) > 0.01 || (deep !== lastDeep && (deep === 0 || deep === 1))) { tape.style.setProperty('--deep', deep.toFixed(2)); lastDeep = deep; }
 }
 minBox.addEventListener('animationend', () => minBox.classList.remove('blink'));
@@ -1418,13 +1471,21 @@ video.addEventListener('seeked', () => {
 });
 video.addEventListener('error', () => {
   seekBusy = false; pendingTime = null;
-  stage.classList.add('video-failed');
+  failVideo();                          // e.g. a browser that cannot decode H.264: drop the ring, keep the still journey
 });
 
 /* ---------- the lerp loop that rests ---------- */
 let target = 0, shown = 0, rafId = null, lastTick = 0;
 function tick(now) {
-  if (!heroOnScreen) { rafId = null; lastTick = 0; return; }
+  if (!heroOnScreen) {
+    // resting off-screen: land on the target first, so re-entry lerps from where the visitor left (never a fast-forward
+    // while they scroll back up), and the frame, captions and tape are already right when the hero reappears
+    shown = target; rafId = null; lastTick = 0;
+    requestSeek(footageAt(shown) * video.duration);
+    updateCaptions(shown);
+    updateTape(shown, now, true);
+    return;
+  }
   const dt = Math.min(100, now - (lastTick || now));
   lastTick = now;
   const k = 0.16;
@@ -1432,7 +1493,7 @@ function tick(now) {
   let rest = false;
   if (Math.abs(target - shown) < 0.0005) { shown = target; rafId = null; lastTick = 0; rest = true; }
   else rafId = requestAnimationFrame(tick);
-  requestSeek(shown * video.duration);
+  requestSeek(footageAt(shown) * video.duration);
   updateCaptions(shown);
   updateTape(shown, now, rest);
 }
@@ -1462,6 +1523,7 @@ let heroInit = false;
 function initHeroOnce() {
   if (heroInit) return; heroInit = true;
   posterLayer.style.backgroundImage = "url('" + POSTER_URL + "')";
+  posterEnd.style.backgroundImage = "url('" + POSTER_END_URL + "')";   // the same file 06's backdrop already loads
   let started = false;
   const startBlobFetch = () => { if (started) return; started = true; loadHeroBlob().catch(failVideo); };
   const posterImg = new Image();
@@ -1502,13 +1564,17 @@ async function loadHeroBlob() {
   video.src = URL.createObjectURL(blob);
   video.load();
   video.addEventListener('canplay', () => {
-    requestSeek(heroProgress() * video.duration);
+    requestSeek(footageAt(shown) * video.duration);
+    videoReady = true;
     stage.classList.add('video-ready');
   }, { once: true });
 }
 function failVideo() {
   if (ring) { ring.remove(); ring = null; }   // the cue stays as the honest scroll cue
+  videoReady = false; peOp = -1; pfOp = -1;    // a late decode error hands the stage back to the still journey
+  stage.classList.remove('video-ready');
   stage.classList.add('video-failed');
+  if (scrubOn) updateCaptions(shown);
 }
 
 /* ---------- the five static-hero gates, live ---------- */
@@ -1525,8 +1591,8 @@ function enableScrub() {
   initHeroOnce();
   measure();
   addEventListener('scroll', onScroll, { passive: true });
-  bands.forEach(b => { b.op = -1; b.k = -1; b.on = null; });
-  cueOp = -1; lastStripY = 1e9; lastDrumY = 1e9; lastHund = ''; lastMetric = ''; lastDeep = -1;
+  bands.forEach(b => { b.op = -1; b.k = -1; b.on = null; b.k1 = null; b.cta = null; });
+  cueOp = -1; peOp = -1; pfOp = -1; lastStripY = 1e9; lastDrumY = 1e9; lastHund = ''; lastMetric = ''; lastDeep = -1;
   unpinFinalStates();
   shown = target = heroProgress();
   updateCaptions(shown);
@@ -1722,50 +1788,78 @@ function bubble(role, text, opts = {}) {
   p.append(document.createTextNode(text));
   d.append(p);
   chatLog.append(d);
-  chatLog.scrollTop = chatLog.scrollHeight;
+  if (role === 'assistant' && !opts.sr && d.offsetHeight > chatLog.clientHeight - 24) {
+    // a reply taller than the log opens at its first line, not its last
+    chatLog.scrollTop += d.getBoundingClientRect().top - chatLog.getBoundingClientRect().top - 12;
+  } else {
+    chatLog.scrollTop = chatLog.scrollHeight;
+  }
   return d;
 }
 setLamp(restingLamp());
 bubble('assistant', CHAT_LIVE ? T.welcomeLive : T.welcomeInop);
+const chatLimit = $('#chat-limit');
+const chips = $$('#chips button');
+let limitShown = false;
+function setLimit(on) { if (on !== limitShown) { chatLimit.textContent = on ? T.chatLimit : ''; limitShown = on; } }
+chatIn.addEventListener('input', () => setLimit(chatIn.value.length >= 500));   // maxlength cuts pastes silently; say so
+function setPending(on) {
+  chatPending = on;
+  // aria-disabled plus the chatPending guard, never the disabled attribute: disabling the focused 发送 button drops focus to <body>
+  chatSend.setAttribute('aria-disabled', String(on));
+  chatSend.textContent = on ? T.sending : T.send;
+  chips.forEach(b => b.setAttribute('aria-disabled', String(on)));
+}
 async function sendChat(raw) {
+  if (chatPending) return;
   const text = String(raw || '').trim().slice(0, 500);
-  if (!text || chatPending) return;
-  chatPending = true;
+  if (!text) return;
+  setPending(true);
   bubble('user', text);
-  history.push({ role: 'user', content: text });
-  chatIn.value = '';
-  chatSend.disabled = true; chatSend.textContent = T.sending;
+  const turn = { role: 'user', content: text };   // joins the history only together with its answer, so a failed turn is never re-sent
+  chatIn.value = ''; setLimit(false);
   setLamp('tx');
   const srNote = bubble('assistant', T.answering, { sr: true });
   const ctrl = new AbortController();
-  const timer = setTimeout(() => ctrl.abort(), 20000);
+  const timer = setTimeout(() => ctrl.abort(), 60000);   // generous: a long answer can take tens of seconds server-side
   let state = restingLamp();
   try {
     const res = await fetch(CHAT_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-      body: JSON.stringify({ messages: history.slice(-10) }),
+      // the last 11 messages always start on a user turn; api/chat.php keeps up to 12
+      body: JSON.stringify({ messages: history.concat([turn]).slice(-11) }),
       signal: ctrl.signal
     });
-    if (res.status === 429) { bubble('assistant', T.chatRate); }
-    else if (!res.ok) { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+    if (!res.ok) {
+      // api/chat.php answers errors as {error, message}; message is user-facing Chinese and wins when present.
+      let err = null;
+      try { err = await res.json(); } catch (_) { err = null; }
+      const msg = err && typeof err.message === 'string' ? err.message.trim() : '';
+      const notConfigured = res.status === 503 || (err && err.error === 'not_configured');
+      if (msg) {
+        bubble('assistant', msg, { inop: notConfigured });
+        if (notConfigured) state = 'inop';
+      } else if (res.status === 429) { bubble('assistant', T.chatRate); }
+      else if (res.status === 404 || res.status === 405) { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }   // the endpoint is not there yet
+      else { bubble('assistant', T.chatDown); }   // a host 5xx page or a PHP fatal: transient, not INOP
+    }
     else {
       let data = null;
       try { data = await res.json(); } catch (_) { data = null; }
       if (data && typeof data.reply === 'string' && data.reply.trim()) {
         bubble('assistant', data.reply);
-        history.push({ role: 'assistant', content: data.reply });
+        history.push(turn, { role: 'assistant', content: data.reply });
         state = 'on';
-      } else { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+      } else { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }   // 200 without JSON: the host serves chat.php as a file (no PHP)
     }
   } catch (err) {
     if (err && err.name === 'AbortError') bubble('assistant', T.chatTimeout);
-    else { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+    else bubble('assistant', T.chatDown);   // offline, or the connection dropped
   } finally {
     clearTimeout(timer);
     srNote.remove();
-    chatPending = false;
-    chatSend.disabled = false; chatSend.textContent = T.send;
+    setPending(false);
     setLamp(state);
   }
 }
@@ -1776,7 +1870,7 @@ chatIn.addEventListener('keydown', e => {
   e.preventDefault();
   sendChat(chatIn.value);
 });
-$$('#chips button').forEach(b => b.addEventListener('click', () => sendChat(b.textContent)));
+chips.forEach(b => b.addEventListener('click', () => sendChat(b.textContent)));
 
 /* ============ 06: subscribe ============ */
 const subForm = $('#sub-form');
