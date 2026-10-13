@@ -1,0 +1,1811 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>云底之下 · 一位 PC-12 机长的飞行日志</title>
+<meta name="description" content="PC-12 NGX 机长的飞行日志：低云进近、短跑道、结冰天气、单发涡桨的日常。">
+<meta name="application-name" content="云底之下">
+<meta name="theme-color" content="#0A1733">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="云底之下 · 一位 PC-12 机长的飞行日志">
+<meta property="og:site_name" content="云底之下">
+<meta property="og:description" content="PC-12 NGX 机长的飞行日志：低云进近、短跑道、结冰天气、单发涡桨的日常。">
+<!-- DEPLOY STEP: og:image and og:url need absolute URLs. Replace DEPLOY-DOMAIN with the live address before zipping (see deploy.md). -->
+<meta property="og:image" content="https://DEPLOY-DOMAIN/assets/hero-poster.webp">
+<meta property="og:url" content="https://DEPLOY-DOMAIN/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cpath d='M5 8 L22 22' stroke='%23A9A8C0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M19 24 H29' stroke='%23ECE9F1' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='12.9' r='2.8' fill='%23EA4C22'/%3E%3C/svg%3E">
+<link rel="preload" href="assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/b612-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="assets/fonts/b612-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<script>document.documentElement.classList.add('js')</script>
+<style>
+/* Fonts: self-hosted only (no external requests; the audience is in mainland China). */
+@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2190-2193,U+2212}
+@font-face{font-family:"B612";src:url(assets/fonts/b612-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap;unicode-range:U+0000-00FF,U+2212}
+@font-face{font-family:"B612";src:url(assets/fonts/b612-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap;unicode-range:U+0000-00FF,U+2212}
+@font-face{font-family:"B612 Mono";src:url(assets/fonts/b612-mono-latin-400-normal.woff2) format("woff2");font-weight:400;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F}
+@font-face{font-family:"B612 Mono";src:url(assets/fonts/b612-mono-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F}
+
+:root{
+  --canvas:#0A1733;--panel:#122452;
+  --accent:#EA4C22;--accent-hover:#FF6A3D;--accent-muted:#49262E;
+  --text-secondary:#A9A8C0;--text-primary:#ECE9F1;
+  --signal:#E6A948;--sky:#132D61;--sky-low:#3D446B;--cloud:#495071;--ember:#75485B;--afterglow:#F48B45;
+  --line:#2A3A66;--line-strong:#5E6EA2;--threshold:#4FD08A;--edge-light:#F2C98A;
+  --taxi:#7C93D8; /* drawn-scene world color only (distant taxiway lights), never UI */
+  --tshadow:0 1px 2px rgba(6,14,32,.95),0 3px 12px rgba(6,14,32,.78),0 10px 44px rgba(6,14,32,.8);
+  --ease-out:cubic-bezier(.22,1,.36,1);
+  --ease-io:cubic-bezier(.65,0,.35,1);
+  --cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC";
+  --font-head:var(--cjk),sans-serif;
+  --font-display:"Barlow Condensed",var(--cjk),sans-serif;
+  --font-body:"B612",var(--cjk),sans-serif;
+  --font-mono:"B612 Mono",ui-monospace,Menlo,Consolas,var(--cjk),monospace;
+  --gutter:clamp(16px,4vw,48px);
+  --wrap:min(1200px,100% - 2*var(--gutter));
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html{overflow-x:hidden;overflow-x:clip;scroll-behavior:smooth;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{margin:0;overflow-x:hidden;overflow-x:clip;background:var(--canvas);color:var(--text-primary);font:400 17px/1.85 var(--font-body);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;animation:pagein .9s var(--ease-out) backwards}
+@keyframes pagein{from{opacity:0}}
+img,svg{display:block;max-width:100%}
+a{color:inherit}
+button,input,textarea{font:inherit;color:inherit}
+p{margin:0 0 1em;max-inline-size:34ic;line-break:strict;text-wrap:pretty;text-spacing-trim:trim-start}
+h1,h2,h3,h4{margin:0;font-family:var(--font-head);font-weight:600;line-break:strict;text-wrap:balance}
+h2{font-size:clamp(28px,3vw,44px);line-height:1.3;letter-spacing:.02em}
+.sr{position:absolute!important;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);clip-path:inset(50%);white-space:nowrap;border:0}
+.mono{font-family:var(--font-mono);letter-spacing:.08em}
+.kicker{font:400 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary);margin:0 0 14px;text-transform:uppercase}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:4px}
+::selection{background:rgba(234,76,34,.35);color:var(--text-primary)}
+
+/* Skip link */
+.skip{position:fixed;left:16px;top:-80px;z-index:200;padding:10px 16px;background:var(--panel);color:var(--text-primary);border:1px solid var(--line-strong);border-radius:8px;text-decoration:none;transition:transform .35s var(--ease-out)}
+.skip:focus{transform:translateY(92px)}
+
+/* Environment layer: one night sky behind everything */
+.env{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+.env::before,.env::after{content:"";position:absolute;border-radius:50%}
+.env::before{width:150vmax;height:110vmax;left:-50vmax;top:-48vmax;background:radial-gradient(closest-side,rgba(19,45,97,.5),rgba(19,45,97,0));animation:drift-a 90s var(--ease-io) -23s infinite alternate}
+.env::after{width:130vmax;height:90vmax;right:-52vmax;bottom:-44vmax;background:radial-gradient(closest-side,rgba(73,80,113,.10),rgba(73,80,113,0));animation:drift-b 120s var(--ease-io) -41s infinite alternate}
+.env i{position:absolute;inset:0;background:url(assets/grain.png);opacity:.035}
+@keyframes drift-a{to{transform:translate3d(18vmax,14vmax,0)}}
+@keyframes drift-b{to{transform:translate3d(-16vmax,-12vmax,0)}}
+body.paused *,body.paused *::before,body.paused *::after{animation-play-state:paused!important}
+
+/* Buttons */
+.btn{position:relative;display:inline-flex;align-items:center;justify-content:center;gap:.5em;min-height:48px;padding:0 22px;border-radius:6px;font:600 16px/1 var(--font-head);letter-spacing:.04em;text-decoration:none;cursor:pointer;border:1px solid transparent;transition:background-color .35s var(--ease-out),border-color .35s var(--ease-out),color .35s var(--ease-out),transform .35s var(--ease-out);text-shadow:none;-webkit-tap-highlight-color:transparent}
+.btn-primary{background:var(--accent);color:var(--canvas)}
+.btn-primary:hover,.btn-primary:active{background:var(--accent-hover)}
+.btn-ghost{background:rgba(10,23,51,.35);border-color:var(--line-strong);color:var(--text-primary)}
+.btn-ghost:hover{border-color:var(--text-primary)}
+.btn:active{transform:translateY(1px)}
+.tlink{display:inline-flex;align-items:baseline;gap:.4em;font:600 17px/1.6 var(--font-head);color:var(--text-primary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:6px;text-decoration-thickness:1px;transition:text-decoration-color .35s var(--ease-out)}
+.tlink:hover{text-decoration-color:var(--text-primary)}
+.tlink::after{content:"\2192";font-family:var(--font-body);transition:transform .35s var(--ease-out)}
+.tlink:hover::after{transform:translateX(3px)}
+
+/* Nav */
+.nav{position:fixed;inset:0 0 auto;height:64px;z-index:60;display:flex;align-items:center;gap:clamp(16px,2.4vw,36px);padding:0 var(--gutter)}
+.nav::before{content:"";position:absolute;inset:0;background:rgba(10,23,51,.85);-webkit-backdrop-filter:blur(12px);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);opacity:0;transition:opacity .5s var(--ease-out);z-index:-1}
+.nav.solid::before,.nav.open::before{opacity:1}
+.wordmark{display:flex;align-items:baseline;gap:10px;text-decoration:none;white-space:nowrap;text-shadow:0 1px 3px rgba(6,14,32,.8)}
+.brand-name{font:600 18px/1 var(--font-head);letter-spacing:.06em}
+.wordmark .mono{font-size:11px;color:var(--text-secondary)}
+.nav-links{display:flex;gap:clamp(14px,2vw,28px);margin:0 0 0 auto;padding:0;list-style:none}
+.nav-links a{font:400 15px/1 var(--font-head);text-decoration:none;color:var(--text-secondary);padding:10px 0;transition:color .3s var(--ease-out);text-shadow:0 1px 3px rgba(6,14,32,.8)}
+.nav-links a:hover{color:var(--text-primary)}
+.nav-cta{min-height:40px;padding:0 18px;font-size:15px}
+.nav-cta:hover,.nav-cta:focus-visible{background:var(--accent);border-color:var(--accent);color:var(--canvas)}
+.nav-toggle{display:none;margin-left:auto;min-height:40px;padding:0 14px;background:transparent;border:1px solid var(--line-strong);border-radius:6px;font:400 15px/1 var(--font-head);cursor:pointer}
+@media (max-width:860px){
+  .nav-toggle{display:inline-flex;align-items:center}
+  .nav-links{position:absolute;top:64px;left:0;right:0;flex-direction:column;gap:0;margin:0;padding:8px var(--gutter) 16px;background:rgba(10,23,51,.96);border-bottom:1px solid var(--line);opacity:0;visibility:hidden;transform:translateY(-8px);transition:opacity .35s var(--ease-out),transform .35s var(--ease-out),visibility 0s linear .35s}
+  .nav.open .nav-links{opacity:1;visibility:visible;transform:none;transition:opacity .35s var(--ease-out),transform .35s var(--ease-out),visibility 0s}
+  .nav-links a{display:block;padding:14px 0;font-size:17px;border-bottom:1px solid var(--line)}
+  .nav-cta{order:3}
+}
+
+/* ============ HERO (scrub) ============ */
+.hero{position:relative;height:600vh}
+.stage{position:sticky;top:0;height:100vh;overflow:hidden;background:var(--canvas)}
+.poster,.stage video{position:absolute;inset:0;width:100%;height:100%}
+.poster{background:var(--sky) 50% 50%/cover no-repeat}
+.stage video{object-fit:cover;object-position:50% 50%;opacity:0;transition:opacity .9s var(--ease-out);transform:translateZ(0);will-change:transform}
+.stage.video-ready video{opacity:1}
+.stage.video-failed video{display:none}
+.scrim{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 120% 90% at 50% 45%,rgba(10,23,51,0) 35%,rgba(10,23,51,.62) 100%)}
+.navscrim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,rgba(10,23,51,.55),rgba(10,23,51,0) 22%)}
+@media (max-aspect-ratio:3/2){.stage video{object-position:40% 50%}.poster{background-position:40% 50%}}
+
+.bands{position:absolute;left:6vw;top:calc(64px + 2.5vh);width:min(640px,42vw)}
+.band{position:absolute;left:0;top:0;width:100%;opacity:0;pointer-events:none;isolation:isolate;text-shadow:var(--tshadow)}
+.band.b1{opacity:1;--k:1}
+.js .band.b1{--k:0}
+.band.on{pointer-events:auto}
+.band::before{content:"";position:absolute;inset:-30% -18% -36% -22%;z-index:-1;pointer-events:none;opacity:calc(.25 + .75*var(--k,1));background:radial-gradient(ellipse 60% 56% at 44% 46%,rgba(10,23,51,var(--sa,.62)) 0%,rgba(10,23,51,calc(var(--sa,.62)*.67)) 46%,rgba(10,23,51,0) 76%)}
+.band .btn{text-shadow:none}
+.chip{display:inline-block;max-width:100%;margin:0;padding:6px 10px;font:400 clamp(11px,.8vw,12px)/1.5 var(--font-mono);letter-spacing:.08em;color:var(--text-primary);background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-shadow:0 1px 3px rgba(6,14,32,.85)}
+@media (min-width:1180px){.band .chip{white-space:nowrap}}
+.hl{margin:14px 0 0;font:600 clamp(28px,min(3.4vw,5.4vh),54px)/1.25 var(--font-head);letter-spacing:.02em;text-wrap:balance;max-inline-size:none}
+.sub{margin:10px 0 0;font:400 clamp(16px,1.25vw,19px)/1.75 var(--font-body);max-width:33em;max-inline-size:33ic}
+.split .w{display:inline-block;white-space:nowrap}
+.split .c{display:inline-block;white-space:pre}
+/* band 1: drift-down (the aircraft sinks toward the deck) */
+.drift .w{--kc:clamp(0,(var(--k,0) - var(--th,0))*2.8,1);opacity:var(--kc);transform:translateY(calc((1 - var(--kc))*-24px))}
+.drift .chip{opacity:clamp(0,var(--k,0)*2,1)}
+/* band 2: drum-roll (each character rolls up into its slot like the altimeter drum beside it) */
+.drum .c{clip-path:inset(-.12em -.04em -.25em -.04em)}
+.drum .ci{display:inline-block;--kc:clamp(0,(var(--k,0) - var(--th,0))*2.6,1);opacity:var(--kc);transform:translateY(calc((1 - var(--kc))*.9em))}
+/* band 3: blur-to-sharp (mist clears off the lens); blur is static on the soft copy, only opacity moves */
+.focus-wrap{display:grid}
+.focus-wrap>.copy{grid-area:1/1}
+.copy.soft{filter:blur(10px);opacity:calc((1 - var(--k,0))*.9)}
+.copy.sharp{opacity:var(--k,0)}
+/* band 4: word-by-word rise into a staged settle */
+.settle .w{--kc:clamp(0,(var(--k,0) - var(--th,0))*3,1);opacity:var(--kc);transform:translateY(calc((1 - var(--kc))*.55em))}
+.settle .ks{--ks:clamp(0,(var(--k,0) - .66)*4,1);opacity:var(--ks);transform:translateY(calc((1 - var(--ks))*10px))}
+.settle .kb{--kb:clamp(0,(var(--k,0) - .78)*5,1);opacity:var(--kb);transform:translateY(calc((1 - var(--kb))*10px))}
+.cta-row{display:flex;flex-wrap:wrap;gap:12px;margin-top:18px}
+.band:not(.on) .cta-row{visibility:hidden}
+
+/* Scroll cue with the inline loading ring */
+.cue{position:absolute;left:6vw;bottom:5vh;margin:0;display:flex;align-items:center;gap:10px;padding:7px 12px;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-primary);background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+.ring{width:16px;height:16px;transform:rotate(-90deg);color:var(--text-secondary)}
+.ring .ring-bg{stroke:rgba(169,168,192,.25)}
+.ring .ring-fg{transition:stroke-dashoffset .2s linear}
+
+/* PFD altitude tape (the signature) */
+.tape{position:absolute;right:clamp(12px,1.6vw,28px);top:44%;width:84px;height:min(56vh,480px);transform:translateY(-50%);font-family:var(--font-mono);color:var(--text-primary);user-select:none}
+.tchip{position:relative;isolation:isolate;background:rgba(10,23,51,.60);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);border:1px solid rgba(94,110,162,.35);border-radius:6px}
+.tchip::after{content:"";position:absolute;inset:0;z-index:-1;border-radius:inherit;background:rgba(10,23,51,.30);opacity:var(--deep,0);pointer-events:none}
+.tape-win{position:absolute;inset:0;overflow:hidden}
+.tape-strip{position:absolute;left:0;top:0;width:84px;will-change:transform}
+.tape-strip line{stroke:var(--text-primary);stroke-width:1}
+.tape-strip text{fill:var(--text-primary);font:400 12px var(--font-mono)}
+.tape-strip .bug{fill:var(--signal);stroke:none}
+.tape-strip .bugline{stroke:var(--signal);stroke-width:2}
+.tape-read{position:absolute;left:-12px;right:-3px;top:50%;height:46px;transform:translateY(-50%);display:flex;align-items:center;justify-content:flex-end;padding-right:5px;background:var(--canvas);border:1px solid var(--text-primary);border-radius:3px;z-index:2}
+.tape-read::before{content:"";position:absolute;left:-7px;top:50%;width:12px;height:12px;margin-top:-6px;background:var(--canvas);border-left:1px solid var(--text-primary);border-bottom:1px solid var(--text-primary);transform:rotate(45deg)}
+.tape-hund{position:relative;font:700 22px/1 var(--font-mono);min-width:2.2ch;text-align:right;font-variant-numeric:tabular-nums}
+.tape-drum{position:relative;flex:none;width:27px;height:66px;margin:0 -6px 0 3px;overflow:hidden;background:var(--canvas);border:1px solid var(--text-primary);border-radius:3px}
+.tape-drum::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(180deg,var(--canvas) 0%,rgba(10,23,51,0) 34%,rgba(10,23,51,0) 66%,var(--canvas) 100%)}
+.drum-col{position:absolute;left:0;top:0;width:100%;will-change:transform}
+.drum-col span{display:block;height:18px;padding-left:3px;font:700 15px/18px var(--font-mono);text-align:left}
+.tape-m,.tape-min,.tape-qnh{position:absolute;left:0;right:0;text-align:center}
+.tape-m{bottom:calc(100% + 8px);padding:5px 0;font-size:12px;letter-spacing:.04em}
+.tape-min{top:calc(100% + 8px);padding:5px 2px 6px;color:var(--signal)}
+.min-l1{display:block;margin:0 2px;padding:1px 0;font:400 12px/1.3 var(--font-mono);letter-spacing:.04em;border:1px solid transparent;border-radius:2px}
+.min-l2{display:block;font:700 17px/1.25 var(--font-mono)}
+.tape-min.mins .min-l1{font-weight:700;font-size:11px;background:var(--canvas);border-color:var(--signal)}
+.tape-min.blink .min-l1{animation:blink2 .9s steps(1) 1}
+@keyframes blink2{0%,50%{opacity:1}25%,75%{opacity:0}}
+.tape-qnh{top:calc(100% + 76px);font-size:12px;color:var(--text-secondary);letter-spacing:.04em}
+@media (max-height:560px){.tape,.cue{display:none}}
+
+/* ============ STATIC HERO (the five gates) ============ */
+.static-hero{display:none}
+@media (max-width: 720px), (orientation: portrait) and (max-width: 1024px), (orientation: portrait) and (pointer: coarse), (orientation: landscape) and (pointer: coarse) and (max-height: 560px), (prefers-reduced-motion: reduce){
+  .hero{height:auto}
+  .stage{display:none}
+  .static-hero{display:grid;grid-template-rows:auto 1fr auto;position:relative;isolation:isolate;min-height:100vh;min-height:100svh;padding:calc(64px + 4vh) var(--gutter) max(32px,env(safe-area-inset-bottom));background:var(--sky) url(assets/hero-poster.webp) 14% 50%/cover no-repeat}
+}
+.static-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(10,23,51,.78) 0%,rgba(10,23,51,.42) 24%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 56%,rgba(10,23,51,.6) 74%,rgba(10,23,51,.9) 100%)}
+@media (min-width:721px){.static-hero{background-position:50% 50%!important}}
+.st-top,.st-bot{text-shadow:var(--tshadow)}
+.st-top h1{font:600 clamp(28px,7.4vw,48px)/1.3 var(--font-head);letter-spacing:.02em;max-width:14em}
+.st-top .sub{margin-top:12px;font-size:clamp(16px,4.2vw,19px);max-width:20em;max-inline-size:20ic}
+.st-bot{display:grid;gap:12px;justify-items:start}
+.st-bot .chip{white-space:normal}
+.st-strip{margin:0;font:400 12px/1.5 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary);padding:6px 10px;background:rgba(10,23,51,.55);border:1px solid rgba(94,110,162,.35);border-radius:6px}
+.st-strip b{font-weight:700;color:var(--signal)}
+.st-bot .cta-row{margin-top:6px}
+@media (min-width:721px){.st-top,.st-bot{max-width:min(640px,48vw)}}
+
+/* ============ SECTIONS (shared) ============ */
+.sec{position:relative;padding:clamp(80px,11vh,140px) 0;scroll-margin-top:64px}
+.wrap{width:var(--wrap);margin-inline:auto}
+.lede{font-size:clamp(17px,1.3vw,19px);color:var(--text-primary)}
+.muted{color:var(--text-secondary)}
+/* entrances: start and end states prefixed by the container so they win the cascade */
+.js [data-io] .rv{opacity:0;transform:translateY(18px);transition:opacity .9s var(--ease-out),transform .9s var(--ease-out);transition-delay:calc(var(--i,0)*110ms)}
+.js [data-io].in .rv{opacity:1;transform:none}
+.js [data-io].in.settled .rv{transition-delay:0s}
+/* self-drawing lines */
+.draw .ln{fill:none;vector-effect:non-scaling-stroke}
+.js .draw .ln{stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset 1.6s var(--ease-out);transition-delay:var(--d,0s)}
+.js .draw.in .ln{stroke-dashoffset:0}
+.js .fade,.js .fade-l{opacity:0;transition:opacity 1.2s var(--ease-out);transition-delay:var(--d,0s)}
+.js .draw.in .fade,.js [data-io].in .fade-l{opacity:1}
+
+/* Glide-slope dividers */
+.gs-div{position:relative;width:var(--wrap);margin-inline:auto;height:96px}
+.gs-div svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.gs-div .ln{stroke:var(--line-strong);stroke-width:1}
+.gs-div .lbl{position:absolute;left:0;top:-6px;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.gs-div .thr{position:absolute;right:-4px;bottom:-5px;display:flex;gap:6px}
+.gs-div .thr i{width:7px;height:7px;border-radius:50%;background:var(--threshold);box-shadow:0 0 8px rgba(79,208,138,.55)}
+
+/* ============ 01 ABOUT ============ */
+.about{padding-top:clamp(96px,14vh,170px)}
+.about-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:clamp(20px,3vw,48px);align-items:center;padding-right:var(--gutter)}
+.about-fig{grid-column:1 / span 7;margin:0}
+.about-art{position:relative;aspect-ratio:4/3;overflow:hidden;border:1px solid var(--line);border-left:0;border-radius:0 10px 10px 0;background:#0D1C40}
+.about-art svg{position:absolute;inset:0;width:100%;height:100%}
+.about-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(circle at 94% 4%,rgba(242,201,138,.30),rgba(242,201,138,.10) 22%,rgba(242,201,138,0) 46%);opacity:.75}
+.about.live .about-art::after{animation:breathe 7s var(--ease-io) -2.4s infinite alternate}
+@keyframes breathe{from{opacity:.45}to{opacity:1}}
+.about-fig figcaption{display:flex;align-items:center;gap:12px;margin:14px 0 0 var(--gutter);font:400 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.about-fig figcaption::before{content:"";width:40px;height:1px;background:var(--ember)}
+.ap .o{fill:none;stroke:var(--text-secondary);stroke-width:1.25;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+.ap .o.dim{stroke:var(--line-strong)}
+.ap .win{fill:rgba(242,201,138,.78);stroke:none}
+.ap .door{fill:rgba(242,201,138,.5)}
+.ap .cock{fill:rgba(10,23,51,.9)}
+.ap .stair{stroke:var(--text-secondary);stroke-width:1;vector-effect:non-scaling-stroke;fill:none}
+.about-text{grid-column:8 / span 5}
+.about-text p{font-size:17px}
+.about-text .staccato{font:600 19px/1.6 var(--font-head);letter-spacing:.04em;margin-top:1.4em}
+.logbook{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));margin:26px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.logbook div{padding:12px 14px;border-right:1px solid var(--line);margin-right:-1px}
+.logbook dt{font:400 11px/1.4 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
+.logbook dd{margin:4px 0 0;font:600 15px/1.5 var(--font-head)}
+.logbook dd .lat{font-family:var(--font-body);font-weight:400}
+
+/* ============ 02 LOG ============ */
+.plate-head{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;border:1px solid var(--line-strong);border-radius:8px}
+.plate-head>*{padding:16px 20px;margin:0}
+.plate-head>*+*{border-left:1px solid var(--line)}
+.plate-head .kicker{margin:0;color:var(--text-secondary)}
+.plate-head h2{font-size:clamp(26px,2.6vw,38px)}
+.log .lede{margin:26px 0 34px}
+.fly{position:relative;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse 80% 120% at 85% 110%,rgba(61,68,107,.55),rgba(61,68,107,0) 60%),linear-gradient(180deg,#0F2152,#0C1A3E)}
+/* when the wing still exists: .fly-plate{background:url(assets/log-wing.webp) 50% 40%/cover} plus a navy dim */
+.fly-plate{position:relative;aspect-ratio:1000/320}
+.plate{position:absolute;inset:0;width:100%;height:100%}
+.plate .ln{stroke:var(--line-strong);stroke-width:1.25}
+.plate .gs{stroke:var(--text-secondary);stroke-width:1.5}
+.plate .rwy{stroke:var(--text-secondary);stroke-width:5}
+.plate .da{fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:6 6;vector-effect:non-scaling-stroke}
+.plate .post{stroke:var(--line-strong);stroke-width:1;vector-effect:non-scaling-stroke}
+.plate .lamp{fill:var(--line-strong);transition:fill .5s var(--ease-out)}
+.plate .edge{fill:var(--line-strong);transition:fill .5s var(--ease-out)}
+.plate .thr{stroke:var(--line-strong);stroke-width:4;transition:stroke .5s var(--ease-out)}
+.plate .dev circle{fill:none;stroke:var(--text-secondary);stroke-width:1;vector-effect:non-scaling-stroke}
+.plate .dev .dia{fill:var(--text-secondary)}
+.fly.live:not(.touched) .plate .dev .dia{animation:breathe-d 5s var(--ease-io) -1.2s infinite alternate}
+@keyframes breathe-d{from{opacity:.35}to{opacity:1}}
+.plate .glyph{fill:var(--accent)}
+.fly.done .plate .lamp{fill:var(--text-primary)}
+.fly.done .plate .edge{fill:var(--edge-light)}
+.fly.done .plate .thr{stroke:var(--threshold)}
+.fly.done .plate .lamp:nth-of-type(1){transition-delay:.15s}.fly.done .plate .lamp:nth-of-type(2){transition-delay:.21s}.fly.done .plate .lamp:nth-of-type(3){transition-delay:.27s}.fly.done .plate .lamp:nth-of-type(4){transition-delay:.33s}.fly.done .plate .lamp:nth-of-type(5){transition-delay:.39s}
+.fly.done .plate .thr{transition-delay:.5s}
+.fly.done .plate .edge{transition-delay:.62s}
+.plate-lbl{position:absolute;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap;pointer-events:none}
+.mins-tag{position:absolute;left:68%;top:56%;margin:0;padding:3px 6px;font:700 11px/1 var(--font-mono);letter-spacing:.06em;color:var(--signal);background:var(--canvas);border:1px solid var(--signal);border-radius:2px;opacity:0;transition:opacity .3s var(--ease-out)}
+.fly.done .mins-tag{opacity:1;animation:blink2 .9s steps(1) 1}
+.fly-ctl{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px 40px;align-items:end;padding:24px clamp(18px,2.4vw,32px) 28px;border-top:1px solid var(--line)}
+.fly-ctl .kicker{margin-bottom:8px}
+.fly-ctl h3{font-size:clamp(22px,2vw,28px);margin-bottom:6px}
+.fly-ctl .ins{margin:0;color:var(--text-secondary);font-size:16px}
+.fly-act{display:grid;gap:10px;justify-items:start}
+.hold{min-width:180px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.hold-track{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent-muted)}
+.hold-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
+.fly-status{margin:0;font-size:15px;color:var(--text-primary);min-height:1.85em}
+.fly-read{margin:0;font:700 13px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+
+.strips{list-style:none;margin:40px 0 0;padding:0;display:grid;gap:12px}
+.strip{position:relative;display:grid;grid-template-columns:8px 150px minmax(0,1fr) 92px;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:linear-gradient(90deg,rgba(18,36,82,.55),rgba(18,36,82,.25));transition:border-color .35s var(--ease-out),background-color .35s var(--ease-out)}
+.strip:hover{border-color:var(--line-strong)}
+.strip-bar{position:relative;background:var(--line);border-radius:5px 0 0 5px}
+.strip-bar::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--text-primary);box-shadow:0 0 14px rgba(236,233,241,.55);opacity:0;transition:opacity .45s var(--ease-out)}
+.log.landed .strip-bar::after{opacity:1;transition-delay:calc(.75s + var(--i,0)*90ms)}
+.strip-meta{display:grid;align-content:start;gap:10px;padding:18px 16px;border-right:1px solid var(--line)}
+.strip-meta p{margin:0}
+.strip-date{font:400 13px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary)}
+.strip-tag{justify-self:start;padding:4px 7px;font:700 11px/1 var(--font-mono);letter-spacing:.1em;border:1px solid var(--line-strong);border-radius:2px}
+.strip-main{padding:16px 22px 18px}
+.strip-main h3{font-size:clamp(18px,1.5vw,21px);line-height:1.45;margin-bottom:6px}
+.strip-main p{margin:0;font-size:15.5px;line-height:1.8;color:var(--text-secondary);max-inline-size:46ic}
+.strip-time{display:flex;align-items:flex-start;justify-content:flex-end;margin:0;padding:18px 16px;font:400 13px/1 var(--font-mono);color:var(--text-secondary);border-left:1px solid var(--line);white-space:nowrap}
+.list-end{margin:26px 0 8px;color:var(--text-secondary)}
+
+/* ============ 03 TYPE ============ */
+.type .wrap{text-align:center}
+.icao{display:inline-flex;flex-wrap:wrap;justify-content:center;margin:0 auto;padding:0;list-style:none;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
+.icao li{padding:10px 16px;font:400 12px/1.2 var(--font-mono);letter-spacing:.1em;border-right:1px solid var(--line);margin-right:-1px;white-space:nowrap}
+.icao-gloss{margin:12px auto 0;font-size:14px;color:var(--text-secondary);max-inline-size:none}
+.type .kicker{margin-top:56px}
+.type h2{margin-bottom:14px}
+.type .lede{margin-inline:auto}
+.outline{margin:40px auto 0;max-width:1100px}
+.outline svg{width:100%;height:auto;overflow:visible}
+.outline .o{stroke:var(--text-secondary);stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round}
+.outline .o.dim{stroke:var(--line-strong)}
+.outline .lead{stroke:var(--line-strong);stroke-width:1}
+.outline .mk circle{fill:var(--canvas);stroke:var(--line-strong);stroke-width:1.5;vector-effect:non-scaling-stroke}
+.outline .mk text{fill:var(--text-primary);font:400 20px var(--font-mono);text-anchor:middle;dominant-baseline:central}
+.ghost-blades path{fill:rgba(169,168,192,.10);stroke:rgba(169,168,192,.35);stroke-width:1;vector-effect:non-scaling-stroke}
+.type.live .ghost-rot{animation:prop 12s linear -3s infinite}
+@keyframes prop{to{transform:rotate(360deg)}}
+.callouts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;margin:22px 0 0;padding:0;list-style:none}
+.callouts li{display:flex;align-items:center;gap:10px;font:600 15px/1.4 var(--font-head)}
+.callouts svg{flex:none;width:24px;height:24px}
+.callouts circle{fill:none;stroke:var(--line-strong);stroke-width:1.5}
+.callouts text{fill:var(--text-primary);font:400 13px var(--font-mono);text-anchor:middle;dominant-baseline:central}
+.callouts .lat{font-family:var(--font-body);font-weight:400}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:56px 0 0;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;text-align:left}
+.facts>div{padding:24px clamp(18px,2vw,28px) 26px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -1px -1px 0}
+.facts dt{font:400 12px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.facts .val{display:block;margin:12px 0 10px;font:600 clamp(36px,4vw,60px)/1 var(--font-display);letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.facts dd{margin:0}
+.facts .line{display:block;font-size:15px;line-height:1.8;color:var(--text-secondary)}
+.type .fnote{margin:22px auto 0;font-size:13.5px;color:var(--text-secondary);max-inline-size:52ic}
+
+/* ============ 04 AI ============ */
+.ai{padding-top:0}
+.ai-banner{position:relative;aspect-ratio:21/6;min-height:260px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);
+  background:
+   radial-gradient(circle 26px at 9% 71%,rgba(242,201,138,.5),rgba(242,201,138,.38) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 34px at 19% 74%,rgba(242,201,138,.38),rgba(242,201,138,.26) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 22px at 31% 69%,rgba(242,201,138,.42),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 40px at 44% 76%,rgba(242,201,138,.3),rgba(242,201,138,.2) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 24px at 57% 70%,rgba(242,201,138,.44),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 30px at 69% 73%,rgba(242,201,138,.34),rgba(242,201,138,.22) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 20px at 80% 68%,rgba(242,201,138,.46),rgba(242,201,138,.3) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 36px at 92% 75%,rgba(242,201,138,.3),rgba(242,201,138,.2) 55%,rgba(242,201,138,0) 100%),
+   radial-gradient(circle 18px at 36% 86%,rgba(79,208,138,.5),rgba(79,208,138,.32) 55%,rgba(79,208,138,0) 100%),
+   radial-gradient(circle 18px at 41% 87%,rgba(79,208,138,.45),rgba(79,208,138,.3) 55%,rgba(79,208,138,0) 100%),
+   radial-gradient(circle 18px at 46% 86%,rgba(79,208,138,.5),rgba(79,208,138,.32) 55%,rgba(79,208,138,0) 100%),
+   radial-gradient(circle 16px at 64% 90%,rgba(230,169,72,.4),rgba(230,169,72,.26) 55%,rgba(230,169,72,0) 100%),
+   radial-gradient(circle 22px at 14% 90%,rgba(124,147,216,.45),rgba(124,147,216,.28) 55%,rgba(124,147,216,0) 100%),
+   radial-gradient(circle 20px at 86% 89%,rgba(124,147,216,.4),rgba(124,147,216,.26) 55%,rgba(124,147,216,0) 100%),
+   radial-gradient(circle 46px at 74% 84%,rgba(244,139,69,.22),rgba(244,139,69,.12) 55%,rgba(244,139,69,0) 100%),
+   radial-gradient(ellipse 70% 40% at 50% 100%,rgba(73,80,113,.55),rgba(73,80,113,0)),
+   linear-gradient(180deg,#0A1733 0%,#0E1D44 48%,#14275A 100%)}
+/* when the rain-on-glass still exists: replace the background above with url(assets/ai-banner.webp) center/cover */
+.ai-banner .wrap{position:relative;padding-top:clamp(40px,6vw,76px);text-shadow:var(--tshadow)}
+.ai-banner h2{font-size:clamp(34px,4vw,56px)}
+.drz{position:absolute;inset:0;pointer-events:none}
+.drz i{position:absolute;top:0;bottom:0;left:var(--x);width:1px;background:linear-gradient(180deg,rgba(169,168,192,0),rgba(169,168,192,1)) 0 0/1px 64px no-repeat;opacity:var(--o,.14);transform:translateY(-100%)}
+.ai.live .drz i{animation:fall var(--t,7s) linear var(--dl,-2s) infinite}
+@keyframes fall{from{transform:translateY(-12%) rotate(8deg)}to{transform:translateY(100%) rotate(8deg)}}
+.ai .lede{margin:34px 0 40px}
+.ai-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:clamp(24px,3vw,48px);align-items:start}
+.shelf{margin:0 0 40px}
+.aisle{display:flex;align-items:stretch;margin-bottom:10px;border:1px solid var(--line-strong);border-radius:4px;width:max-content;max-width:100%;overflow:hidden}
+.aisle b{display:flex;align-items:center;padding:6px 10px;font:700 13px/1 var(--font-mono);letter-spacing:.08em;background:var(--text-primary);color:var(--canvas)}
+.aisle h3{display:flex;align-items:center;padding:6px 14px;font-size:17px;line-height:1.4}
+.shelf-blurb{margin:0 0 16px;font-size:15px;color:var(--text-secondary)}
+.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.card{display:flex;flex-direction:column;gap:8px;padding:16px 16px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(18,36,82,.5);transition:border-color .35s var(--ease-out),transform .35s var(--ease-out)}
+.card:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+.card h4{font-size:17px;line-height:1.4}
+.card .desc{margin:0;font-size:14.5px;line-height:1.75;color:var(--text-primary)}
+.badge{align-self:flex-start;padding:3px 8px;font:400 12px/1.4 var(--font-head);color:var(--text-secondary);border:1px solid var(--line-strong);border-radius:999px}
+.card .note{margin:0;font-size:13.5px;line-height:1.75;color:var(--text-secondary);border-left:2px solid var(--line);padding-left:10px}
+.card .open{margin-top:auto;padding-top:4px;display:inline-flex;align-items:baseline;gap:8px;font:600 14px/1.6 var(--font-head);text-decoration:none;color:var(--text-primary)}
+.card .open .dom{font:400 12px/1 var(--font-mono);letter-spacing:.04em;color:var(--text-secondary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px;transition:color .3s var(--ease-out)}
+.card .open:hover .dom{color:var(--text-primary)}
+.shelf-note{font-size:14px;color:var(--text-secondary);margin-top:-8px}
+
+.chat{position:sticky;top:84px;display:flex;flex-direction:column;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);overflow:hidden}
+.chat-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:18px 20px 0}
+.chat-head h3{font-size:21px}
+.lamp{display:inline-flex;align-items:center;gap:8px;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.lamp-dot{width:8px;height:8px;border-radius:50%;background:var(--text-secondary)}
+.lamp-code{font-weight:700;color:var(--text-primary)}
+.lamp[data-state="inop"] .lamp-code,.lamp[data-state="inop"] .lamp-dot{color:var(--signal);background-color:transparent}
+.lamp[data-state="inop"] .lamp-dot{background:var(--signal)}
+.lamp[data-state="on"] .lamp-dot{background:var(--threshold)}
+.lamp[data-state="tx"] .lamp-dot{background:var(--text-primary)}
+.ai.live .lamp[data-state="inop"] .lamp-dot,.ai.live .lamp[data-state="stby"] .lamp-dot{animation:breathe-d 4s var(--ease-io) -1s infinite alternate}
+.chat-lede{margin:8px 20px 0;font-size:15px}
+.chat-caution{margin:8px 20px 0;font-size:13.5px;line-height:1.7;color:var(--text-secondary)}
+.chat-log{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;padding:16px 20px;min-height:180px;max-height:340px;overflow-y:auto;border-block:1px solid var(--line);background:rgba(10,23,51,.45)}
+.msg{max-width:88%;padding:10px 13px;border-radius:10px;font-size:15px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg p{margin:0;max-inline-size:none}
+.msg.assistant{align-self:flex-start;background:rgba(18,36,82,.95);border:1px solid var(--line)}
+.msg.user{align-self:flex-end;background:rgba(94,110,162,.28);border:1px solid var(--line-strong)}
+.placard{display:inline-block;margin:0 8px 4px 0;padding:2px 6px;font:700 11px/1.2 var(--font-mono);letter-spacing:.1em;color:var(--signal);border:1px solid var(--signal);border-radius:2px;vertical-align:1px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px 0}
+.chips button{padding:7px 12px;font:400 13.5px/1.4 var(--font-head);text-align:left;background:transparent;border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;transition:border-color .3s var(--ease-out),background-color .3s var(--ease-out)}
+.chips button:hover{border-color:var(--text-primary);background:rgba(94,110,162,.15)}
+.chat-form{display:flex;gap:10px;align-items:flex-end;padding:14px 20px 0}
+.chat-form textarea{flex:1;min-height:48px;max-height:140px;padding:12px 13px;font-size:15px;line-height:1.5;resize:vertical;background:rgba(10,23,51,.6);border:1px solid var(--line-strong);border-radius:8px;transition:border-color .3s var(--ease-out)}
+.chat-form textarea::placeholder,.sub-form input::placeholder{color:var(--text-secondary);opacity:1}
+.chat-form textarea:focus-visible,.sub-form input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--text-primary)}
+.chat-form .btn{flex:none}
+.chat-form .btn[disabled]{opacity:.65;cursor:progress}
+.chat-privacy{margin:10px 20px 18px;font-size:12.5px;line-height:1.7;color:var(--text-secondary)}
+
+/* ============ 05 FAQ ============ */
+.checklist{position:relative;max-width:760px;margin:0 auto;border:1px solid var(--line-strong);border-radius:10px;background:rgba(18,36,82,.45);overflow:hidden}
+.cl-head{margin:0;padding:12px 24px;font:700 12px/1.4 var(--font-mono);letter-spacing:.14em;background:var(--text-primary);color:var(--canvas);max-inline-size:none}
+.cl-body{padding:28px clamp(18px,3vw,36px) 10px}
+.cl-body h2{margin-bottom:12px}
+.cl-rows{margin:20px 0 0}
+.cl-row{padding:18px 0 16px;border-top:1px solid var(--line)}
+.cl-row dt{display:flex;align-items:baseline;gap:12px;font:600 18px/1.5 var(--font-head)}
+.cl-row .lead{flex:1;min-width:24px;border-bottom:2px dotted var(--line-strong);transform:translateY(-4px)}
+.cl-row .r{font:700 15px/1.5 var(--font-head);letter-spacing:.04em;white-space:nowrap}
+.cl-row dd{margin:8px 0 0;font-size:15.5px;line-height:1.85;color:var(--text-secondary)}
+.cl-row dd p{margin:0;max-inline-size:none}
+.scan{position:absolute;left:0;right:0;top:0;height:100%;pointer-events:none;transform:translateY(-100%)}
+.scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,rgba(169,168,192,0),rgba(169,168,192,.35),rgba(169,168,192,0))}
+.faq.live .scan{animation:scan 10s var(--ease-io) -3s infinite}
+@keyframes scan{0%{transform:translateY(-100%)}60%,100%{transform:translateY(0)}}
+.faq .after{text-align:center;margin-top:30px}
+
+/* ============ 06 SUBSCRIBE ============ */
+.subscribe{min-height:100vh;display:grid;align-items:center;overflow:hidden;padding:clamp(80px,12vh,140px) 0 clamp(150px,22vh,240px)}
+.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.82) 22%,rgba(10,23,51,.80) 70%,rgba(10,23,51,.94) 100%),url(assets/hero-end.webp) 50% 60%/cover no-repeat}
+.runway{position:absolute;inset:0;width:100%;height:100%}
+.runway .ln{stroke:var(--line-strong);stroke-width:1}
+.runway .cl{fill:none;stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:16 20;vector-effect:non-scaling-stroke}
+.runway .edge{fill:var(--edge-light);opacity:.75}
+.runway .bar{fill:var(--text-primary);opacity:.55}
+.runway .rab{fill:#fff;opacity:0}
+.subscribe.live .runway .rab{animation:rabbit 5s linear infinite;animation-delay:calc(var(--r)*90ms - 2s)}
+@keyframes rabbit{0%{opacity:0}1%{opacity:1}3.5%{opacity:0}100%{opacity:0}}
+.sub-card{position:relative;width:min(520px,100%);margin:0 auto;padding:clamp(26px,3vw,40px);border:1px solid var(--line-strong);border-radius:12px;background:rgba(18,36,82,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center;box-shadow:0 30px 80px rgba(6,14,32,.55)}
+.sub-card .lede{margin:14px auto 6px;font:600 18px/1.7 var(--font-head)}
+.sub-card .sub2{margin:0 auto 22px;color:var(--text-secondary);font-size:15.5px}
+.sub-form{display:grid;gap:10px;text-align:left}
+.sub-form label{font:600 14px/1.4 var(--font-head)}
+.sub-form input{width:100%;min-height:50px;padding:0 14px;font:400 16px/1 var(--font-body);background:rgba(10,23,51,.7);border:1px solid var(--line-strong);border-radius:8px;transition:border-color .3s var(--ease-out)}
+.sub-form input[aria-invalid="true"]{border-color:var(--signal)}
+.sub-err{min-height:1.6em;margin:0;font-size:14px;line-height:1.6;color:var(--signal)}
+.thr5{display:flex;justify-content:center;gap:9px;margin:2px 0 4px}
+.thr5 i{width:8px;height:8px;border-radius:50%;background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.6)}
+.sub-form .btn{width:100%;min-height:52px;font-size:17px}
+.micro{margin:2px 0 0;font-size:13px;color:var(--text-secondary);text-align:center;max-inline-size:none}
+.sub-done{text-align:left;padding:16px 18px;border:1px solid var(--line-strong);border-radius:8px;background:rgba(10,23,51,.6)}
+.sub-done p{margin:0;font-size:15.5px;line-height:1.85;max-inline-size:none}
+.sub-done:focus{outline:none}
+
+/* ============ FOOTER ============ */
+.foot{position:relative;padding:56px 0 calc(40px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(10,23,51,.6)}
+.foot-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 40px;align-items:baseline}
+.foot-mark{display:flex;align-items:baseline;gap:12px;margin:0}
+.foot-mark .brand-name{font-size:22px}
+.foot-mark .mono{font-size:12px;color:var(--text-secondary)}
+.foot-tag{margin:10px 0 0;font:600 17px/1.6 var(--font-head);letter-spacing:.06em}
+.foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0;padding:0;list-style:none}
+.foot-links a{font:400 15px/1.8 var(--font-head);color:var(--text-secondary);text-decoration:none;transition:color .3s var(--ease-out)}
+.foot-links a:hover{color:var(--text-primary)}
+.foot-notes{grid-column:1 / -1;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.foot-notes p{margin:0 0 6px;font-size:13px;line-height:1.8;color:var(--text-secondary);max-inline-size:none}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:1024px){
+  .about-grid{grid-template-columns:1fr;padding-right:0;row-gap:36px}
+  .about-fig{grid-column:1;margin-right:var(--gutter)}
+  .about-text{grid-column:1;width:var(--wrap);margin-inline:auto}
+  .ai-grid{grid-template-columns:1fr}
+  .chat{position:relative;top:auto}
+  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media (max-width:720px){
+  body{font-size:16px}
+  .about-fig{margin-right:0}
+  .about-art{border-radius:0;border-inline:0}
+  .plate-head{grid-template-columns:1fr auto}
+  .plate-head h2{grid-column:1 / -1;grid-row:2;border-left:0;border-top:1px solid var(--line)}
+  .plate-head>.kicker:last-child{border-left:1px solid var(--line)}
+  .fly-ctl{grid-template-columns:1fr}
+  .plate-lbl{font-size:10px;letter-spacing:.02em}
+  .mins-tag{font-size:10px;padding:2px 4px}
+  .strip{grid-template-columns:6px minmax(0,1fr)}
+  .strip-meta{grid-column:2;grid-row:1;display:flex;align-items:center;gap:12px;padding:14px 16px 0;border-right:0}
+  .strip-main{grid-column:2;grid-row:2;padding:10px 16px 6px}
+  .strip-time{grid-column:2;grid-row:3;justify-content:flex-start;padding:4px 16px 16px;border-left:0}
+  .strip-bar{grid-row:1 / span 3}
+  .icao li{padding:9px 11px;font-size:11px}
+  .facts{grid-template-columns:1fr}
+  .ai-banner{aspect-ratio:auto;min-height:230px}
+  .cards{grid-template-columns:1fr}
+  .chat-log{max-height:300px}
+  .chat-form{flex-direction:column;align-items:stretch}
+  .foot-grid{grid-template-columns:1fr}
+  .gs-div{height:72px}
+}
+@media (pointer:coarse){
+  .btn,.nav-links a,.chips button,.foot-links a,.card .open{min-height:44px;display:inline-flex;align-items:center}
+  .btn{justify-content:center}
+  .nav-toggle{min-height:44px}
+}
+
+/* ============ REDUCED MOTION (complete, final states) ============ */
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none!important;transition:none!important;transition-delay:0s!important}
+  .js [data-io] .rv{opacity:1;transform:none}
+  .js .draw .ln{stroke-dashoffset:0}
+  .js .fade,.js .fade-l{opacity:1}
+  .drz{display:none}
+  .runway .rab{opacity:0}
+  .nav-links{transform:none}
+}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+<div class="env" aria-hidden="true"><i></i></div>
+
+<!-- Brand name: a placeholder. It sits only in the brand-name spans (nav, footer wordmark, footer copyright), the title, og:title, og:site_name and application-name. Rename = one find-and-replace across this file. -->
+<nav class="nav" id="nav" aria-label="主导航">
+  <a class="wordmark" href="#top"><span class="brand-name">云底之下</span><span class="mono">PC12/L</span></a>
+  <ul class="nav-links" id="nav-links">
+    <li><a href="#about">关于</a></li>
+    <li><a href="#log">日志</a></li>
+    <li><a href="#type">机型</a></li>
+    <li><a href="#ai">AI 超市</a></li>
+    <li><a href="#faq">问答</a></li>
+  </ul>
+  <a class="btn btn-ghost nav-cta" href="#subscribe">订阅</a>
+  <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="nav-links">目录</button>
+</nav>
+
+<main id="main" tabindex="-1">
+
+<header class="hero" id="top">
+  <div class="stage" id="stage">
+    <div class="poster" aria-hidden="true"></div>
+    <video id="hero-video" preload="none" muted playsinline disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+    <div class="scrim" aria-hidden="true"></div>
+    <div class="navscrim" aria-hidden="true"></div>
+
+    <div class="bands">
+      <div class="band b1 drift" data-a="0" data-b="0.22" data-spread="0.42" style="--sa:.62">
+        <p class="chip" aria-hidden="true">METAR ZZZZ 131030Z 24003MPS 2000 BR OVC003 08/07 Q1016 NOSIG</p>
+        <h1 class="hl split">三千英尺，<wbr>云顶之上。</h1>
+        <p class="sub split">我是 PC-12 机长，<wbr>飞短途支线。<wbr>跟我飞完这次进近。</p>
+      </div>
+      <div class="band b2 drum" data-a="0.24" data-b="0.50" data-ramp="0.04" data-spread="0.5" style="--sa:.72">
+        <p class="chip" aria-hidden="true">IMC · ILS RWY 24</p>
+        <p class="hl split" data-mode="char">进云之后，<wbr>只信仪表。</p>
+        <p class="sub split" data-mode="char">窗外只剩灰色。<wbr>姿态、<wbr>空速、<wbr>航向道、<wbr>下滑道，<wbr>轮流扫视。</p>
+      </div>
+      <div class="band b3 focus" data-a="0.52" data-b="0.76" data-ramp="0.036" style="--sa:.68">
+        <p class="chip" aria-hidden="true">BREAKOUT · 云底 300 英尺</p>
+        <div class="focus-wrap">
+          <p class="sr">穿出云底，灯光亮着。白色进近灯，绿色入口灯，两排边灯一直铺进雾里。</p>
+          <div class="copy soft" aria-hidden="true"><p class="hl">穿出云底，灯光亮着。</p><p class="sub">白色进近灯，绿色入口灯，两排边灯一直铺进雾里。</p></div>
+          <div class="copy sharp" aria-hidden="true"><p class="hl">穿出云底，灯光亮着。</p><p class="sub">白色进近灯，绿色入口灯，两排边灯一直铺进雾里。</p></div>
+        </div>
+      </div>
+      <div class="band b4 settle" data-a="0.78" data-b="1" data-ramp="0.06" data-spread="0.24" style="--sa:.66">
+        <p class="hl split">最低标准，<wbr>起飞前<wbr>就定好。</p>
+        <p class="sub ks">到了决断高度：看得见，继续；看不见，复飞。</p>
+        <div class="cta-row kb">
+          <a class="btn btn-primary" href="#subscribe">订阅飞行日志</a>
+          <a class="btn btn-ghost" href="#log">先看日志</a>
+        </div>
+      </div>
+    </div>
+
+    <p class="cue" aria-hidden="true"><span>向下滚动，开始进近</span><svg class="ring" viewBox="0 0 48 48"><circle class="ring-bg" cx="24" cy="24" r="20" fill="none" stroke-width="5"/><circle class="ring-fg" cx="24" cy="24" r="20" fill="none" stroke="currentColor" stroke-width="5" stroke-dasharray="126" style="stroke-dashoffset:var(--ld,126)"/></svg></p>
+
+    <div class="tape" id="tape" aria-hidden="true">
+      <div class="tape-m tchip"><span id="tape-metric">914</span> M</div>
+      <div class="tape-win tchip"><svg class="tape-strip" id="tape-strip" width="84" height="1680" viewBox="0 0 84 1680"></svg></div>
+      <div class="tape-read"><span class="tape-hund" id="tape-hund">30</span><span class="tape-drum"><span class="drum-col" id="drum-col"><span>20</span><span>00</span><span>80</span><span>60</span><span>40</span><span>20</span><span>00</span><span>80</span></span></span></div>
+      <div class="tape-min tchip" id="tape-min"><span class="min-l1" id="min-l1">BARO MIN</span><span class="min-l2">200</span></div>
+      <div class="tape-qnh">QNH 1016</div>
+    </div>
+  </div>
+
+  <div class="static-hero">
+    <div class="st-top">
+      <h1>我飞 PC-12，跑短途支线。</h1>
+      <p class="sub">低云进近、短跑道、结冰天气。每篇讲清一个数字从哪里来。</p>
+    </div>
+    <div aria-hidden="true"></div>
+    <div class="st-bot">
+      <p class="chip" aria-hidden="true">METAR ZZZZ 131030Z 24003MPS 2000 BR OVC003 08/07 Q1016 NOSIG</p>
+      <p class="st-strip" aria-hidden="true">ALT 3000 · <b>MIN 200</b> · QNH 1016</p>
+      <div class="cta-row">
+        <a class="btn btn-primary" href="#subscribe">订阅飞行日志</a>
+        <a class="btn btn-ghost" href="#log">先看日志</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ 01 ABOUT ============ -->
+<section class="sec about" id="about" aria-labelledby="about-h" data-io data-live>
+  <div class="about-grid">
+    <figure class="about-fig rv" style="--i:0">
+      <!-- PLACEHOLDER ART until the apron still passes review. Swap this .about-art for:
+           <img src="assets/about.webp" width="1600" height="1200" loading="lazy" decoding="async" alt="雨后的停机坪上，一架 PC-12 停在蓝调时刻的灯光里，登机梯放下，舱内亮着暖光。"> -->
+      <div class="about-art">
+        <svg class="ap" viewBox="0 0 1200 900" preserveAspectRatio="xMidYMid slice" role="img" aria-label="雨后的停机坪上，一架 PC-12 停在蓝调时刻的灯光里，登机梯放下，舱内亮着暖光。">
+          <defs>
+            <linearGradient id="ap-sky" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#16295A"/><stop offset=".3" stop-color="#1B2F62"/><stop offset=".575" stop-color="#3D446B"/><stop offset=".58" stop-color="#18234A"/><stop offset=".8" stop-color="#0F1B3C"/><stop offset="1" stop-color="#0B1532"/>
+            </linearGradient>
+            <linearGradient id="ap-cone" x1="1" y1="0" x2="0" y2="1">
+              <stop offset="0" stop-color="#F2C98A" stop-opacity=".16"/><stop offset="1" stop-color="#F2C98A" stop-opacity="0"/>
+            </linearGradient>
+            <radialGradient id="ap-pool"><stop offset="0" stop-color="#F2C98A" stop-opacity=".34"/><stop offset="1" stop-color="#F2C98A" stop-opacity="0"/></radialGradient>
+            <pattern id="ap-rip" width="10" height="7" patternUnits="userSpaceOnUse"><rect width="10" height="3" fill="#fff"/></pattern>
+            <mask id="ap-mask" maskUnits="userSpaceOnUse" x="0" y="640" width="1200" height="260"><rect x="0" y="640" width="1200" height="260" fill="url(#ap-rip)"/></mask>
+          </defs>
+          <rect width="1200" height="900" fill="url(#ap-sky)"/>
+          <path d="M1200,0 L1200,40 L560,900 L300,900 Z" fill="url(#ap-cone)"/>
+          <path class="o dim" d="M0,522 H1200"/>
+          <g fill="#7C93D8" opacity=".85">
+            <circle cx="36" cy="532" r="2.4"/><circle cx="82" cy="533" r="2.4"/><circle cx="128" cy="534" r="2.4"/><circle cx="174" cy="535" r="2.4"/><circle cx="220" cy="536" r="2.4"/><circle cx="266" cy="537" r="2.4"/><circle cx="312" cy="538" r="2.4"/><circle cx="358" cy="539" r="2.4"/>
+          </g>
+          <g fill="#F2C98A" opacity=".7"><circle cx="980" cy="531" r="2"/><circle cx="1040" cy="531" r="2"/><circle cx="1100" cy="531" r="2"/></g>
+          <g stroke="#A9A8C0" stroke-width="1" fill="none" opacity=".12">
+            <path d="M40,600 H340 M420,612 H520 M700,690 H1150 M120,760 H480 M60,840 H300 M820,830 H1160"/>
+          </g>
+          <ellipse cx="600" cy="690" rx="190" ry="26" fill="url(#ap-pool)"/>
+          <ellipse cx="900" cy="700" rx="150" ry="20" fill="url(#ap-pool)"/>
+          <!-- wet-apron reflection: the parked aircraft mirrored on the ground line, rippled -->
+          <g mask="url(#ap-mask)" opacity=".22"><use href="#ap-plane" transform="translate(0 1289) scale(1 -1)"/></g>
+          <g id="ap-plane" transform="translate(281 284.5) scale(.45)">
+            <path class="cock" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z"/>
+            <path class="win" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z"/>
+            <path class="door" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z"/>
+            <path class="o" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
+            <path class="o" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z"/>
+            <path class="o" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273"/>
+            <path class="o dim" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z M1452,578 L1476,598 L1480,580"/>
+            <path class="o dim" d="M316,566 L306,404 M316,566 L330,712 M316,566 L298,640"/>
+            <path class="stair" d="M790,603 L768,790 M853,603 L842,790 M786,634 H850 M782,666 H848 M778,698 H846 M774,730 H845 M771,762 H843"/>
+            <path class="o" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
+          </g>
+        </svg>
+      </div>
+      <figcaption>APRON · 雨后 · 蓝调时刻</figcaption>
+    </figure>
+    <div class="about-text">
+      <p class="kicker rv" style="--i:1">01 / ABOUT</p>
+      <h2 class="rv" id="about-h" style="--i:2">左座上的人。</h2>
+      <p class="rv" style="--i:3">我是机长，飞 PC-12 NGX，跑短途支线。航段短，一天要起降好几次。</p>
+      <p class="rv" style="--i:4">这些航线没有长巡航可以喘口气。起飞、爬升、进近、落地，然后再来一遍。小机场跑道短，备降场远，天气说变就变，很多决定要在地面上做完。</p>
+      <p class="rv" style="--i:5">我写这个博客，想把驾驶舱里的事讲清楚：一个数字从哪里来，一条程序为什么这样写，一次进近里我在看什么。同行可以拿来对照，没飞过的人也看得懂。</p>
+      <p class="staccato rv" style="--i:6">不露脸，不写公司，只写飞行。</p>
+      <dl class="logbook rv" style="--i:7">
+        <div><dt>TYPE</dt><dd><span class="lat">PC-12 NGX</span></dd></div>
+        <div><dt>SEAT</dt><dd>左座</dd></div>
+        <div><dt>ROUTE</dt><dd>短途支线</dd></div>
+        <div><dt>WX</dt><dd>低云 · 侧风 · 结冰季</dd></div>
+      </dl>
+    </div>
+  </div>
+</section>
+
+<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">LOC 24</span></div>
+
+<!-- ============ 02 LOG ============ -->
+<section class="sec log" id="log" aria-labelledby="log-h" data-live>
+  <div class="wrap">
+    <div data-io>
+    <div class="plate-head rv" style="--i:0">
+      <p class="kicker">02 / LOG</p>
+      <h2 id="log-h">飞行日志</h2>
+      <p class="kicker">最新 5 篇</p>
+    </div>
+    <p class="lede rv" style="--i:1">落地之后写。每篇只讲一件事，写完先对一遍手册。</p>
+
+    <div class="fly rv" id="fly" style="--i:2" data-live>
+      <div class="fly-plate">
+        <svg class="plate draw" viewBox="0 0 1000 320" aria-hidden="true" focusable="false">
+          <path class="ln" pathLength="1" d="M20,280 H980"/>
+          <path class="ln" pathLength="1" d="M40,70 H150" style="--d:.2s"/>
+          <path class="ln" pathLength="1" d="M150,54 V86" style="--d:.35s"/>
+          <path class="ln gs" pathLength="1" d="M150,70 L760,280" style="--d:.45s"/>
+          <path class="da fade" d="M40,252 H760" style="--d:.9s"/>
+          <path class="ln rwy" pathLength="1" d="M760,280 H960" style="--d:.7s"/>
+          <g class="fade" style="--d:1s">
+            <path class="post" d="M650,280 V268 M672,280 V268 M694,280 V268 M716,280 V268 M738,280 V268"/>
+            <circle class="lamp" cx="650" cy="265" r="3.4"/><circle class="lamp" cx="672" cy="265" r="3.4"/><circle class="lamp" cx="694" cy="265" r="3.4"/><circle class="lamp" cx="716" cy="265" r="3.4"/><circle class="lamp" cx="738" cy="265" r="3.4"/>
+            <path class="thr" d="M760,268 V292"/>
+            <circle class="edge" cx="784" cy="273" r="2.6"/><circle class="edge" cx="808" cy="273" r="2.6"/><circle class="edge" cx="832" cy="273" r="2.6"/><circle class="edge" cx="856" cy="273" r="2.6"/><circle class="edge" cx="880" cy="273" r="2.6"/><circle class="edge" cx="904" cy="273" r="2.6"/><circle class="edge" cx="928" cy="273" r="2.6"/><circle class="edge" cx="952" cy="273" r="2.6"/>
+          </g>
+          <g class="dev fade" style="--d:1.1s">
+            <circle cx="962" cy="36" r="4"/><circle cx="962" cy="58" r="4"/><circle cx="962" cy="102" r="4"/><circle cx="962" cy="124" r="4"/>
+            <path class="dia" d="M962,70 L972,80 L962,90 L952,80 Z"/>
+          </g>
+          <g class="glyph" id="glyph" transform="translate(150 70) rotate(19)"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></g>
+        </svg>
+        <p class="plate-lbl" style="left:15%;top:6%;transform:translateX(-50%)">FAP 1500</p>
+        <p class="plate-lbl" style="left:41%;top:41%;transform:rotate(19deg)">GS 3.0°</p>
+        <p class="plate-lbl" style="left:4%;top:71%">DA 200</p>
+        <p class="plate-lbl" style="left:86%;top:92%;transform:translateX(-50%)">RWY 24</p>
+        <p class="mins-tag" aria-hidden="true">MINIMUMS</p>
+      </div>
+      <div class="fly-ctl">
+        <div>
+          <p class="kicker">ILS 示意 · 按住下降</p>
+          <h3>换你来飞。</h3>
+          <p class="ins">按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。</p>
+        </div>
+        <div class="fly-act">
+          <button class="btn btn-ghost hold" id="hold" type="button"><span class="hold-label" id="hold-label">按住下降</span><span class="hold-track" aria-hidden="true"><span class="hold-fill" id="hold-fill"></span></span></button>
+          <p class="fly-status" id="fly-status" aria-live="polite">已截获下滑道，等你按住。</p>
+          <p class="fly-read" id="fly-read" aria-hidden="true">ALT 1500</p>
+        </div>
+      </div>
+    </div>
+    </div>
+
+    <!-- SAMPLE POSTS: placeholder content to replace with real posts. Titles are not links in v1;
+         when a post page exists, wrap its title in <a href="posts/<slug>.html">. -->
+    <ol class="strips" data-io>
+      <li class="rv" style="--i:0"><article class="strip" style="--i:0">
+        <span class="strip-bar" aria-hidden="true"></span>
+        <div class="strip-meta"><p class="strip-date"><time datetime="2026-10-08">2026.10.08</time></p><p class="strip-tag">IMC</p></div>
+        <div class="strip-main"><h3>低云进近：决断高度前的那两秒</h3><p>云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p></div>
+        <p class="strip-time">8 分钟</p>
+      </article></li>
+      <li class="rv" style="--i:1"><article class="strip" style="--i:1">
+        <span class="strip-bar" aria-hidden="true"></span>
+        <div class="strip-meta"><p class="strip-date"><time datetime="2026-09-21">2026.09.21</time></p><p class="strip-tag">PERF</p></div>
+        <div class="strip-main"><h3>短跑道上的 PC-12：先算数，再上跑道</h3><p>起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p></div>
+        <p class="strip-time">7 分钟</p>
+      </article></li>
+      <li class="rv" style="--i:2"><article class="strip" style="--i:2">
+        <span class="strip-bar" aria-hidden="true"></span>
+        <div class="strip-meta"><p class="strip-date"><time datetime="2026-09-03">2026.09.03</time></p><p class="strip-tag">WX</p></div>
+        <div class="strip-main"><h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p>PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。这篇讲我怎么看云、看温度，什么情况下直接改天。</p></div>
+        <p class="strip-time">9 分钟</p>
+      </article></li>
+      <li class="rv" style="--i:3"><article class="strip" style="--i:3">
+        <span class="strip-bar" aria-hidden="true"></span>
+        <div class="strip-meta"><p class="strip-date"><time datetime="2026-08-17">2026.08.17</time></p><p class="strip-tag">OPS</p></div>
+        <div class="strip-main"><h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p>PT6 很少停车，可飞机上只有这一台。每一段起飞前，我先找好滑翔得到的落地点，再定航路和高度。</p></div>
+        <p class="strip-time">6 分钟</p>
+      </article></li>
+      <li class="rv" style="--i:4"><article class="strip" style="--i:4">
+        <span class="strip-bar" aria-hidden="true"></span>
+        <div class="strip-meta"><p class="strip-date"><time datetime="2026-07-30">2026.07.30</time></p><p class="strip-tag">PREFLT</p></div>
+        <div class="strip-main"><h3>绕机一圈：我的航前检查顺序</h3><p>从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。</p></div>
+        <p class="strip-time">5 分钟</p>
+      </article></li>
+    </ol>
+    <p class="list-end">下一篇还在写。</p>
+    <a class="tlink" href="#subscribe">订阅飞行日志</a>
+  </div>
+</section>
+
+<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">GS 3.0°</span></div>
+
+<!-- ============ 03 TYPE ============ -->
+<section class="sec type" id="type" aria-labelledby="type-h" data-live>
+  <div class="wrap">
+    <div data-io>
+    <ul class="icao rv" style="--i:0" aria-label="ICAO">
+      <li>TYP PC12</li><li>L1T</li><li>WTC L</li><li>SINGLE PILOT IFR</li><li>FIKI</li><li>MAX CRZ 290 KTAS</li>
+    </ul>
+    <p class="icao-gloss rv" style="--i:1">单发涡桨 · 轻型 · 可单人驾驶仪表飞行 · 获准在已知结冰条件下飞行</p>
+    <p class="kicker rv" style="--i:2">03 / TYPE</p>
+    <h2 class="rv" id="type-h" style="--i:3">机型手记：PC-12 NGX</h2>
+    <p class="lede rv" style="--i:4">一台发动机，五片桨叶，一个 T 型尾翼。下面这些数字，都查得到出处。</p>
+    </div>
+
+    <figure class="outline">
+      <svg class="draw" viewBox="220 190 1680 640" aria-hidden="true" focusable="false">
+        <path class="ln o dim" pathLength="1" d="M316,398 A78,168 0 1,0 316,734 A78,168 0 1,0 316,398" style="--d:1.1s"/>
+        <g transform="translate(316 566) scale(.32 1)" class="fade" style="--d:1.4s"><g class="ghost-rot"><g class="ghost-blades">
+          <path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(72)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(144)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(216)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(288)"/>
+        </g></g></g>
+        <path class="ln o" pathLength="1" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
+        <path class="ln o" pathLength="1" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z" style="--d:.25s"/>
+        <path class="ln o" pathLength="1" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z" style="--d:.35s"/>
+        <path class="ln o dim" pathLength="1" d="M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273" style="--d:.5s"/>
+        <path class="ln o dim" pathLength="1" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z" style="--d:.55s"/>
+        <path class="ln o dim" pathLength="1" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z" style="--d:.6s"/>
+        <path class="ln o dim" pathLength="1" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z" style="--d:.7s"/>
+        <path class="ln o dim" pathLength="1" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1452,578 L1476,598 L1480,580" style="--d:.75s"/>
+        <path class="ln o" pathLength="1" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774" style="--d:.85s"/>
+        <path class="ln lead" pathLength="1" d="M316,396 V302" style="--d:1.6s"/>
+        <path class="ln lead" pathLength="1" d="M470,540 V334" style="--d:1.7s"/>
+        <path class="ln lead" pathLength="1" d="M1189,604 V766" style="--d:1.8s"/>
+        <path class="ln lead" pathLength="1" d="M1560,262 L1652,232" style="--d:1.9s"/>
+        <g class="mk fade" style="--d:1.9s"><circle cx="316" cy="282" r="20"/><text x="316" y="283">1</text></g>
+        <g class="mk fade" style="--d:2s"><circle cx="470" cy="314" r="20"/><text x="470" y="315">2</text></g>
+        <g class="mk fade" style="--d:2.1s"><circle cx="1189" cy="786" r="20"/><text x="1189" y="787">3</text></g>
+        <g class="mk fade" style="--d:2.2s"><circle cx="1672" cy="226" r="20"/><text x="1672" y="227">4</text></g>
+      </svg>
+      <ol class="callouts">
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">1</text></svg>五叶螺旋桨</li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">2</text></svg><span class="lat">PT6E-67XP</span></li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">3</text></svg>货舱门 <span class="lat">1.35 × 1.32</span> 米</li>
+        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">4</text></svg>T 型尾翼</li>
+      </ol>
+    </figure>
+
+    <dl class="facts" data-io>
+      <div class="rv" style="--i:0"><dt>ENG</dt><dd><span class="val">PT6E-67XP</span><span class="line">单台普惠加拿大涡桨发动机，起飞功率 1200 轴马力。电子发动机与螺旋桨控制，一根功率手柄。</span></dd></div>
+      <div class="rv" style="--i:1"><dt>PROP</dt><dd><span class="val">5 BLD</span><span class="line">五叶复合材料螺旋桨，可以反桨，落地后靠它减速，短跑道上用得上。</span></dd></div>
+      <div class="rv" style="--i:2"><dt>TAIL</dt><dd><span class="val">T-TAIL</span><span class="line">水平尾翼装在垂尾顶端，远离机翼下洗和螺旋桨滑流。</span></dd></div>
+      <div class="rv" style="--i:3"><dt>TO</dt><dd><span class="val">758 M</span><span class="line">最大起飞重量下，越过 15 米障碍物的起飞距离。</span></dd></div>
+      <div class="rv" style="--i:4"><dt>LDG</dt><dd><span class="val">661 M</span><span class="line">最大着陆重量下，越过 15 米障碍物的着陆距离。着陆形态失速速度 67 节，进近可以飞得又慢又稳。</span></dd></div>
+      <div class="rv" style="--i:5"><dt>RWY</dt><dd><span class="val">UNPAVED</span><span class="line">起落架按非铺装跑道设计，砂石和草地跑道也能起降。</span></dd></div>
+    </dl>
+    <p class="fnote">数据来自 Pilatus 公开资料，条件为海平面、标准大气、干燥铺装跑道。实际运行以飞机飞行手册为准。</p>
+  </div>
+</section>
+
+<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">OM</span></div>
+
+<!-- ============ 04 AI ============ -->
+<section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
+  <div class="ai-banner">
+    <div class="drz" aria-hidden="true">
+      <i style="--x:6%;--t:7.2s;--dl:-1.1s;--o:.12"></i><i style="--x:15%;--t:8.4s;--dl:-5.3s;--o:.16"></i><i style="--x:24%;--t:6.3s;--dl:-2.7s;--o:.1"></i><i style="--x:37%;--t:9s;--dl:-6.1s;--o:.14"></i><i style="--x:48%;--t:7.7s;--dl:-3.9s;--o:.18"></i>
+      <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
+    </div>
+    <div class="wrap">
+      <p class="kicker rv" style="--i:0">04 / AI 超市</p>
+      <h2 id="ai-h" class="rv" style="--i:1">AI 超市</h2>
+    </div>
+  </div>
+  <div class="wrap">
+    <p class="lede rv" style="--i:2">按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。</p>
+    <div class="ai-grid">
+      <div class="shelves" id="shelves">
+        <!-- Shelves render from the #shelf-data JSON below. -->
+        <p class="shelf-note">货架上的工具与本站没有合作关系，链接直达官网。</p>
+      </div>
+
+      <aside class="chat" aria-labelledby="chat-h">
+        <div class="chat-head">
+          <h3 id="chat-h">AI 助手</h3>
+          <p class="lamp" id="lamp" data-state="inop"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code" id="lamp-code">INOP</span><span id="lamp-txt">接入中</span></p>
+        </div>
+        <p class="chat-lede">问飞行常识、PC-12，或者货架上哪样工具适合你。</p>
+        <p class="chat-caution">它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。</p>
+        <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
+        <div class="chips" id="chips">
+          <button type="button">决断高度和决断高有什么区别？</button>
+          <button type="button">PC-12 为什么用 T 型尾翼？</button>
+          <button type="button">读英文资料用哪个工具？</button>
+        </div>
+        <form class="chat-form" id="chat-form">
+          <label class="sr" for="chat-in">你的问题</label>
+          <textarea id="chat-in" rows="2" maxlength="500" placeholder="输入你的问题" autocomplete="off"></textarea>
+          <button class="btn btn-ghost" id="chat-send" type="submit">发送</button>
+        </form>
+        <p class="chat-privacy">对话会经本站服务器转给 AI 服务商处理，请不要输入个人信息。</p>
+      </aside>
+    </div>
+  </div>
+</section>
+
+<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">MM</span></div>
+
+<!-- ============ 05 FAQ ============ -->
+<section class="sec faq" id="faq" aria-labelledby="faq-h" data-io data-live>
+  <div class="wrap">
+    <!-- Reserved: up to three short real reader quotes go above this card, with the reader's permission. None are invented. -->
+    <div class="checklist rv" style="--i:0">
+      <p class="cl-head">CHECKLIST · 读之前</p>
+      <div class="cl-body">
+        <p class="kicker">05 / FAQ</p>
+        <h2 id="faq-h">读之前，先过一遍检查单。</h2>
+        <dl class="cl-rows">
+          <div class="cl-row"><dt><span class="q">作者真的在飞吗？</span><span class="lead" aria-hidden="true"></span><span class="r">在飞</span></dt><dd><p>我是现役机长，飞 PC-12 NGX 短途支线。匿名写，技术问题可以讲得更直接。</p></dd></div>
+          <div class="cl-row"><dt><span class="q">能当训练资料用吗？</span><span class="lead" aria-hidden="true"></span><span class="r">不能</span></dt><dd><p>这里写的是个人经验和理解。训练和运行，以飞机飞行手册、公司程序和你的教员为准。文中引用的数字会注明出处。</p></dd></div>
+          <div class="cl-row"><dt><span class="q">单发飞机，安全吗？</span><span class="lead" aria-hidden="true"></span><span class="r">按单发计划</span></dt><dd><p>PC-12 用的是 PT6 系列发动机，六十年代投入使用，是装机最多的涡桨发动机之一。单发的不同在计划：每一段都先想好发动机停车后往哪里滑翔、在哪里落地，航路、高度和天气按这个来定。</p></dd></div>
+          <div class="cl-row"><dt><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p>每篇一封邮件。不发广告，不转让邮箱，随时退订。<span class="mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</span></p></dd></div>
+        </dl>
+      </div>
+      <div class="scan" aria-hidden="true"></div>
+    </div>
+    <p class="after"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
+  </div>
+</section>
+
+<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1170,86"/></svg><span class="lbl fade-l">THR 24</span><span class="thr fade-l" style="--d:1.2s"><i></i><i></i><i></i><i></i><i></i></span></div>
+
+<!-- ============ 06 SUBSCRIBE (the one call to action) ============ -->
+<section class="sec subscribe" id="subscribe" aria-labelledby="sub-h" data-io data-live>
+  <div class="sub-bg" aria-hidden="true"></div>
+  <svg class="runway draw" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+    <path class="ln" pathLength="1" d="M460,760 L771,120"/>
+    <path class="ln" pathLength="1" d="M1140,760 L829,120"/>
+    <path class="cl fade" d="M800,740 V110" style="--d:.6s"/>
+    <g class="fade" style="--d:.8s" id="rw-edges"></g>
+    <g class="fade" style="--d:1s" id="rw-bars"></g>
+  </svg>
+  <div class="wrap">
+    <div class="sub-card rv" style="--i:0">
+      <p class="kicker">06 / SUBSCRIBE</p>
+      <h2 id="sub-h">订阅飞行日志</h2>
+      <p class="lede">最低标准写在起飞前，日志写在落地后。</p>
+      <p class="sub2">新的一篇写完，发到你的邮箱。</p>
+      <form class="sub-form" id="sub-form" novalidate>
+        <label for="sub-email">邮箱</label>
+        <input id="sub-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="sub-err">
+        <p class="sub-err" id="sub-err" aria-live="polite"></p>
+        <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+        <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
+        <p class="micro">只发飞行日志。不发广告，随时退订。</p>
+      </form>
+      <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="foot">
+  <div class="wrap foot-grid">
+    <div>
+      <p class="foot-mark"><span class="brand-name">云底之下</span><span class="mono">PC12/L · L1T</span></p>
+      <p class="foot-tag">落地，关车，写日志。</p>
+    </div>
+    <nav aria-label="页脚导航">
+      <ul class="foot-links">
+        <li><a href="#about">关于</a></li><li><a href="#log">日志</a></li><li><a href="#type">机型</a></li><li><a href="#ai">AI 超市</a></li><li><a href="#faq">问答</a></li><li><a href="#subscribe">订阅</a></li>
+      </ul>
+    </nav>
+    <div class="foot-notes">
+      <p>本站的飞机影像和配图由 AI 生成，不对应任何真实航空器。</p>
+      <p>本站内容是个人飞行经验分享，不能代替飞机飞行手册、公司程序和教员的指导。</p>
+      <p>© 2026 <span class="brand-name">云底之下</span></p>
+    </div>
+  </div>
+</footer>
+
+<!-- AI shelf data: copied verbatim from ai-shelf.json. Restock by editing this block only.
+     cn_access null = not yet checked from a mainland connection: the card shows no badge, and launch waits until every card has one. -->
+<script type="application/json" id="shelf-data">
+{
+  "shelves": [
+    {
+      "id": "chat",
+      "title": "对话与写作",
+      "blurb": "日常问答、改稿子、写东西，先从这几个聊起。",
+      "tools": [
+        {
+          "name": "DeepSeek",
+          "category": "对话与写作",
+          "desc": "免费的国产大模型，推理和写作都在行。",
+          "url": "https://chat.deepseek.com",
+          "cn_access": "能直接访问",
+          "note": "写博客卡住的时候，我会让它先帮我列个提纲，正文还是自己一句句写。"
+        },
+        {
+          "name": "豆包",
+          "category": "对话与写作",
+          "desc": "字节出品，能聊天、写东西、看图。",
+          "url": "https://www.doubao.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Kimi",
+          "category": "对话与写作",
+          "desc": "擅长读长文档，资料一多就找它。",
+          "url": "https://www.kimi.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Claude",
+          "category": "对话与写作",
+          "desc": "写长文、改稿子很细，语气比较自然。",
+          "url": "https://claude.ai",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "ChatGPT",
+          "category": "对话与写作",
+          "desc": "OpenAI 的对话助手，问答和写作都能用。",
+          "url": "https://chatgpt.com",
+          "cn_access": "需要国际网络"
+        }
+      ]
+    },
+    {
+      "id": "image-video",
+      "title": "图像与视频",
+      "blurb": "一句话出图、做短片，做配图和封面时用得上。",
+      "tools": [
+        {
+          "name": "即梦",
+          "category": "图像与视频",
+          "desc": "中文描述就能出图，也能做短视频。",
+          "url": "https://jimeng.jianying.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "可灵",
+          "category": "图像与视频",
+          "desc": "快手的视频生成，也能让图片动起来。",
+          "url": "https://klingai.kuaishou.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Midjourney",
+          "category": "图像与视频",
+          "desc": "出图质感好，适合做封面和氛围图。",
+          "url": "https://www.midjourney.com",
+          "cn_access": "需要国际网络"
+        }
+      ]
+    },
+    {
+      "id": "learn",
+      "title": "学习与研究",
+      "blurb": "查资料、啃手册、复习理论，答案带出处才放心。",
+      "tools": [
+        {
+          "name": "秘塔 AI 搜索",
+          "category": "学习与研究",
+          "desc": "AI 搜索，每个答案都附来源。",
+          "url": "https://metaso.cn",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "Perplexity",
+          "category": "学习与研究",
+          "desc": "边搜边答，每段话都标了出处。",
+          "url": "https://www.perplexity.ai",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "NotebookLM",
+          "category": "学习与研究",
+          "desc": "上传自己的资料，只按资料回答你。",
+          "url": "https://notebooklm.google.com",
+          "cn_access": "需要国际网络",
+          "note": "复习理论时，我把自己整理的笔记放进去提问，它会标出答案在原文哪一段。数字我还是回手册核对。"
+        },
+        {
+          "name": "文心",
+          "category": "学习与研究",
+          "desc": "百度的 AI 助手，查中文资料顺手。",
+          "url": "https://wenxin.baidu.com",
+          "cn_access": "能直接访问"
+        }
+      ]
+    },
+    {
+      "id": "office",
+      "title": "效率与办公",
+      "blurb": "总结文档、做 PPT、读英文资料，琐事少花点时间。",
+      "tools": [
+        {
+          "name": "千问",
+          "category": "效率与办公",
+          "desc": "阿里的 AI 助手，能总结网页、做 PPT。",
+          "url": "https://www.qianwen.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "智谱清言",
+          "category": "效率与办公",
+          "desc": "问答之外，还能读表格做分析。",
+          "url": "https://chatglm.cn",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "沉浸式翻译",
+          "category": "效率与办公",
+          "desc": "网页和 PDF 双语对照，读英文资料用。",
+          "url": "https://immersivetranslate.com",
+          "cn_access": "能直接访问"
+        }
+      ]
+    },
+    {
+      "id": "aviation",
+      "title": "航空工具",
+      "blurb": "查天气、看航迹、翻航图的几个网站。不算 AI，顺手放在这里。",
+      "tools": [
+        {
+          "name": "Windy",
+          "category": "航空工具",
+          "desc": "风、云、降水预报图，一眼看清趋势。",
+          "url": "https://www.windy.com",
+          "cn_access": null,
+          "note": "飞之前我先在这里看风和云的走势，心里有个底。正式决策还是以官方气象资料为准。"
+        },
+        {
+          "name": "aviationweather.gov",
+          "category": "航空工具",
+          "desc": "美国航空气象中心，查 METAR 和 TAF。",
+          "url": "https://aviationweather.gov",
+          "cn_access": null,
+          "note": "查 METAR 和 TAF 时，输入机场的四字代码就行。放行用的天气，以公司提供的官方资料为准。"
+        },
+        {
+          "name": "Flightradar24",
+          "category": "航空工具",
+          "desc": "全球航班的实时位置和飞行轨迹。",
+          "url": "https://www.flightradar24.com",
+          "cn_access": "需要国际网络"
+        },
+        {
+          "name": "飞常准",
+          "category": "航空工具",
+          "desc": "国内航班动态，还能看 ADS-B 航迹。",
+          "url": "https://www.variflight.com",
+          "cn_access": "能直接访问"
+        },
+        {
+          "name": "SkyVector",
+          "category": "航空工具",
+          "desc": "在线航路图，看航路结构用，不能代替正式航图。",
+          "url": "https://skyvector.com",
+          "cn_access": null
+        }
+      ]
+    }
+  ]
+}
+</script>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- swap points (one line each) ---------- */
+const VIDEO_URL = 'assets/hero-scrub.mp4';
+const VIDEO_BYTES = 7000000;        // replace with the real byte size of hero-scrub.mp4 (ring fallback when Content-Length is missing)
+const POSTER_URL = 'assets/hero-poster.webp';
+const CHAT_LIVE = false;            // set true once api/chat.php answers
+const CHAT_URL = 'api/chat.php';    // relative; the key lives server-side in that file, never here
+const SUBSCRIBE_ENDPOINT = '';      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
+
+/* ---------- copy used by scripts (verbatim from the design package) ---------- */
+const T = {
+  flyIdle: '已截获下滑道，等你按住。',
+  flyHold: '下降中。盯住下滑道。',
+  flyGa: '复飞是正常操作。再按住，再飞一次。',
+  flyDone: 'MINIMUMS。跑道可见，继续。',
+  holdBtn: '按住下降',
+  holdAgain: '再飞一次',
+  welcomeInop: '你好。助手还在接入中（INOP），接通以后可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。',
+  welcomeLive: '你好。我可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。',
+  chatInop: '助手还在接入中（INOP），这个问题暂时没有回答。接通以后，在这里直接问就行。',
+  chatTimeout: '等了 20 秒没有回应。稍后再试一次。',
+  chatRate: '问得有点快。请过一会儿再问。',
+  send: '发送', sending: '发送中', answering: '正在回答',
+  subEmpty: '请先填写邮箱。',
+  subFormat: '邮箱格式不对，请再检查一遍。',
+  subModeA: '订阅通道还没接通（INOP）。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。',
+  subBusy: '提交中',
+  subOkPre: '已订阅。下一篇日志写完，会发到 ', subOkPost: '。',
+  subFail: '这次没有提交成功。稍后再试一次。'
+};
+const LAMP = { stby: ['STBY', '待命'], tx: ['TX', '发送中'], on: ['ON', '在线'], inop: ['INOP', '接入中'] };
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
+const smoothstep = (p, e0, e1) => { const t = clamp((p - e0) / (e1 - e0), 0, 1); return t * t * (3 - 2 * t); };
+const easeOut3 = t => 1 - Math.pow(1 - t, 3);
+function rng(seed) { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
+const RM = matchMedia('(prefers-reduced-motion: reduce)');
+
+/* ---------- hidden tab: pause every animation ---------- */
+document.addEventListener('visibilitychange', () => document.body.classList.toggle('paused', document.hidden));
+
+/* ---------- entrances (.in, once) and living elements (.live, toggled) ---------- */
+const ioIn = new IntersectionObserver(entries => {
+  for (const e of entries) {
+    if (!e.isIntersecting) continue;
+    const el = e.target;
+    el.classList.add('in');
+    ioIn.unobserve(el);
+    const n = $$('.rv', el).length;
+    setTimeout(() => el.classList.add('settled'), 900 + n * 110 + 200);   // retire the stagger delays
+  }
+}, { rootMargin: '0px 0px -12% 0px', threshold: 0.08 });
+$$('[data-io], .draw').forEach(el => ioIn.observe(el));
+const ioLive = new IntersectionObserver(entries => {
+  for (const e of entries) e.target.classList.toggle('live', e.isIntersecting);
+}, { rootMargin: '10% 0px' });
+$$('[data-live]').forEach(el => ioLive.observe(el));
+
+/* ---------- nav: solid after the hero, phone menu ---------- */
+const nav = $('#nav');
+const navToggle = $('.nav-toggle');
+function closeMenu() { nav.classList.remove('open'); navToggle.setAttribute('aria-expanded', 'false'); }
+navToggle.addEventListener('click', () => {
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  navToggle.setAttribute('aria-expanded', String(open));
+});
+$$('#nav-links a').forEach(a => a.addEventListener('click', closeMenu));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeMenu(); });
+
+/* ============ HERO ============ */
+const hero = $('.hero');
+const stage = $('#stage');
+const video = $('#hero-video');
+const posterLayer = $('.poster');
+const cue = $('.cue');
+let ring = $('.ring');
+const RANGE_VH = 500;                  // 600vh hero minus the 100vh viewport
+
+let heroOnScreen = true;
+new IntersectionObserver(entries => {
+  for (const e of entries) {
+    heroOnScreen = e.isIntersecting;
+    nav.classList.toggle('solid', !e.isIntersecting);
+  }
+}, { rootMargin: '-64px 0px 0px 0px' }).observe(hero);
+
+let heroTop = 0, heroRange = 1;
+function measure() {
+  heroTop = hero.getBoundingClientRect().top + scrollY;
+  heroRange = Math.max(1, hero.offsetHeight - innerHeight);
+  tapeH = tapeWin.clientHeight || tapeH;
+}
+function heroProgress() { return clamp((scrollY - heroTop) / heroRange, 0, 1); }
+
+/* split text, once, with seeded offsets */
+function splitBand(band, seed) {
+  const r = rng(seed);
+  const els = $$('.split', band);
+  const spread = Number(band.dataset.spread || 0.4);
+  const units = [];
+  for (const el of els) {
+    const phrases = [];
+    let cur = '';
+    el.childNodes.forEach(n => { if (n.nodeName === 'WBR') { phrases.push(cur); cur = ''; } else cur += n.textContent; });
+    phrases.push(cur);
+    const full = phrases.join('');
+    el.textContent = '';
+    const sr = document.createElement('span'); sr.className = 'sr'; sr.textContent = full;
+    const vis = document.createElement('span'); vis.setAttribute('aria-hidden', 'true');
+    for (const ph of phrases) {
+      const w = document.createElement('span'); w.className = 'w';
+      if (el.dataset.mode === 'char') {
+        for (const ch of ph) {
+          const c = document.createElement('span'); c.className = 'c';
+          const ci = document.createElement('span'); ci.className = 'ci'; ci.textContent = ch;
+          c.appendChild(ci); w.appendChild(c);
+          if (ch.trim()) units.push(c);
+        }
+      } else {
+        w.textContent = ph;
+        units.push(w);
+      }
+      vis.appendChild(w);
+    }
+    el.append(sr, vis);
+  }
+  const n = units.length;
+  units.forEach((u, i) => u.style.setProperty('--th', (n > 1 ? i / (n - 1) * spread : 0) + r() * 0.04 + ''));
+}
+
+const bandEls = $$('.band');
+bandEls.forEach((b, i) => { if ($('.split', b)) splitBand(b, 1013 + i * 97); });
+const bands = bandEls.map((el, i) => ({
+  el, a: Number(el.dataset.a), b: Number(el.dataset.b), ramp: Number(el.dataset.ramp || 0),
+  first: i === 0, last: i === bandEls.length - 1, op: -1, k: -1, on: null
+}));
+
+let loadK = 0;
+function updateCaptions(p) {
+  for (const B of bands) {
+    const f = Math.min(20 / RANGE_VH, (B.b - B.a) / 3);
+    let op;
+    if ((!B.first && p < B.a) || (!B.last && p > B.b)) op = 0;
+    else op = (B.first ? 1 : smoothstep(p, B.a, B.a + f)) * (B.last ? 1 : 1 - smoothstep(p, B.b - f, B.b));
+    const ramp = B.ramp || Math.min(0.025, (B.b - B.a) * 0.35);
+    let k = clamp((p - B.a) / ramp, 0, 1);
+    if (B.first) k = Math.max(k, loadK);
+    if (op !== B.op && (Math.abs(op - B.op) > 0.004 || op === 0 || op === 1)) { B.el.style.opacity = op.toFixed(3); B.op = op; }
+    if (k !== B.k && (Math.abs(k - B.k) > 0.008 || k === 0 || k === 1)) { B.el.style.setProperty('--k', k.toFixed(3)); B.k = k; }
+    const on = op > 0.02;
+    if (on !== B.on) { B.el.classList.toggle('on', on); B.on = on; }
+  }
+  const co = 1 - smoothstep(p, 0, 0.05);
+  if (Math.abs(co - cueOp) > 0.01 || (co !== cueOp && (co === 0 || co === 1))) { cue.style.opacity = co.toFixed(3); cueOp = co; }
+}
+let cueOp = 1;
+
+/* ---------- PFD tape ---------- */
+const tape = $('#tape');
+const tapeWin = $('.tape-win');
+const strip = $('#tape-strip');
+const drumCol = $('#drum-col');
+const hundEl = $('#tape-hund');
+const metricEl = $('#tape-metric');
+const minBox = $('#tape-min');
+const minL1 = $('#min-l1');
+const PX_FT = 0.4, TOP_FT = 3800, BOT_FT = -400, ROW = 18, DRUM_H = 64;
+let tapeH = 480;
+(function buildStrip() {
+  const H = (TOP_FT - BOT_FT) * PX_FT;
+  strip.setAttribute('height', H); strip.setAttribute('viewBox', '0 0 84 ' + H);
+  let s = '';
+  for (let ft = TOP_FT; ft >= BOT_FT; ft -= 20) {
+    const y = (TOP_FT - ft) * PX_FT + 0.5;
+    const major = ft % 100 === 0;
+    s += '<line x1="0" x2="' + (major ? 14 : 7) + '" y1="' + y + '" y2="' + y + '"/>';
+    if (major) s += '<text x="22" y="' + (y + 4) + '">' + ft + '</text>';
+  }
+  const yb = (TOP_FT - 200) * PX_FT + 0.5;
+  s += '<line class="bugline" x1="0" x2="18" y1="' + yb + '" y2="' + yb + '"/><path class="bug" d="M0,' + (yb - 7) + ' L9,' + yb + ' L0,' + (yb + 7) + ' Z"/>';
+  strip.innerHTML = s;
+})();
+const ALT_KEYS = [[0, 3000], [0.22, 2870], [0.30, 2500], [0.50, 1000], [0.60, 320], [0.76, 260], [0.92, 200], [1, 200]];
+function altAt(p) {
+  for (let i = 1; i < ALT_KEYS.length; i++) {
+    const [p1, a1] = ALT_KEYS[i];
+    if (p <= p1) { const [p0, a0] = ALT_KEYS[i - 1]; return a0 + (a1 - a0) * ((p - p0) / (p1 - p0)); }
+  }
+  return 200;
+}
+let lastStripY = 1e9, lastDrumY = 1e9, lastHund = '', lastMetric = '', lastTxtAt = 0, minsOn = false, lastDeep = -1;
+function updateTape(p, now, force) {
+  const alt = altAt(p);
+  const y = tapeH / 2 - (TOP_FT - alt) * PX_FT;
+  if (Math.abs(y - lastStripY) > 0.5 || force) { strip.style.transform = 'translate3d(0,' + y.toFixed(1) + 'px,0)'; lastStripY = y; }
+  const tens = ((alt % 100) + 100) % 100;
+  const dy = (DRUM_H / 2 - ROW / 2) - ((120 - tens) / 20) * ROW;
+  if (Math.abs(dy - lastDrumY) > 0.5 || force) { drumCol.style.transform = 'translate3d(0,' + dy.toFixed(1) + 'px,0)'; lastDrumY = dy; }
+  if (force || now - lastTxtAt >= 100) {
+    const h = String(Math.floor((alt + 0.001) / 100));
+    const m = String(Math.round(alt * 0.3048));
+    if (h !== lastHund) { hundEl.textContent = h; lastHund = h; lastTxtAt = now; }
+    if (m !== lastMetric) { metricEl.textContent = m; lastMetric = m; lastTxtAt = now; }
+  }
+  if (!minsOn && p >= 0.915) {
+    minsOn = true; minL1.textContent = 'MINIMUMS';
+    minBox.classList.add('mins', 'blink');
+  } else if (minsOn && p < 0.905) {
+    minsOn = false; minL1.textContent = 'BARO MIN';
+    minBox.classList.remove('mins', 'blink');
+  }
+  const deep = smoothstep(p, 0.22, 0.25) * (1 - smoothstep(p, 0.62, 0.65));
+  if (Math.abs(deep - lastDeep) > 0.01 || (deep !== lastDeep && (deep === 0 || deep === 1))) { tape.style.setProperty('--deep', deep.toFixed(2)); lastDeep = deep; }
+}
+minBox.addEventListener('animationend', () => minBox.classList.remove('blink'));
+
+/* ---------- gated seeks (deadlock-safe) ---------- */
+let seekBusy = false, pendingTime = null;
+function requestSeek(t) {
+  if (!video.duration || !isFinite(video.duration)) return;
+  if (seekBusy) { pendingTime = t; return; }
+  seekBusy = true;
+  video.currentTime = t;
+}
+video.addEventListener('seeked', () => {
+  seekBusy = false;
+  if (pendingTime !== null) { const t = pendingTime; pendingTime = null; requestSeek(t); }
+});
+video.addEventListener('error', () => {
+  seekBusy = false; pendingTime = null;
+  stage.classList.add('video-failed');
+});
+
+/* ---------- the lerp loop that rests ---------- */
+let target = 0, shown = 0, rafId = null, lastTick = 0;
+function tick(now) {
+  if (!heroOnScreen) { rafId = null; lastTick = 0; return; }
+  const dt = Math.min(100, now - (lastTick || now));
+  lastTick = now;
+  const k = 0.16;
+  shown += (target - shown) * (1 - Math.pow(1 - k, dt / 16.667));
+  let rest = false;
+  if (Math.abs(target - shown) < 0.0005) { shown = target; rafId = null; lastTick = 0; rest = true; }
+  else rafId = requestAnimationFrame(tick);
+  requestSeek(shown * video.duration);
+  updateCaptions(shown);
+  updateTape(shown, now, rest);
+}
+function onScroll() {
+  target = heroProgress();
+  if (rafId === null && heroOnScreen) rafId = requestAnimationFrame(tick);
+}
+function onResize() { measure(); lastStripY = 1e9; if (scrubOn) { onScroll(); updateTape(shown, performance.now(), true); } }
+addEventListener('resize', onResize, { passive: true });
+
+/* ---------- band one's one-time load ramp ---------- */
+let loadStarted = false;
+function startLoadRamp() {
+  if (loadStarted) return; loadStarted = true;
+  const t0 = performance.now();
+  const step = now => {
+    loadK = easeOut3(clamp((now - t0) / 900, 0, 1));
+    updateCaptions(shown);
+    if (loadK < 1 && scrubOn) requestAnimationFrame(step);
+    else loadK = 1;
+  };
+  requestAnimationFrame(step);
+}
+
+/* ---------- streamed Blob with the loading ring ---------- */
+let heroInit = false;
+function initHeroOnce() {
+  if (heroInit) return; heroInit = true;
+  posterLayer.style.backgroundImage = "url('" + POSTER_URL + "')";
+  let started = false;
+  const startBlobFetch = () => { if (started) return; started = true; loadHeroBlob().catch(failVideo); };
+  const posterImg = new Image();
+  posterImg.onload = startBlobFetch;
+  posterImg.onerror = startBlobFetch;
+  posterImg.src = POSTER_URL;
+  setTimeout(startBlobFetch, 4000);
+}
+async function loadHeroBlob() {
+  if (location.protocol === 'file:') throw new Error('file');   // browsers block fetch on file://; the still hero is the designed state
+  const ctrl = new AbortController();
+  let watchdog = setTimeout(() => ctrl.abort(), 20000);
+  const res = await fetch(VIDEO_URL, { priority: 'low', signal: ctrl.signal });
+  if (!res.ok) { clearTimeout(watchdog); throw new Error('http ' + res.status); }
+  const total = Number(res.headers.get('Content-Length')) || VIDEO_BYTES;
+  let blob;
+  if (res.body && res.body.getReader) {
+    const reader = res.body.getReader();
+    const chunks = [];
+    let got = 0, lastRing = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      clearTimeout(watchdog);
+      watchdog = setTimeout(() => ctrl.abort(), 20000);
+      chunks.push(value);
+      got += value.length;
+      const frac = Math.min(1, got / total);
+      const now = performance.now();
+      if (ring && (now - lastRing > 100 || frac === 1)) { lastRing = now; ring.style.setProperty('--ld', Math.round(126 * (1 - frac))); }
+    }
+    blob = new Blob(chunks, { type: 'video/mp4' });
+  } else {
+    blob = await res.blob();
+  }
+  clearTimeout(watchdog);
+  if (ring) ring.style.setProperty('--ld', 0);
+  video.src = URL.createObjectURL(blob);
+  video.load();
+  video.addEventListener('canplay', () => {
+    requestSeek(heroProgress() * video.duration);
+    stage.classList.add('video-ready');
+  }, { once: true });
+}
+function failVideo() {
+  if (ring) { ring.remove(); ring = null; }   // the cue stays as the honest scroll cue
+  stage.classList.add('video-failed');
+}
+
+/* ---------- the five static-hero gates, live ---------- */
+const GATES = [
+  '(max-width: 720px)',
+  '(orientation: portrait) and (max-width: 1024px)',
+  '(orientation: portrait) and (pointer: coarse)',
+  '(orientation: landscape) and (pointer: coarse) and (max-height: 560px)',
+  '(prefers-reduced-motion: reduce)'
+];
+let scrubOn = false;
+function enableScrub() {
+  if (scrubOn) return; scrubOn = true;
+  initHeroOnce();
+  measure();
+  addEventListener('scroll', onScroll, { passive: true });
+  bands.forEach(b => { b.op = -1; b.k = -1; b.on = null; });
+  cueOp = -1; lastStripY = 1e9; lastDrumY = 1e9; lastHund = ''; lastMetric = ''; lastDeep = -1;
+  unpinFinalStates();
+  shown = target = heroProgress();
+  updateCaptions(shown);
+  updateTape(shown, performance.now(), true);
+  startLoadRamp();
+  onScroll();
+}
+function disableScrub() {
+  if (!scrubOn) return; scrubOn = false;
+  removeEventListener('scroll', onScroll);
+  if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; lastTick = 0; }
+}
+function applyHeroMode() {
+  if (GATES.some(q => matchMedia(q).matches)) disableScrub();
+  else enableScrub();
+}
+
+/* ============ 02: hold to fly the glide slope ============ */
+const fly = $('#fly');
+const logSec = $('#log');
+const holdBtn = $('#hold');
+const holdLabel = $('#hold-label');
+const holdFill = $('#hold-fill');
+const flyStatus = $('#fly-status');
+const flyRead = $('#fly-read');
+const glyph = $('#glyph');
+const GS0 = [150, 70], GS1 = [678.7, 252], FULL_MS = 2800;
+let prog = 0, holding = false, landed = false, hRaf = null, hLast = 0, rel = null, lastReadAt = 0, lastRead = '', lastStatus = '';
+function setStatus(s) { if (s !== lastStatus) { flyStatus.textContent = s; lastStatus = s; } }
+function renderFly(now, force) {
+  const x = GS0[0] + (GS1[0] - GS0[0]) * prog, y = GS0[1] + (GS1[1] - GS0[1]) * prog;
+  glyph.setAttribute('transform', 'translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(19)');
+  holdFill.style.transform = 'scaleX(' + prog.toFixed(4) + ')';
+  if (force || now - lastReadAt >= 100) {
+    const r = 'ALT ' + Math.round((1500 - 1300 * prog) / 10) * 10;
+    if (r !== lastRead) { flyRead.textContent = r; lastRead = r; lastReadAt = now; }
+  }
+}
+function flyLoop(now) {
+  const dt = Math.min(100, now - (hLast || now)); hLast = now;
+  if (holding) {
+    prog = Math.min(1, prog + dt / FULL_MS);
+    if (prog >= 1) { land(); return; }
+  } else if (rel) {
+    const t = clamp((now - rel.t0) / rel.dur, 0, 1);
+    prog = rel.p0 * (1 - easeOut3(t));                  // half speed on average, ease-out climb
+    if (t >= 1) { prog = 0; rel = null; }
+  }
+  renderFly(now, !holding && !rel);
+  if (holding || rel) hRaf = requestAnimationFrame(flyLoop); else { hRaf = null; hLast = 0; }
+}
+function kick() { if (hRaf === null) hRaf = requestAnimationFrame(flyLoop); }
+function press() {
+  if (RM.matches) { land(); return; }
+  fly.classList.add('touched');
+  if (landed) resetFly();
+  holding = true; rel = null;
+  setStatus(T.flyHold);
+  kick();
+}
+function release() {
+  if (!holding) return;
+  holding = false;
+  if (landed) return;
+  if (prog > 0) { rel = { t0: performance.now(), p0: prog, dur: prog * FULL_MS * 2 }; setStatus(T.flyGa); kick(); }
+}
+function land() {
+  holding = false; rel = null; prog = 1; landed = true;
+  if (hRaf !== null) { cancelAnimationFrame(hRaf); hRaf = null; hLast = 0; }
+  renderFly(performance.now(), true);
+  setStatus(T.flyDone);
+  holdLabel.textContent = T.holdAgain;
+  fly.classList.add('done');
+  logSec.classList.add('landed');
+}
+function resetFly() {
+  landed = false; prog = 0; rel = null;
+  fly.classList.remove('done');
+  logSec.classList.remove('landed');
+  holdLabel.textContent = T.holdBtn;
+  renderFly(performance.now(), true);
+}
+holdBtn.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  e.preventDefault();
+  try { holdBtn.setPointerCapture(e.pointerId); } catch (_) { /* capture is optional */ }
+  holdBtn.focus({ preventScroll: true });
+  press();
+});
+['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => holdBtn.addEventListener(t, release));
+holdBtn.addEventListener('contextmenu', e => e.preventDefault());
+holdBtn.addEventListener('keydown', e => {
+  if (e.key !== ' ' && e.key !== 'Enter') return;
+  e.preventDefault();
+  if (!e.repeat) press();
+});
+holdBtn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); release(); } });
+holdBtn.addEventListener('blur', release);
+
+/* ---------- reduced motion: pin final states, and undo them ---------- */
+let pinned = false;
+function pinToFinalStates() {
+  pinned = true;
+  disableScrub();
+  land();                                  // hold module complete, drives stopped
+}
+function unpinFinalStates() {
+  if (!pinned) return;
+  pinned = false;
+  resetFly();
+  fly.classList.remove('touched');
+  setStatus(T.flyIdle);
+}
+RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { unpinFinalStates(); applyHeroMode(); } });
+
+/* ============ 06: runway lights (generated once) ============ */
+(function buildRunway() {
+  const ns = 'http://www.w3.org/2000/svg';
+  const edges = $('#rw-edges'), bars = $('#rw-bars');
+  const ys = [760, 612, 508, 432, 376, 334, 300, 273, 251, 233, 218, 205, 194, 185];
+  for (const y of ys) {
+    const s = (y - 60) / 700;
+    for (const side of [-1, 1]) {
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', (800 + side * (340 * s + 0.5)).toFixed(1));
+      c.setAttribute('cy', y); c.setAttribute('r', (1.2 + 4.4 * s).toFixed(2)); c.setAttribute('class', 'edge');
+      edges.appendChild(c);
+    }
+  }
+  const barYs = [960, 905, 862, 828, 800];
+  barYs.forEach((y, i) => {
+    const s = (y - 60) / 700;
+    const n = y === 862 ? 9 : 5;
+    const gap = (y === 862 ? 26 : 12) * s;
+    for (let j = 0; j < n; j++) {
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('cx', (800 + (j - (n - 1) / 2) * gap).toFixed(1));
+      c.setAttribute('cy', y); c.setAttribute('r', (1.4 + 3 * s).toFixed(2)); c.setAttribute('class', 'bar');
+      bars.appendChild(c);
+    }
+    const r = document.createElementNS(ns, 'circle');
+    r.setAttribute('cx', 800); r.setAttribute('cy', y); r.setAttribute('r', (3 + 4 * s).toFixed(2));
+    r.setAttribute('class', 'rab'); r.style.setProperty('--r', i);
+    bars.appendChild(r);
+  });
+})();
+
+/* ============ 04: AI shelf (from the inline JSON) ============ */
+(function renderShelves() {
+  const host = $('#shelves');
+  const note = $('.shelf-note', host);
+  let data;
+  try { data = JSON.parse($('#shelf-data').textContent); } catch (_) { return; }
+  const mk = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; };
+  data.shelves.forEach((shelf, i) => {
+    const sec = mk('section', 'shelf');
+    sec.setAttribute('aria-labelledby', 'shelf-' + shelf.id);
+    const aisle = mk('div', 'aisle');
+    aisle.append(mk('b', null, 'A' + (i + 1)));
+    const h = mk('h3', null, shelf.title); h.id = 'shelf-' + shelf.id;
+    aisle.append(h);
+    sec.append(aisle, mk('p', 'shelf-blurb', shelf.blurb));
+    const ul = mk('ul', 'cards');
+    for (const tool of shelf.tools) {
+      const li = mk('li', 'card');
+      li.append(mk('h4', null, tool.name), mk('p', 'desc', tool.desc));
+      if (tool.cn_access === '能直接访问' || tool.cn_access === '需要国际网络') li.append(mk('span', 'badge', tool.cn_access));
+      if (tool.note) li.append(mk('p', 'note', tool.note));
+      const a = mk('a', 'open');
+      a.href = tool.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      let host2 = tool.url;
+      try { host2 = new URL(tool.url).hostname.replace(/^www\./, ''); } catch (_) { /* keep raw */ }
+      a.append(document.createTextNode('打开'), mk('span', 'dom', host2));
+      li.append(a);
+      ul.append(li);
+    }
+    sec.append(ul);
+    host.insertBefore(sec, note);
+  });
+})();
+
+/* ============ 04: AI assistant (front end only, honest) ============ */
+const chatLog = $('#chat-log');
+const chatForm = $('#chat-form');
+const chatIn = $('#chat-in');
+const chatSend = $('#chat-send');
+const lamp = $('#lamp'), lampCode = $('#lamp-code'), lampTxt = $('#lamp-txt');
+const history = [];
+let chatPending = false;
+const restingLamp = () => (CHAT_LIVE ? 'stby' : 'inop');
+function setLamp(state) {
+  if (lamp.dataset.state === state) return;
+  lamp.dataset.state = state;
+  lampCode.textContent = LAMP[state][0];
+  lampTxt.textContent = LAMP[state][1];
+}
+function bubble(role, text, opts = {}) {
+  const d = document.createElement('div');
+  d.className = 'msg ' + role + (opts.sr ? ' sr' : '');
+  const p = document.createElement('p');
+  if (opts.inop) { const pl = document.createElement('span'); pl.className = 'placard'; pl.textContent = 'INOP'; pl.setAttribute('aria-hidden', 'true'); p.append(pl); }
+  p.append(document.createTextNode(text));
+  d.append(p);
+  chatLog.append(d);
+  chatLog.scrollTop = chatLog.scrollHeight;
+  return d;
+}
+setLamp(restingLamp());
+bubble('assistant', CHAT_LIVE ? T.welcomeLive : T.welcomeInop);
+async function sendChat(raw) {
+  const text = String(raw || '').trim().slice(0, 500);
+  if (!text || chatPending) return;
+  chatPending = true;
+  bubble('user', text);
+  history.push({ role: 'user', content: text });
+  chatIn.value = '';
+  chatSend.disabled = true; chatSend.textContent = T.sending;
+  setLamp('tx');
+  const srNote = bubble('assistant', T.answering, { sr: true });
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
+  let state = restingLamp();
+  try {
+    const res = await fetch(CHAT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ messages: history.slice(-10) }),
+      signal: ctrl.signal
+    });
+    if (res.status === 429) { bubble('assistant', T.chatRate); }
+    else if (!res.ok) { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+    else {
+      let data = null;
+      try { data = await res.json(); } catch (_) { data = null; }
+      if (data && typeof data.reply === 'string' && data.reply.trim()) {
+        bubble('assistant', data.reply);
+        history.push({ role: 'assistant', content: data.reply });
+        state = 'on';
+      } else { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+    }
+  } catch (err) {
+    if (err && err.name === 'AbortError') bubble('assistant', T.chatTimeout);
+    else { bubble('assistant', T.chatInop, { inop: true }); state = 'inop'; }
+  } finally {
+    clearTimeout(timer);
+    srNote.remove();
+    chatPending = false;
+    chatSend.disabled = false; chatSend.textContent = T.send;
+    setLamp(state);
+  }
+}
+chatForm.addEventListener('submit', e => { e.preventDefault(); sendChat(chatIn.value); });
+chatIn.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' || e.shiftKey) return;
+  if (e.isComposing || e.keyCode === 229) return;       // IME is composing: Enter confirms pinyin, never sends
+  e.preventDefault();
+  sendChat(chatIn.value);
+});
+$$('#chips button').forEach(b => b.addEventListener('click', () => sendChat(b.textContent)));
+
+/* ============ 06: subscribe ============ */
+const subForm = $('#sub-form');
+const subEmail = $('#sub-email');
+const subErr = $('#sub-err');
+const subBtn = $('#sub-btn');
+const subDone = $('#sub-done');
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+if (SUBSCRIBE_ENDPOINT) $$('.mode-a').forEach(el => el.remove());
+function subError(msg) {
+  subErr.textContent = msg;
+  subEmail.setAttribute('aria-invalid', msg ? 'true' : 'false');
+}
+function subShow(text, inop) {
+  subDone.textContent = '';
+  const p = document.createElement('p');
+  if (inop) { const pl = document.createElement('span'); pl.className = 'placard'; pl.textContent = 'INOP'; pl.setAttribute('aria-hidden', 'true'); p.append(pl); }
+  p.append(document.createTextNode(text));
+  subDone.append(p);
+  subForm.hidden = true;
+  subDone.hidden = false;
+  subDone.focus({ preventScroll: true });
+}
+subEmail.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229)) e.preventDefault(); });
+subEmail.addEventListener('input', () => { if (subErr.textContent) subError(''); });
+subForm.addEventListener('submit', async e => {
+  e.preventDefault();
+  const v = subEmail.value.trim();
+  if (!v) { subError(T.subEmpty); subEmail.focus(); return; }
+  if (!EMAIL_RE.test(v)) { subError(T.subFormat); subEmail.focus(); return; }
+  subError('');
+  if (!SUBSCRIBE_ENDPOINT) { subShow(T.subModeA, true); return; }   // Mode A: nothing is stored or sent
+  subBtn.disabled = true; subBtn.textContent = T.subBusy;
+  try {
+    const fd = new FormData(); fd.append('email', v);
+    const res = await fetch(SUBSCRIBE_ENDPOINT, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
+    if (!res.ok) throw new Error('http ' + res.status);
+    subShow(T.subOkPre + v + T.subOkPost, false);
+  } catch (_) {
+    subError(T.subFail);
+  } finally {
+    subBtn.disabled = false; subBtn.textContent = '订阅飞行日志';
+  }
+});
+
+/* ---------- start ---------- */
+const MQLS = GATES.map(q => matchMedia(q));    // keep the lists referenced
+MQLS.forEach(m => m.addEventListener('change', applyHeroMode));
+renderFly(performance.now(), true);
+applyHeroMode();
+if (RM.matches) pinToFinalStates();
+})();
+</script>
+</body>
+</html>
