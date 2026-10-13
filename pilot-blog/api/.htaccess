@@ -1,0 +1,5 @@
+# 只允许访问 chat.php，依赖库和 composer 文件不对外
+<FilesMatch "^(?!chat\.php$).*$">
+    Require all denied
+</FilesMatch>
+Options -Indexes
