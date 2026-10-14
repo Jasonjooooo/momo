@@ -78,7 +78,7 @@ $num = fn(int $n) => number_format($n, 0, '.', ',');
 
 <section class="card" aria-labelledby="ai-lim">
   <h2 class="card-h" id="ai-lim">限额和补充说明</h2>
-  <form method="post" action="<?= h(url('ai.save')) ?>" class="stack" data-guard>
+  <form method="post" action="<?= h(url('ai.save')) ?>" class="stack" data-guard novalidate>
     <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="rev" value="<?= h((string) $settings['rev']) ?>">
     <input type="hidden" name="part" value="limits">

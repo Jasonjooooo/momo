@@ -322,6 +322,7 @@ function group_publish(): void
     ok(pub('posts/' . $p['slug'] . '.html') === $before && post_dirty($p), 'saving a draft of a published post leaves the live page unchanged');
     ok(throws(fn() => post_save_draft($p['id'], ['slug' => 'new-slug'], $p['rev']), ValidationError::class), 'slug locked after first publish');
     ok(throws(fn() => post_save_draft($p['id'], ['title' => 'x'], $p['rev'] - 1), ConflictException::class), 'stale rev rejected (409)');
+    ok(post_save_draft($p['id'], ['title' => '改过的标题'], $p['rev'] - 1)['rev'] === $p['rev'], 'the same text with an old rev (retry after a lost answer) is no conflict and saves nothing');
     $p = post_publish($p['id'], $p['rev'])['post'];
     ok(str_contains(pub('posts/' . $p['slug'] . '.html'), '改过的标题'), '发布修改 updates the page');
 
@@ -397,7 +398,10 @@ function group_publish(): void
     $saved = content_save_draft('site', $input, (int) $draft['rev']);
     ok(pub('index.html') === $live0, 'saving the site draft leaves index.html unchanged');
     ok(in_array('hero.b1.hl', content_changed_fields(), true), 'changed fields reported');
-    ok(throws(fn() => content_save_draft('site', $input, (int) $draft['rev']), ConflictException::class), 'stale site draft rev rejected');
+    $other = $input;
+    $other['fields']['hero.b1.hl'] = '另一个窗口写的。';
+    ok(throws(fn() => content_save_draft('site', $other, (int) $draft['rev']), ConflictException::class), 'stale site draft rev rejected');
+    ok(content_save_draft('site', $input, (int) $draft['rev'])['rev'] === $saved['rev'], 'the same text again with the old rev (retry after a lost answer) is no conflict and saves nothing');
     $bad = $input;
     $bad['fields']['about.h2'] = "两行\n标题";
     $bad['fields']['about.h2'] = str_repeat('长', 401);

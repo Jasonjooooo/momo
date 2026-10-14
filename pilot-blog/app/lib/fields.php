@@ -396,7 +396,8 @@ function site_normalize(array $input): array
     foreach ($reg as $k => $f) {
         $v = $in[$k] ?? ($seed[$k] ?? $f['default']);
         if (is_string($v)) {
-            $v = str_replace(["\r\n", "\r"], "\n", $v);
+            // pasted text: CRLF from Windows/WeChat, tabs from a spreadsheet (invisible on a phone, so never an error)
+            $v = str_replace(["\r\n", "\r", "\t"], ["\n", "\n", ' '], $v);
             if (!$f['multiline']) {
                 $v = str_replace("\n", ' ', $v);
             }
@@ -415,9 +416,9 @@ function site_normalize(array $input): array
         }
         $faq[] = [
             'nid' => is_string($row['nid'] ?? null) ? strtoupper(trim($row['nid'])) : '',
-            'q' => is_string($row['q'] ?? null) ? trim(str_replace(["\r", "\n"], ' ', $row['q'])) : '',
-            'r' => is_string($row['r'] ?? null) ? trim(str_replace(["\r", "\n"], ' ', $row['r'])) : '',
-            'a' => is_string($row['a'] ?? null) ? trim(str_replace(["\r", "\n"], ' ', $row['a'])) : '',
+            'q' => is_string($row['q'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['q'])) : '',
+            'r' => is_string($row['r'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['r'])) : '',
+            'a' => is_string($row['a'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['a'])) : '',
             'subscribe_note' => (bool) ($row['subscribe_note'] ?? false),
         ];
     }
@@ -428,8 +429,8 @@ function site_normalize(array $input): array
         }
         $facts[] = [
             'k' => is_string($row['k'] ?? null) ? strtoupper(trim($row['k'])) : '',
-            'val' => is_string($row['val'] ?? null) ? trim(str_replace(["\r", "\n"], ' ', $row['val'])) : '',
-            'line' => is_string($row['line'] ?? null) ? trim(str_replace(["\r", "\n"], ' ', $row['line'])) : '',
+            'val' => is_string($row['val'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['val'])) : '',
+            'line' => is_string($row['line'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['line'])) : '',
         ];
     }
     $out = $input;

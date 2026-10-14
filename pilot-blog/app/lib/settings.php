@@ -24,7 +24,7 @@ function settings_normalize(array $s): array
     $out['chat']['daily_limit'] = (int) $out['chat']['daily_limit'];
     $out['chat']['ip_limit'] = (int) $out['chat']['ip_limit'];
     $out['chat']['ip_window_min'] = 10;
-    $out['chat']['extra_note'] = str_replace(["\r\n", "\r"], "\n", (string) $out['chat']['extra_note']);
+    $out['chat']['extra_note'] = str_replace(["\r\n", "\r", "\t"], ["\n", "\n", ' '], (string) $out['chat']['extra_note']);
     $out['subscribe']['enabled'] = (bool) $out['subscribe']['enabled'];
     $out['home']['leg_limit'] = (int) $out['home']['leg_limit'];
     $out['rev'] = (int) $out['rev'];

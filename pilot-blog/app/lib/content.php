@@ -36,16 +36,36 @@ function content_save_draft(string $unit, array $input, int $rev): array
 {
     return with_lock('content-' . $unit, function () use ($unit, $input, $rev) {
         $cur = content_get($unit, 'draft');
-        require_rev($cur, $rev);
         [$doc, $err] = content_check($unit, $input, false);
+        $keep = $unit === 'site' ? ['fields', 'faq', 'type_facts'] : ['shelves'];
+        if ((int) ($cur['rev'] ?? 0) !== $rev && !$err && content_same($unit, $doc, $cur)) {
+            // the same text sent again with an older rev: a retry after the answer was lost on a bad
+            // mobile connection (the first try was saved). Nothing to save and nothing to warn about.
+            return $cur;
+        }
+        require_rev($cur, $rev);
         if ($err) {
             throw new ValidationError($err);
         }
-        $keep = $unit === 'site' ? ['fields', 'faq', 'type_facts'] : ['shelves'];
         $out = ['rev' => (int) ($cur['rev'] ?? 0) + 1, 'updated_at' => now_iso()] + array_intersect_key($doc, array_flip($keep));
         json_write_atomic(content_path($unit, 'draft'), $out);
         return $out;
     });
+}
+
+/** True when two versions of a unit hold the same content (shelf ids aside: new shelves get a random id on save). */
+function content_same(string $unit, array $a, array $b): bool
+{
+    if ($unit === 'site') {
+        foreach (['fields', 'faq', 'type_facts'] as $k) {
+            if (($a[$k] ?? null) !== ($b[$k] ?? null)) {
+                return false;
+            }
+        }
+        return true;
+    }
+    $strip = fn(array $doc) => array_map(fn($s) => is_array($s) ? array_diff_key($s, ['id' => 1]) : $s, $doc['shelves'] ?? []);
+    return $strip($a) === $strip($b);
 }
 
 /** Publish the saved draft (the editor saves first). Returns publish_site()'s result; live is restored on failure. */

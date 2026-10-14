@@ -285,10 +285,24 @@ function post_apply_input(array $post, array $input): array
     return $post;
 }
 
+/** True when applying the editor input would not change the stored post. */
+function post_same_input(array $post, array $input): bool
+{
+    try {
+        $new = post_apply_input($post, $input);
+    } catch (ValidationError $e) {
+        return false;
+    }
+    return $new['draft'] === $post['draft'] && $new['slug'] === $post['slug'] && $new['fix'] === $post['fix'];
+}
+
 function post_save_draft(string $id, array $draft, int $rev): array
 {
     return with_lock('posts', function () use ($id, $draft, $rev) {
         $post = post_get($id) ?? throw new InvalidArgumentException('no such post');
+        if ((int) $post['rev'] !== $rev && post_same_input($post, $draft)) {
+            return $post;   // a retry after a lost answer: this exact text is already saved
+        }
         require_rev($post, $rev);
         $post = post_apply_input($post, $draft);
         $err = post_validate($post, 'draft');

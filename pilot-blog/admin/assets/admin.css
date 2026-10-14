@@ -34,9 +34,9 @@ code{font-size:.9em;background:var(--panel-2);border:1px solid var(--line);borde
 
 /* ---------- shell ---------- */
 .top,.bare-top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;min-height:56px;padding:0 var(--gutter);padding-left:max(var(--gutter),env(safe-area-inset-left));padding-right:max(var(--gutter),env(safe-area-inset-right));background:rgba(10,23,51,.96);border-bottom:1px solid var(--line)}
-.brand{display:flex;align-items:baseline;gap:8px;margin:0;color:var(--text);text-decoration:none;min-height:44px;align-items:center;flex:none}
-.brand-name{font-weight:600;font-size:17px;letter-spacing:.04em}
-.brand-sub{font-family:var(--mono);font-size:12px;color:var(--text-2);border:1px solid var(--line-strong);border-radius:3px;padding:0 6px;line-height:20px}
+.brand{display:flex;align-items:baseline;gap:8px;margin:0;color:var(--text);text-decoration:none;min-height:44px;align-items:center;flex:0 1 auto;min-width:0}
+.brand-name{font-weight:600;font-size:17px;letter-spacing:.04em;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand-sub{flex:none;font-family:var(--mono);font-size:12px;color:var(--text-2);border:1px solid var(--line-strong);border-radius:3px;padding:0 6px;line-height:20px}
 .top-title{flex:1;min-width:0;margin:0;font-size:15px;color:var(--text-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .menu-btn{flex:none;min-height:44px;min-width:64px;padding:0 14px;border-radius:6px;border:1px solid var(--line-strong);background:transparent;color:var(--text);font:600 16px/1 var(--cjk);cursor:pointer}
 .menu{position:fixed;inset:0;z-index:50;display:none;flex-direction:column;gap:8px;padding:12px var(--gutter) calc(16px + var(--safe-b));background:var(--canvas);overflow-y:auto}

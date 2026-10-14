@@ -138,6 +138,12 @@ function post_str(string $k, int $max = 100000): string
     return is_string($v) ? substr($v, 0, $max) : '';
 }
 
+/** Numbers typed with a Chinese input method in full-width mode (１２０) are ordinary numbers. */
+function ascii_digits(string $s): string
+{
+    return trim((string) preg_replace_callback('/[\x{FF10}-\x{FF19}]/u', fn($m) => (string) (mb_ord($m[0]) - 0xFF10), $s));
+}
+
 function admin_json_body(): array
 {
     $raw = (string) file_get_contents('php://input', false, null, 0, 3000001);
@@ -638,7 +644,7 @@ function admin_post_input(array $in): array
         $out['tags'] = is_string($in['tags']) ? $in['tags'] : (is_array($in['tags']) ? array_values(array_filter($in['tags'], 'is_string')) : '');
     }
     if (array_key_exists('minutes', $in)) {
-        $m = $in['minutes'];
+        $m = is_string($in['minutes']) ? ascii_digits($in['minutes']) : $in['minutes'];
         $out['minutes'] = ($m === null || $m === '') ? null : (is_numeric($m) && (string) (int) $m === trim((string) $m) ? (int) $m : -1);
     }
     if (array_key_exists('cover', $in)) {
@@ -856,8 +862,8 @@ function admin_ai_save(): void
     $patch = $part === 'switch'
         ? ['chat' => ['enabled' => post_str('enabled', 2) === '1']]
         : ['chat' => [
-            'daily_limit' => ctype_digit(trim(post_str('daily_limit', 10))) ? (int) trim(post_str('daily_limit', 10)) : -1,
-            'ip_limit' => ctype_digit(trim(post_str('ip_limit', 10))) ? (int) trim(post_str('ip_limit', 10)) : -1,
+            'daily_limit' => ctype_digit(ascii_digits(post_str('daily_limit', 40))) ? (int) ascii_digits(post_str('daily_limit', 40)) : -1,
+            'ip_limit' => ctype_digit(ascii_digits(post_str('ip_limit', 40))) ? (int) ascii_digits(post_str('ip_limit', 40)) : -1,
             'extra_note' => trim(str_replace(["\r\n", "\r"], "\n", post_str('extra_note', 20000))),
         ]];
     try {

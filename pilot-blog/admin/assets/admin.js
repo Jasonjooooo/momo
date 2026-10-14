@@ -361,9 +361,14 @@
     function read() { try { var raw = localStorage.getItem(k); return raw ? JSON.parse(raw) : null; } catch (e) { return null; } }
     function write(v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } }
     function clear() { try { localStorage.removeItem(k); } catch (e) { /* ignore */ } }
-    setInterval(function () { if (guard.dirty) write({ t: Date.now(), s: getState() }); }, 5000);
+    function now() { if (guard.dirty) write({ t: Date.now(), s: getState() }); }
+    setInterval(now, 5000);
+    // also when the page goes away (reload, back, iOS app switch): text typed in the last seconds survives
+    window.addEventListener('pagehide', now);
+    d.addEventListener('visibilitychange', function () { if (d.visibilityState === 'hidden') now(); });
     return {
       clear: clear,
+      now: now,
       offer: function (apply) {
         var b = read();
         if (!b || !b.s) return;
@@ -585,7 +590,7 @@
       }
       badges();
       if (r.ok) barStatus(r.message, 'ok');
-      else { barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
+      else { if (!r.saved) bk.now(); barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
     }
     function preview() {
       var f = $('#pv-form');
@@ -802,7 +807,7 @@
       if (r.ids) r.ids.forEach(function (id, k) { if (shelves[k] && !shelves[k].id) shelves[k].id = id; });
       if (r.ok || r.saved) { setDirty(false); bk.clear(); }
       if (r.ok) barStatus(r.message, 'ok');
-      else { barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
+      else { if (!r.saved) bk.now(); barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
     }
     onBar({
       save: function (btn) { save(false, btn); },
@@ -930,7 +935,7 @@
       if (r.ok || r.saved) { setDirty(false); bk.clear(); }
       refreshUi();
       if (r.ok) barStatus(r.message, 'ok');
-      else { barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
+      else { if (!r.saved) bk.now(); barStatus(r.message || '没有保存。', 'err'); if (r.fields) showErrors(r.fields, form); }
     }
     onBar({
       save: function (b) { act('save', b, '保存中…'); },
