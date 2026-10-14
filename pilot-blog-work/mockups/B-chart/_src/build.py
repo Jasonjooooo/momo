@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Assemble the B-chart mockup from the CURRENT pilot-blog/index.html plus the chart parts.
+"""Assemble the B-chart page from the saved pre-B single page plus the chart parts.
 Keeps byte-for-byte: head, global CSS, nav, hero CSS/markup/JS, diagnostics, shelf JSON, chat JS, subscribe JS."""
 import io, os, re, sys
 
-SRC = '/home/user/momo/pilot-blog/index.html'
+SRC = '/home/user/momo/pilot-blog-work/mockups/original-index.html'   # the pre-B single page; pilot-blog/index.html is now this script's output
 OUT = '/home/user/momo/pilot-blog-work/mockups/B-chart/index.html'
 PARTS = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'parts')
 
