@@ -589,7 +589,7 @@
   .logbook{grid-template-columns:repeat(2,minmax(0,1fr))}
   .logbook div{border-bottom:1px solid var(--line);margin-bottom:-1px}
 
-  .log-grid{display:flex;flex-direction:column}
+  .log-grid{display:flex;flex-direction:column;align-items:stretch}
   .log-route{display:contents}
   .hold-fig{order:1}
   .log-intro{order:2}

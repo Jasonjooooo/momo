@@ -68,6 +68,11 @@ async function run(browser, tag, opt) {
   if (W <= 900) { await at(p, '.about-fig', 120); await shot('01-about-inset'); }
   await at(p, '.hold-fig', W > 900 ? 380 : 260); await shot('leg-to-logbk');
   await at(p, '.legs li:nth-child(2)', W > 900 ? 200 : 140); await shot('02-log-legs');
+  // the active-leg readout wakes while the page moves: catch it mid-scroll
+  for (let k = 0; k < 6; k++) { await p.mouse.wheel(0, 60); await sleep(70); }
+  await sleep(250);
+  R.hud = await p.evaluate(() => [document.getElementById('hud').className, document.getElementById('hud').textContent]);
+  await shot('02-log-hud-scrolling');
   await at(p, '.legend', W > 900 ? 160 : 150); await shot('03-type-legend');
   await at(p, '.facts', W > 900 ? 220 : 120); await shot('03-type-facts');
   await at(p, '.comm', W > 900 ? 120 : 90); await shot('04-ai-comm');

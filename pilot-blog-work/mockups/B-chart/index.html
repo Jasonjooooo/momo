@@ -915,7 +915,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .logbook{grid-template-columns:repeat(2,minmax(0,1fr))}
   .logbook div{border-bottom:1px solid var(--line);margin-bottom:-1px}
 
-  .log-grid{display:flex;flex-direction:column}
+  .log-grid{display:flex;flex-direction:column;align-items:stretch}
   .log-route{display:contents}
   .hold-fig{order:1}
   .log-intro{order:2}
@@ -2731,17 +2731,20 @@ function printChartBg(W, H, P) {
   bg.setAttribute('width', W); bg.setAttribute('height', H); bg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
   host.textContent = '';
   const lbl = (cls, text, x, y, extra) => { const p = document.createElement('p'); p.className = 'bg-lbl ' + cls; p.textContent = text; p.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)' + (extra || ''); host.append(p); return p; };
-  // latitude down the right neatline every 10', longitude along the top edge
-  for (let y = 320; y < H - 40; y += 320) lbl('lat', dm(LAT0 - y / PX_NM) + 'N', W - 26, y, ' translate(-100%,-50%)');
-  for (let k = -6; k <= 6; k++) { const x = W / 2 + k * 277; if (x > 30 && x < W - 90) lbl('lon', 'E' + dm(LON0 + k * 10), x + 4, 8); }
-  // Grid MORA: one figure per graticule cell, kept off every content block
+  // content blocks, measured once: nothing printed on the sheet may sit on top of them
   const cr = chart.getBoundingClientRect();
-  const solids = $$('.chh, .about-text, .about-fig, .rose-wrap, .log-intro, .post, .hold-fig, .legend, .comm, .checklist, .msa, .fly, .rwy-zone, .faq .after').map(e => {
+  const raw = $$('.chh, .about-text, .about-fig, .rose-wrap, .log-intro, .post, .hold-fig, .legend, .comm, .checklist, .msa, .fly, .rwy-zone, .faq .after').map(e => {
     const r = e.getBoundingClientRect();
     let t = r.top, bt = r.bottom;
     if (e.classList.contains('log-intro')) { const g = e.parentElement.getBoundingClientRect(); t = g.top; bt = g.bottom; }   // sticky: it can sit anywhere in its column
-    return [r.left - cr.left - 30, t - cr.top - 40, r.right - cr.left + 30, bt - cr.top + 40];
+    return [r.left - cr.left, t - cr.top, r.right - cr.left, bt - cr.top];
   });
+  const solids = raw.map(b => [b[0] - 30, b[1] - 40, b[2] + 30, b[3] + 40]);
+  const hits = (x0, y0, x1, y1) => raw.some(b => x1 > b[0] - 8 && x0 < b[2] + 8 && y1 > b[1] - 6 && y0 < b[3] + 6);
+  // latitude down the right neatline every 10' (skipped where a text column reaches the neatline), longitude along the top edge
+  for (let y = 320; y < H - 40; y += 320) if (!hits(W - 92, y - 8, W - 26, y + 8)) lbl('lat', dm(LAT0 - y / PX_NM) + 'N', W - 26, y, ' translate(-100%,-50%)');
+  for (let k = -6; k <= 6; k++) { const x = W / 2 + k * 277; if (x > 30 && x < W - 90) lbl('lon', 'E' + dm(LON0 + k * 10), x + 4, 8); }
+  // Grid MORA: one figure per graticule cell, kept off every content block
   const clear = (x, y) => x > 50 && x < W - 50 && y > 20 && y < H - 20 && !solids.some(b => x > b[0] && x < b[2] && y > b[1] && y < b[3]);
   const r = rng(4021);
   for (let y = 0; y < H; y += 320) for (let x = W / 2 - 277 * 6; x < W; x += 277) {
@@ -2772,8 +2775,13 @@ function printChartBg(W, H, P) {
   if (rw) {
     const R = phone ? 980 : 1500;
     s += '<circle class="tma-h" cx="' + rw.x.toFixed(0) + '" cy="' + rw.y.toFixed(0) + '" r="' + R + '"/><circle class="tma" cx="' + rw.x.toFixed(0) + '" cy="' + rw.y.toFixed(0) + '" r="' + (R - 5) + '"/>';
-    const a = -118 * Math.PI / 180;
-    lbl('tma', '云底 TMA · 1000 / 9500', rw.x + Math.cos(a) * (R + 22), rw.y + Math.sin(a) * (R + 22), ' translate(-50%,-50%) rotate(' + (-118 + 90) + 'deg)');
+    // the boundary label rides the arc where it is on the sheet and clear of content (the arc is wider than a phone)
+    for (const deg of [-112, -68, -104, -76, -120, -60, -96, -84, -128, -52]) {
+      const a = deg * Math.PI / 180, lx = rw.x + Math.cos(a) * (R + 22), ly = rw.y + Math.sin(a) * (R + 22);
+      if (lx < 130 || lx > W - 130 || ly < 40 || hits(lx - 110, ly - 40, lx + 110, ly + 40)) continue;
+      lbl('tma', '云底 TMA · 1000 / 9500', lx, ly, ' translate(-50%,-50%) rotate(' + (deg + 90) + 'deg)');
+      break;
+    }
   }
   bg.innerHTML = s;
 }
