@@ -189,6 +189,7 @@ let tuneTo = () => {};
     fAct.textContent = FREQ[i % FREQ.length]; fActN.textContent = names[i];
     fSby.textContent = FREQ[sby % FREQ.length]; fSbyN.textContent = names[sby];
     swap.setAttribute('aria-label', '切换到备用频率：' + names[sby]);
+    if (o.focus) tabs[i].focus({ preventScroll: true });          // focus first: a focus scroll would cancel the bar's smooth scroll
     if (o.user) {
       fAct.classList.remove('flip'); void fAct.offsetWidth; fAct.classList.add('flip');
       const t = tabs[i], bl = bar.scrollLeft, bw = bar.clientWidth;   // keep the tuned tab in view inside the bar, never scroll the page sideways
@@ -196,7 +197,6 @@ let tuneTo = () => {};
       const top = panels[i].getBoundingClientRect().top;          // phones: a shorter shelf must not leave the reader below it
       if (top < 72) scrollTo({ top: scrollY + top - 88, behavior: RM.matches ? 'auto' : 'smooth' });
     }
-    if (o.focus) tabs[i].focus();
   }
   tuneTo = select;
   tabs.forEach((t, i) => t.addEventListener('click', () => select(i, { user: true })));

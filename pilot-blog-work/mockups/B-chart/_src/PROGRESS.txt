@@ -4,3 +4,4 @@ server: php -S 127.0.0.1:8977 -t mockups/B-chart
 progress: round-2 fixes built; test.js written
 progress: round-3 fixes (svg max-width, z-order, label placement)
 progress: session 2 resumed; fix phone hold label (log-grid stretch)
+progress: s2 fixes: lat-label collisions, TMA label on-sheet, tab focus scroll, chat-log top fade

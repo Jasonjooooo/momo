@@ -665,6 +665,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .chat-lede{margin:8px 20px 0;font-size:15px}
 .chat-caution{margin:8px 20px 0;font-size:13.5px;line-height:1.7;color:var(--text-secondary)}
 .chat-log{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;padding:16px 20px;min-height:180px;max-height:340px;overflow-y:auto;border-block:1px solid var(--line);background:rgba(7,16,38,.6)}
+.chat-log::before{content:"";position:sticky;top:-16px;z-index:1;flex:none;height:26px;margin:-16px -20px -20px;background:linear-gradient(#0a1534,rgba(10,21,52,0));pointer-events:none}   /* older lines fade under the top edge */
 .msg{max-width:88%;padding:10px 13px;border-radius:10px;font-size:15px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
 .msg p{margin:0;max-inline-size:none}
 .msg.assistant{align-self:flex-start;background:rgba(18,36,82,.95);border:1px solid var(--line)}
@@ -2566,6 +2567,7 @@ let tuneTo = () => {};
     fAct.textContent = FREQ[i % FREQ.length]; fActN.textContent = names[i];
     fSby.textContent = FREQ[sby % FREQ.length]; fSbyN.textContent = names[sby];
     swap.setAttribute('aria-label', '切换到备用频率：' + names[sby]);
+    if (o.focus) tabs[i].focus({ preventScroll: true });          // focus first: a focus scroll would cancel the bar's smooth scroll
     if (o.user) {
       fAct.classList.remove('flip'); void fAct.offsetWidth; fAct.classList.add('flip');
       const t = tabs[i], bl = bar.scrollLeft, bw = bar.clientWidth;   // keep the tuned tab in view inside the bar, never scroll the page sideways
@@ -2573,7 +2575,6 @@ let tuneTo = () => {};
       const top = panels[i].getBoundingClientRect().top;          // phones: a shorter shelf must not leave the reader below it
       if (top < 72) scrollTo({ top: scrollY + top - 88, behavior: RM.matches ? 'auto' : 'smooth' });
     }
-    if (o.focus) tabs[i].focus();
   }
   tuneTo = select;
   tabs.forEach((t, i) => t.addEventListener('click', () => select(i, { user: true })));

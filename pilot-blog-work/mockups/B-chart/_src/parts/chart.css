@@ -339,6 +339,7 @@
 .chat-lede{margin:8px 20px 0;font-size:15px}
 .chat-caution{margin:8px 20px 0;font-size:13.5px;line-height:1.7;color:var(--text-secondary)}
 .chat-log{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;padding:16px 20px;min-height:180px;max-height:340px;overflow-y:auto;border-block:1px solid var(--line);background:rgba(7,16,38,.6)}
+.chat-log::before{content:"";position:sticky;top:-16px;z-index:1;flex:none;height:26px;margin:-16px -20px -20px;background:linear-gradient(#0a1534,rgba(10,21,52,0));pointer-events:none}   /* older lines fade under the top edge */
 .msg{max-width:88%;padding:10px 13px;border-radius:10px;font-size:15px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
 .msg p{margin:0;max-inline-size:none}
 .msg.assistant{align-self:flex-start;background:rgba(18,36,82,.95);border:1px solid var(--line)}
