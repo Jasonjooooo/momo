@@ -582,6 +582,9 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .foot-notes .brand-name{font:inherit;letter-spacing:.04em}
 .foot-notes p{margin:0 0 6px;font-size:13px;line-height:1.8;color:var(--text-secondary);max-inline-size:none}
 
+/* hero diagnostics panel (hidden; five taps on the wordmark) */
+.diag{position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-height:70vh;overflow:auto;margin:0;padding:12px 14px;font:400 11px/1.55 var(--font-mono);color:var(--text-primary);background:rgba(10,23,51,.96);border:1px solid var(--line-strong);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width:1024px){
   .about-grid{grid-template-columns:1fr;padding-right:0;row-gap:36px}
@@ -670,7 +673,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     <div class="poster" aria-hidden="true"></div>
     <div class="poster poster-end" aria-hidden="true"></div>
     <div class="poster-fog" aria-hidden="true"></div>
-    <video id="hero-video" preload="none" muted playsinline webkit-playsinline x5-playsinline disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+    <video id="hero-video" preload="none" muted playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5-page" disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
     <div class="sky" id="sky" aria-hidden="true"></div>
     <div class="scrim" aria-hidden="true"></div>
     <div class="navscrim" aria-hidden="true"></div>
@@ -1290,6 +1293,10 @@ const easeOut3 = t => 1 - Math.pow(1 - t, 3);
 function rng(seed) { let s = seed >>> 0; return () => (s = (s * 1664525 + 1013904223) >>> 0) / 4294967296; }
 const RM = matchMedia('(prefers-reduced-motion: reduce)');
 
+/* ---------- hero diagnostics: tap the wordmark five times to see how the video loaded (for real-device checks) ---------- */
+const DIAG = [], DIAG_T0 = performance.now();
+function diag(msg) { DIAG.push(((performance.now() - DIAG_T0) / 1000).toFixed(1) + 's ' + msg); if (DIAG.length > 40) DIAG.shift(); }
+
 /* ---------- hidden tab: pause every animation ---------- */
 document.addEventListener('visibilitychange', () => document.body.classList.toggle('paused', document.hidden));
 
@@ -1549,7 +1556,8 @@ video.addEventListener('seeked', () => {
 video.addEventListener('error', () => {
   seekBusy = false; pendingTime = null;
   if (!video.getAttribute('src')) return;   // a source swap emptied the element on purpose; nothing failed
-  failVideo();                          // e.g. a browser that cannot decode H.264: drop the ring, keep the still journey
+  diag('video error ' + (video.error ? video.error.code : '?') + ' on ' + srcPath);
+  videoTrouble();                       // Blob refused: retry as a plain progressive src once; else the still journey
 });
 
 /* ---------- the lerp loop that rests ---------- */
@@ -1618,7 +1626,13 @@ function wireHero(v) {
   let started = false;
   const startBlobFetch = () => {
     if (started || seq !== loadSeq) return; started = true;
-    loadHeroBlob(v, seq).catch(() => { if (seq === loadSeq) failVideo(); });   // a swap's own abort is not a failure
+    diag('mode ' + v + ', fetch ' + S.video);
+    loadHeroBlob(v, seq).catch(err => {
+      if (seq !== loadSeq) return;      // a swap's own abort is not a failure
+      diag('fetch failed: ' + (err && (err.name + ' ' + err.message)));
+      if (err && err.message === 'file') failVideo();   // file:// shows the designed still hero
+      else loadDirect(v, seq);          // some in-app browsers and sandboxed previews refuse fetch: let the element stream it
+    });
   };
   const posterImg = new Image();
   posterImg.onload = startBlobFetch;
@@ -1628,9 +1642,11 @@ function wireHero(v) {
 }
 function unloadVideo() {
   if (loadCtrl) { loadCtrl.abort(); loadCtrl = null; }
+  clearTimeout(readyWatch);
   video.removeAttribute('src');
   video.load();                         // drops the old decoder and any seek in flight (whose 'seeked' will never come)
   if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  srcToken = null; srcPath = 'none'; directTried = false;
   seekBusy = false; pendingTime = null; primed = false; priming = false;
   videoReady = false; peOp = -1; pfOp = -1;   // the still journey carries the stage until the new footage is in
   stage.classList.remove('video-ready', 'video-failed');
@@ -1674,19 +1690,55 @@ async function loadHeroBlob(v, seq) {
   }
   if (seq !== loadSeq) return;          // swapped away while streaming
   if (ring) ring.style.setProperty('--ld', 0);
+  diag('blob ' + blob.size + ' bytes');
   objectUrl = URL.createObjectURL(blob);
+  setSource(objectUrl, 'blob', seq);
+}
+/* Fallback when the Blob path fails (fetch refused in a sandboxed preview or an in-app browser, or the element rejects the
+   blob: URL): hand the file URL to the element and let it stream. Seeking then relies on the host's Range support, which every
+   real host and CDN has; the Blob path stays first because it is the one that scrubs on hosts without Range. */
+let directTried = false;
+function loadDirect(v, seq) {
+  if (seq !== loadSeq) return;
+  if (directTried) { failVideo(); return; }
+  directTried = true;
+  if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  if (ring) ring.style.setProperty('--ld', 0);
+  setSource(HERO_SRC[v].video, 'direct', seq);
+}
+let srcToken = null, srcPath = 'none', readyWatch = 0;
+function setSource(url, path, seq) {
+  clearTimeout(readyWatch);
+  srcToken = url; srcPath = path;
   video.muted = true;
   video.preload = 'auto';               // the markup's preload="none" only kept the element idle until the gate decided
-  video.src = objectUrl;
+  video.src = url;
   video.load();
-  video.addEventListener('canplay', () => {
-    if (seq !== loadSeq) return;
+  diag('src set (' + path + ')');
+  let done = false;
+  const ready = e => {
+    if (done || seq !== loadSeq || srcToken !== url) return;
+    done = true; clearTimeout(readyWatch);
+    diag(e.type + ', duration ' + (video.duration || 0).toFixed(2));
     primeDecoder();                     // before the first seek: play() on an ended video would rewind it to 0
-    requestSeek(footageAt(shown) * video.duration);
+    requestSeek(footageAt(shown) * video.duration, true);
     videoReady = true;
     stage.classList.add('video-ready');
     primeViaWeixin();
-  }, { once: true });
+  };
+  // loadeddata or canplay, whichever comes first: some in-app browsers stop at loadeddata until a gesture
+  video.addEventListener('loadeddata', ready, { once: true });
+  video.addEventListener('canplay', ready, { once: true });
+  video.addEventListener('loadedmetadata', () => { if (srcToken === url) { diag('metadata'); primeDecoder(); } }, { once: true });
+  readyWatch = setTimeout(() => {       // nothing decodable after 15s: same handling as an error
+    if (done || seq !== loadSeq || srcToken !== url) return;
+    diag('no frame after 15s on ' + path + ', readyState ' + video.readyState);
+    videoTrouble();
+  }, 15000);
+}
+function videoTrouble() {
+  if (srcPath === 'blob' && !directTried) loadDirect(variant, loadSeq);
+  else failVideo();
 }
 function failVideo() {
   if (ring) { ring.remove(); ring = null; }   // the cue stays as the honest scroll cue
@@ -1714,15 +1766,15 @@ function disarmPrime() {
 }
 let priming = false;                    // a play() promise is still out: one tap fires touchstart, pointerdown and touchend
 function primeDecoder() {
-  if (primed || priming || !needsPrime() || !objectUrl || !video.duration) return;
+  if (primed || priming || !needsPrime() || !srcToken || !video.duration) return;
   if (video.ended || video.currentTime >= video.duration - 0.05) return;   // at the very end play() would rewind: next gesture
-  const src = objectUrl;
+  const src = srcToken;
   let pr = null;
   try { pr = video.play(); } catch (_) { /* old engines throw instead of rejecting */ }
   video.pause();
   const ok = () => {
     priming = false;
-    if (primed || src !== objectUrl) return;   // swapped meanwhile: the new footage primes itself
+    if (primed || src !== srcToken) return;    // swapped meanwhile: the new footage primes itself
     primed = true; disarmPrime();
     requestSeek(footageAt(shown) * video.duration, true);   // repaint the current frame through the gate
   };
@@ -2096,6 +2148,31 @@ subForm.addEventListener('submit', async e => {
     subBtn.disabled = false; subBtn.textContent = '订阅飞行日志';
   }
 });
+
+/* ---------- hero diagnostics panel ---------- */
+(function diagPanel() {
+  const mark = $('.wordmark');
+  let taps = [], panel = null;
+  const state = () => {
+    const c = navigator.connection;
+    return [
+      'UA ' + navigator.userAgent,
+      'mode ' + (scrubOn ? variant : 'static') + ' | src ' + srcPath + (directTried ? ' (direct tried)' : '') + ' | ready ' + videoReady + ' | primed ' + primed,
+      'readyState ' + video.readyState + ' networkState ' + video.networkState + ' error ' + (video.error ? video.error.code + ' ' + (video.error.message || '') : 'none'),
+      'time ' + (video.currentTime || 0).toFixed(2) + ' / ' + (video.duration || 0).toFixed(2) + ' | progress ' + shown.toFixed(3),
+      'saveData ' + !!(c && c.saveData) + ' | canPlay mp4 ' + video.canPlayType('video/mp4; codecs="avc1.64001F"') + ' | viewport ' + innerWidth + 'x' + innerHeight,
+      '---'
+    ].concat(DIAG).join('\n');
+  };
+  mark.addEventListener('click', e => {
+    const now = performance.now();
+    taps = taps.filter(x => now - x < 3000); taps.push(now);
+    if (taps.length < 5) return;
+    e.preventDefault(); taps = [];
+    if (!panel) { panel = document.createElement('pre'); panel.className = 'diag'; panel.addEventListener('click', () => { panel.remove(); panel = null; }); document.body.append(panel); }
+    panel.textContent = state() + '\n\n（点这里关闭）';
+  });
+})();
 
 /* ---------- start ---------- */
 const MQLS = [...STATIC_GATES, PORTRAIT_GATE].map(q => matchMedia(q));    // keep the lists referenced
