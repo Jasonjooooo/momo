@@ -246,9 +246,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .sky::after{opacity:var(--sb,0);background:linear-gradient(180deg,#3E5278 0,#6C8DBC calc(100% - var(--fade)))}
   /* base scrim, plus side feathers that exist only when --pw is narrower than the stage (they collapse to zero width at full
      width): the pillars fade into the canvas instead of ending on a hard edge */
+  /* the stops never coincide: WebKit (every iPhone browser) paints a zero-length gradient as a solid fill of its first color,
+     which at full width covered the whole stage. -2px/+2px keeps a real gradient that sits off-screen when --pw is 100%. */
   .scrim{background:
-    linear-gradient(90deg,var(--canvas) calc((100% - var(--pw))/2),rgba(10,23,51,0) calc((100% - var(--pw))/2 + min(56px,(100% - var(--pw))*.75))),
-    linear-gradient(270deg,var(--canvas) calc((100% - var(--pw))/2),rgba(10,23,51,0) calc((100% - var(--pw))/2 + min(56px,(100% - var(--pw))*.75))),
+    linear-gradient(90deg,var(--canvas) calc((100% - var(--pw))/2 - 2px),rgba(10,23,51,0) calc((100% - var(--pw))/2 + max(2px,min(56px,(100% - var(--pw))*.75)))),
+    linear-gradient(270deg,var(--canvas) calc((100% - var(--pw))/2 - 2px),rgba(10,23,51,0) calc((100% - var(--pw))/2 + max(2px,min(56px,(100% - var(--pw))*.75)))),
     radial-gradient(ellipse 130% 80% at 50% 58%,rgba(10,23,51,0) 42%,rgba(10,23,51,.5) 100%)}
   .band .btn{min-height:48px}
 
@@ -1730,11 +1732,17 @@ function setSource(url, path, seq) {
   video.addEventListener('loadeddata', ready, { once: true });
   video.addEventListener('canplay', ready, { once: true });
   video.addEventListener('loadedmetadata', () => { if (srcToken === url) { diag('metadata'); primeDecoder(); } }, { once: true });
-  readyWatch = setTimeout(() => {       // nothing decodable after 15s: same handling as an error
+  const watch = () => {                  // nothing decodable after 15s: same handling as an error
     if (done || seq !== loadSeq || srcToken !== url) return;
+    if (!primed && needsPrime() && video.networkState !== 2) {   // not loading at all: the browser waits for a gesture
+      diag('waiting for a gesture (networkState ' + video.networkState + ')');
+      readyWatch = setTimeout(watch, 15000);
+      return;
+    }
     diag('no frame after 15s on ' + path + ', readyState ' + video.readyState);
     videoTrouble();
-  }, 15000);
+  };
+  readyWatch = setTimeout(watch, 15000);
 }
 function videoTrouble() {
   if (srcPath === 'blob' && !directTried) loadDirect(variant, loadSeq);
@@ -1766,8 +1774,10 @@ function disarmPrime() {
 }
 let priming = false;                    // a play() promise is still out: one tap fires touchstart, pointerdown and touchend
 function primeDecoder() {
-  if (primed || priming || !needsPrime() || !srcToken || !video.duration) return;
-  if (video.ended || video.currentTime >= video.duration - 0.05) return;   // at the very end play() would rewind: next gesture
+  if (primed || priming || !needsPrime() || !srcToken) return;
+  // no metadata yet is fine: in-app WKWebViews (WeChat, Chrome on iOS) load nothing until a gesture calls play(), so waiting
+  // for the duration here would wait forever. Only skip at the very end of a known clip, where play() would rewind to 0.
+  if (video.duration && (video.ended || video.currentTime >= video.duration - 0.05)) return;
   const src = srcToken;
   let pr = null;
   try { pr = video.play(); } catch (_) { /* old engines throw instead of rejecting */ }
@@ -1776,11 +1786,12 @@ function primeDecoder() {
     priming = false;
     if (primed || src !== srcToken) return;    // swapped meanwhile: the new footage primes itself
     primed = true; disarmPrime();
-    requestSeek(footageAt(shown) * video.duration, true);   // repaint the current frame through the gate
+    diag('primed');
+    if (video.duration) requestSeek(footageAt(shown) * video.duration, true);   // repaint the current frame through the gate
   };
   if (!pr || typeof pr.then !== 'function') { ok(); return; }
   priming = true;
-  pr.then(() => { video.pause(); ok(); }, err => { if (!err || err.name !== 'NotAllowedError') ok(); else { priming = false; armPrime(); } });
+  pr.then(() => { video.pause(); ok(); }, err => { if (!err || err.name !== 'NotAllowedError') ok(); else { priming = false; diag('play() refused, waiting for a tap'); armPrime(); } });
 }
 function primeViaWeixin() {
   try { const B = window.WeixinJSBridge; if (B && typeof B.invoke === 'function') B.invoke('getNetworkType', {}, () => primeDecoder()); } catch (_) {}
