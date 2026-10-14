@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title><!--{t archive.title}--><!--{/t}--> · <!--{t site.brand}--><!--{/t}--></title>
+<meta name="description" content="<!--{t site.description|attr}--><!--{/t}-->">
+<meta name="theme-color" content="#0A1733">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="website">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="<!--{t archive.title|attr}--><!--{/t}--> · <!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:site_name" content="<!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:description" content="<!--{t site.description|attr}--><!--{/t}-->">
+<meta property="og:image" content="<!--{t site.origin|attr}--><!--{/t}-->/assets/og.jpg">
+<meta property="og:url" content="<!--{t site.origin|attr}--><!--{/t}-->/posts/">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cpath d='M5 8 L22 22' stroke='%23A9A8C0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M19 24 H29' stroke='%23ECE9F1' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='12.9' r='2.8' fill='%23EA4C22'/%3E%3C/svg%3E">
+<link rel="preload" href="../assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/b612-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/b612-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="<!--{v css_href}--><!--{/v}-->">
+</head>
+<body class="page-archive">
+<a class="skip" href="#archive"><!--{t nav.skip}--><!--{/t}--></a>
+<header class="pbar">
+  <a class="wordmark" href="../"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L</span></a>
+  <nav class="pbar-links" aria-label="日志导航">
+    <a class="pbar-link" href="../#log"><!--{t post.back}--><!--{/t}--></a>
+<!--{if subscribe_live}-->    <a class="pbar-sub" href="../#subscribe"><!--{t nav.subscribe}--><!--{/t}--></a>
+<!--{/if}-->  </nav>
+</header>
+
+<main class="pmain" id="archive" tabindex="-1">
+  <div class="pcol">
+    <header class="strip">
+      <p class="kicker"><!--{t archive.kicker}--><!--{/t}--></p>
+      <h1><!--{t archive.title}--><!--{/t}--></h1>
+      <p class="lede"><!--{t archive.lede}--><!--{/t}--></p>
+    </header>
+    <!--{block archive_list}--><!--{/block}-->
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <p class="foot-mark"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L · L1T</span></p>
+    <p class="foot-tag"><!--{t footer.tag}--><!--{/t}--></p>
+    <div class="foot-notes">
+      <p><!--{t footer.note1}--><!--{/t}--></p>
+      <p><!--{t footer.note2}--><!--{/t}--></p>
+      <p>© <!--{t site.footer_year}--><!--{/t}--> <span class="brand-name"><!--{t site.brand}--><!--{/t}--></span></p>
+      <p class="foot-chart" aria-hidden="true">CHART 10-1 · ENROUTE · NIGHT<br><!--{t chart.disclaimer}--><!--{/t}--></p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

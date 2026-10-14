@@ -181,17 +181,17 @@ function field_registry(): array
 
         ['post.back', 'post', '回到航路图', '日志页面顶部', ['text'], 's', '回到航路图'],
         ['post.all', 'post', '全部日志', '日志页面顶部', ['text'], 's', '全部日志'],
-        ['post.prev', 'post', '上一篇', '日志页面底部', ['text'], 's', '上一篇'],
-        ['post.next', 'post', '下一篇', '日志页面底部', ['text'], 's', '下一篇'],
+        ['post.prev', 'post', '上一篇', '日志页面底部', [], 's', '上一篇'],
+        ['post.next', 'post', '下一篇', '日志页面底部', [], 's', '下一篇'],
         ['post.end_kicker', 'post', '结尾小标签', '日志正文后面', ['text'], 's', 'ON BLOCKS'],
         ['post.end_line', 'post', '结尾一句', '日志正文后面', ['text'], '', '这一段飞完了。'],
         ['post.sub_line', 'post', '订阅说明', '日志正文后面，订阅开着时', ['text'], '', '想读下一篇，可以订阅。写完以后，我会从订阅名单里发到你的邮箱。'],
         ['post.sub_btn', 'post', '订阅按钮', '日志正文后面，订阅开着时', ['text'], 's', '订阅飞行日志'],
         ['post.tags', 'post', '标签', '日志正文后面', ['text'], 's', '标签'],
         ['archive.kicker', 'post', '全部日志页：小标签', '全部日志页', ['text'], 's', 'LOGBOOK'],
-        ['archive.title', 'post', '全部日志页：标题', '全部日志页', ['text'], 's', '全部日志'],
+        ['archive.title', 'post', '全部日志页：标题', '全部日志页', ['text', 'attr'], 's', '全部日志'],
         ['archive.lede', 'post', '全部日志页：导语', '全部日志页', ['text'], '', '按发布时间排列，新的在上面。'],
-        ['archive.empty', 'post', '全部日志页：没有日志时', '全部日志页', ['text'], '', '还没有发布的日志。'],
+        ['archive.empty', 'post', '全部日志页：没有日志时', '全部日志页', [], '', '还没有发布的日志。'],
     ];
     $seedFile = APP_DIR . '/seed/site.baseline.json';
     $seed = is_file($seedFile) ? (json_read($seedFile, [])['fields'] ?? []) : [];

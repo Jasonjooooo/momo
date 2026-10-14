@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title><!--{v post_title}--><!--{/v}--> · <!--{t site.brand}--><!--{/t}--></title>
+<meta name="description" content="<!--{v post_excerpt_attr}--><!--{/v}-->">
+<meta name="theme-color" content="#0A1733">
+<meta name="color-scheme" content="dark">
+<meta property="og:type" content="article">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="<!--{v post_title_attr}--><!--{/v}--> · <!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:site_name" content="<!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:description" content="<!--{v post_excerpt_attr}--><!--{/v}-->">
+<meta property="og:image" content="<!--{v post_og_image}--><!--{/v}-->">
+<meta property="og:url" content="<!--{v post_url}--><!--{/v}-->">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cpath d='M5 8 L22 22' stroke='%23A9A8C0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M19 24 H29' stroke='%23ECE9F1' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='12.9' r='2.8' fill='%23EA4C22'/%3E%3C/svg%3E">
+<link rel="preload" href="../assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/b612-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/b612-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="<!--{v css_href}--><!--{/v}-->">
+</head>
+<body class="page-post">
+<a class="skip" href="#post"><!--{t nav.skip}--><!--{/t}--></a>
+<header class="pbar">
+  <a class="wordmark" href="../"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L</span></a>
+  <nav class="pbar-links" aria-label="日志导航">
+    <a class="pbar-link" href="./"><!--{t post.all}--><!--{/t}--></a>
+<!--{if subscribe_live}-->    <a class="pbar-sub" href="../#subscribe"><!--{t nav.subscribe}--><!--{/t}--></a>
+<!--{/if}-->  </nav>
+</header>
+
+<main class="pmain" id="post" tabindex="-1">
+  <article class="pcol">
+    <header class="strip">
+      <p class="strip-row"><span class="fixmark" aria-hidden="true"><svg viewBox="-13 -13 26 26" focusable="false"><path d="M0,-11 L11,0 L0,11 L-11,0 Z"/></svg></span><b class="fix"><!--{v post_fix}--><!--{/v}--></b><time datetime="<!--{v post_date_iso}--><!--{/v}-->"><!--{v post_date_dots}--><!--{/v}--></time><!--{block post_tag_first}--><!--{/block}--><span class="ete"><span aria-hidden="true">ETE </span><!--{v post_minutes}--><!--{/v}--></span></p>
+      <h1><!--{v post_title}--><!--{/v}--></h1>
+<!--{if has_excerpt}-->      <p class="lede"><!--{v post_excerpt}--><!--{/v}--></p>
+<!--{/if}-->    </header>
+<!--{if has_cover}-->    <!--{block post_cover}--><!--{/block}-->
+<!--{/if}-->    <div class="pbody">
+<!--{block post_body}--><!--{/block}-->
+    </div>
+    <footer class="endcard">
+      <p class="end-k"><!--{t post.end_kicker}--><!--{/t}--></p>
+      <p class="end-line"><!--{t post.end_line}--><!--{/t}--></p>
+<!--{if has_tags}-->      <div class="tags"><p class="tags-k"><!--{t post.tags}--><!--{/t}--></p><ul><!--{block post_tags}--><!--{/block}--></ul></div>
+<!--{/if}--><!--{if subscribe_live}-->      <div class="subbox">
+        <p><!--{t post.sub_line}--><!--{/t}--></p>
+        <a class="btn btn-primary" href="../#subscribe"><!--{t post.sub_btn}--><!--{/t}--></a>
+      </div>
+<!--{/if}-->    </footer>
+  </article>
+<!--{if has_prevnext}-->  <nav class="prevnext" aria-label="上一篇和下一篇">
+    <!--{block post_prevnext}--><!--{/block}-->
+  </nav>
+<!--{/if}-->  <p class="back"><a class="tlink" href="../#log"><!--{t post.back}--><!--{/t}--></a></p>
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <p class="foot-mark"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L · L1T</span></p>
+    <p class="foot-tag"><!--{t footer.tag}--><!--{/t}--></p>
+    <div class="foot-notes">
+      <p><!--{t footer.note1}--><!--{/t}--></p>
+      <p><!--{t footer.note2}--><!--{/t}--></p>
+      <p>© <!--{t site.footer_year}--><!--{/t}--> <span class="brand-name"><!--{t site.brand}--><!--{/t}--></span></p>
+      <p class="foot-chart" aria-hidden="true">CHART 10-1 · ENROUTE · NIGHT<br><!--{t chart.disclaimer}--><!--{/t}--></p>
+    </div>
+  </div>
+</footer>
+</body>
+</html>

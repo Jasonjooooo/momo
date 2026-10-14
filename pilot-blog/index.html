@@ -1051,6 +1051,22 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .diag{position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-height:70vh;overflow:auto;margin:0;padding:12px 14px;font:400 11px/1.55 var(--font-mono);color:var(--text-primary);background:rgba(10,23,51,.96);border:1px solid var(--line-strong);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
 
 </style>
+<style id="extra-css">
+/* home-extra.css: styles for markup that only exists in non-baseline states (published legs, live subscribe form).
+   Emitted inside <style id="extra-css"> by the publisher. Never touches hero selectors. */
+.post h3 a{color:inherit;text-decoration:none}
+.post h3 a::after{content:"";position:absolute;inset:0;z-index:1}
+.post h3 a:hover{text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:.25em}
+.post h3 a:focus-visible{outline:none}
+.post:has(h3 a:focus-visible){outline:2px solid var(--accent);outline-offset:3px}
+.post .strip-date time{font:inherit;color:inherit}
+.sub-form .sub-consent{display:flex;align-items:flex-start;gap:10px;min-height:44px;margin:0;padding:4px 0;font:400 14px/1.6 var(--font-body);color:var(--text-secondary);cursor:pointer}
+.sub-form .sub-consent input{flex:none;width:20px;height:20px;min-height:0;margin:2px 0 0;padding:0;accent-color:var(--accent);border-radius:3px;cursor:pointer}
+.sub-form .sub-consent span{min-width:0}
+.sub-form .sub-consent input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.sub-hp{position:absolute!important;left:-9999px;width:1px;height:1px;overflow:hidden}
+.sub-form .btn[aria-disabled="true"]{opacity:.7;cursor:progress}
+</style>
 </head>
 <body>
 <a class="skip" href="#main">跳到正文</a>
@@ -1420,7 +1436,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
             <div class="cl-row" style="--i:0"><dt><span class="nid" aria-hidden="true">A0101/26</span><span class="q">作者真的在飞吗？</span><span class="lead" aria-hidden="true"></span><span class="r">在飞</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>我是现役机长，飞 PC-12 NGX 短途支线。匿名写，技术问题可以讲得更直接。</p></dd></div>
             <div class="cl-row" style="--i:1"><dt><span class="nid" aria-hidden="true">A0102/26</span><span class="q">能当训练资料用吗？</span><span class="lead" aria-hidden="true"></span><span class="r">不能</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>这里写的是个人经验和理解。训练和运行，以飞机飞行手册、公司程序和你的教员为准。文中引用的数字会注明出处。</p></dd></div>
             <div class="cl-row" style="--i:2"><dt><span class="nid" aria-hidden="true">A0103/26</span><span class="q">单发飞机，安全吗？</span><span class="lead" aria-hidden="true"></span><span class="r">按单发计划</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>PC-12 用的是 PT6 系列发动机，六十年代投入使用，是装机最多的涡桨发动机之一。单发的不同在计划：每一段都先想好发动机停车后往哪里滑翔、在哪里落地，航路、高度和天气按这个来定。</p></dd></div>
-            <div class="cl-row" style="--i:3"><dt><span class="nid" aria-hidden="true">A0104/26</span><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>每篇一封邮件。不发广告，不转让邮箱，随时退订。<span class="mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</span></p></dd></div>
+            <div class="cl-row" style="--i:3"><dt><span class="nid" aria-hidden="true">A0104/26</span><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>每写完一篇，我从订阅名单里手动发一封邮件给你。不发广告，不转让邮箱。想退订，回复任意一封邮件，我会把你的邮箱删掉。</p></dd></div>
           </dl>
         </div>
         <div class="scan" aria-hidden="true"></div>
@@ -1525,15 +1541,16 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <p class="kicker">06 / SUBSCRIBE</p>
         <h2 id="sub-h">订阅飞行日志</h2>
         <p class="lede">最低标准写在起飞前，日志写在落地后。</p>
-        <p class="sub2">新的一篇写完，发到你的邮箱。</p>
+        <p class="sub2">新的一篇写完，我会从订阅名单里手动发到你的邮箱。</p>
         <form class="sub-form" id="sub-form" novalidate>
           <label for="sub-email">邮箱</label>
           <input id="sub-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="sub-err">
           <p class="sub-err" id="sub-err" aria-live="polite"></p>
+          <label class="sub-consent"><input id="sub-consent" name="consent" type="checkbox" value="1"><span>我同意本站保存这个邮箱，只用来给我发飞行日志。</span></label>
+          <p class="sub-hp" aria-hidden="true"><label for="sub-web">网址</label><input id="sub-web" name="website" type="text" tabindex="-1" autocomplete="off"></p>
           <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
           <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
-          <p class="micro">只发飞行日志。不发广告，随时退订。</p>
-          <p class="micro mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</p>
+          <p class="micro">只发飞行日志，不发广告。想退订，回复任意一封邮件就行。</p>
         </form>
         <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
       </div>
@@ -1775,7 +1792,7 @@ const POSTER_URL_PORTRAIT = 'assets/hero-poster-portrait.webp';
 const POSTER_END_URL_PORTRAIT = 'assets/hero-end-portrait.webp';
 const CHAT_LIVE = false;            // set true once api/chat.php answers
 const CHAT_URL = 'api/chat.php';    // relative; the key lives server-side in that file, never here
-const SUBSCRIBE_ENDPOINT = '';      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
+const SUBSCRIBE_ENDPOINT = 'api/subscribe.php';      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
 
 /* ---------- copy used by scripts (verbatim from the design package) ---------- */
 const T = {
@@ -1797,8 +1814,10 @@ const T = {
   subFormat: '邮箱格式不对，请再检查一遍。',
   subModeA: '订阅通道还没接通。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。',   // shown after an INOP placard
   subBusy: '提交中',
-  subOkPre: '已订阅。下一篇日志写完，会发到 ', subOkPost: '。',
-  subFail: '这次没有提交成功。稍后再试一次。'
+  subOkPre: '已订阅。下一篇日志写完，我会发到 ', subOkPost: '。',
+  subFail: '这次没有提交成功。稍后再试一次。',
+  subConsent: '请先勾选同意，再提交。',
+  subRate: '提交得有点频繁，过一会儿再试。'
 };
 const LAMP = { stby: ['STBY', '待命'], tx: ['TX', '发送中'], on: ['ON', '在线'], inop: ['INOP', '接入中'] };
 
@@ -2954,13 +2973,16 @@ chatIn.addEventListener('keydown', e => {
 chips.forEach(b => b.addEventListener('click', () => sendChat(b.textContent)));
 
 /* ============ 06: subscribe ============ */
+/* Live state: the form posts to api/subscribe.php, which stores the address (no mail is sent by any code;
+   the author mails new posts by hand). Consent is a required checkbox; the hidden website field is a honeypot. */
 const subForm = $('#sub-form');
 const subEmail = $('#sub-email');
 const subErr = $('#sub-err');
 const subBtn = $('#sub-btn');
 const subDone = $('#sub-done');
+const subConsent = $('#sub-consent');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-if (SUBSCRIBE_ENDPOINT) $$('.mode-a').forEach(el => el.remove());
+let subPending = false;
 function subError(msg) {
   subErr.textContent = msg;
   subEmail.setAttribute('aria-invalid', msg ? 'true' : 'false');
@@ -2977,23 +2999,36 @@ function subShow(text, inop) {
 }
 subEmail.addEventListener('keydown', e => { if (e.key === 'Enter' && (e.isComposing || e.keyCode === 229)) e.preventDefault(); });
 subEmail.addEventListener('input', () => { if (subErr.textContent) subError(''); });
+if (subConsent) subConsent.addEventListener('change', () => { if (subConsent.checked && subErr.textContent === T.subConsent) subError(''); });
 subForm.addEventListener('submit', async e => {
   e.preventDefault();
+  if (subPending) return;
   const v = subEmail.value.trim();
   if (!v) { subError(T.subEmpty); subEmail.focus(); return; }
   if (!EMAIL_RE.test(v)) { subError(T.subFormat); subEmail.focus(); return; }
+  if (subConsent && !subConsent.checked) { subError(T.subConsent); subConsent.focus(); return; }
   subError('');
-  if (!SUBSCRIBE_ENDPOINT) { subShow(T.subModeA, true); return; }   // Mode A: nothing is stored or sent
-  subBtn.disabled = true; subBtn.textContent = T.subBusy;
+  // aria-disabled plus the subPending guard, never the disabled attribute: disabling the focused button drops focus to <body>
+  subPending = true; subBtn.setAttribute('aria-disabled', 'true'); subBtn.textContent = T.subBusy;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 20000);
   try {
-    const fd = new FormData(); fd.append('email', v);
-    const res = await fetch(SUBSCRIBE_ENDPOINT, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' } });
-    if (!res.ok) throw new Error('http ' + res.status);
-    subShow(T.subOkPre + v + T.subOkPost, false);
+    const fd = new FormData(subForm);
+    fd.set('email', v);
+    fd.set('t', String(Math.round(performance.now())));
+    const res = await fetch(SUBSCRIBE_ENDPOINT, { method: 'POST', body: fd, headers: { 'Accept': 'application/json' }, signal: ctrl.signal });
+    let data = null;
+    try { data = await res.json(); } catch (_) { data = null; }
+    const msg = data && typeof data.message === 'string' ? data.message.trim() : '';
+    if (res.ok && data && data.ok === true) subShow(T.subOkPre + v + T.subOkPost, false);
+    else if (msg) subError(msg);                       // api/subscribe.php answers errors as {error, message}; message is user-facing Chinese
+    else if (res.status === 429) subError(T.subRate);
+    else subError(T.subFail);
   } catch (_) {
-    subError(T.subFail);
+    subError(T.subFail);                              // offline, timed out, or the connection dropped
   } finally {
-    subBtn.disabled = false; subBtn.textContent = '订阅飞行日志';
+    clearTimeout(timer);
+    subPending = false; subBtn.setAttribute('aria-disabled', 'false'); subBtn.textContent = '订阅飞行日志';
   }
 });
 
