@@ -1,0 +1,15 @@
+{
+    "chat": {
+        "enabled": false,
+        "daily_limit": 300,
+        "ip_limit": 20,
+        "ip_window_min": 10,
+        "extra_note": ""
+    },
+    "subscribe": {
+        "enabled": false
+    },
+    "home": {
+        "leg_limit": 6
+    }
+}

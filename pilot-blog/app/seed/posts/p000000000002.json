@@ -1,0 +1,34 @@
+{
+    "id": "p000000000002",
+    "rev": 1,
+    "slug": "short",
+    "fix": "SHORT",
+    "created_at": "2026-10-14T00:00:00Z",
+    "updated_at": "2026-10-14T00:00:00Z",
+    "first_published_at": null,
+    "teaser_order": 2,
+    "draft": {
+        "title": "短跑道上的 PC-12：先算数，再上跑道",
+        "excerpt": "起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。",
+        "tags": [
+            "PERF"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 7
+    },
+    "live": {
+        "mode": "teaser",
+        "published_at": "2026-10-14T00:00:00Z",
+        "title": "短跑道上的 PC-12：先算数，再上跑道",
+        "excerpt": "起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。",
+        "tags": [
+            "PERF"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 7
+    }
+}

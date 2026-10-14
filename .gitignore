@@ -4,3 +4,11 @@ __pycache__/
 tools/private.jwk.json
 dist/
 node_modules/
+# pilot blog backend: runtime data and generated public files never go into git
+/blog-data/
+/pilot-blog/posts/*
+!/pilot-blog/posts/.htaccess
+/pilot-blog/uploads/*
+!/pilot-blog/uploads/.htaccess
+chat-config.php
+*.tmp-*

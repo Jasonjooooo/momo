@@ -1,0 +1,34 @@
+{
+    "id": "p000000000005",
+    "rev": 1,
+    "slug": "chock",
+    "fix": "CHOCK",
+    "created_at": "2026-10-14T00:00:00Z",
+    "updated_at": "2026-10-14T00:00:00Z",
+    "first_published_at": null,
+    "teaser_order": 5,
+    "draft": {
+        "title": "绕机一圈：我的航前检查顺序",
+        "excerpt": "从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。",
+        "tags": [
+            "PREFLT"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 5
+    },
+    "live": {
+        "mode": "teaser",
+        "published_at": "2026-10-14T00:00:00Z",
+        "title": "绕机一圈：我的航前检查顺序",
+        "excerpt": "从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。",
+        "tags": [
+            "PREFLT"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 5
+    }
+}

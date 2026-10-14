@@ -1,0 +1,30 @@
+{
+    "1-head-loader": {
+        "sha256": "a4fb4491762e084e2c879467735144cfdcb33eef709af26ccfdbd769f4b02e7c",
+        "length": 939
+    },
+    "2-hero-css": {
+        "sha256": "aef3ef525475136c897b7ab3db50a880a4819da98ecb4ba9375dd39d7418d66c",
+        "length": 27849
+    },
+    "3-diag-css": {
+        "sha256": "bfb547cfc945343707ef891a36ef4271418e569b30f672bffdaca89b07415e29",
+        "length": 380
+    },
+    "4-script-head": {
+        "sha256": "f9dd3f129117fe8bcae9437a8c710a28140614db0b435f9e7db9843c75f1640b",
+        "length": 641
+    },
+    "5-hero-js": {
+        "sha256": "a56b1bc6b522a78ee5afae399192694c3347d3ccd861833ccb967c90368c2158",
+        "length": 29235
+    },
+    "6-diag-js-start": {
+        "sha256": "5bfc823bdc3063af87cc1f62ae8e73c0deeef661b5a305b0251bff0879dd7b09",
+        "length": 3550
+    },
+    "7-skeleton": {
+        "sha256": "2b64ed12f26bfe0c2b73b70c2fa2dc44c9cd47bf88415a22bfb8ef5b9900f5d9",
+        "length": 4263
+    }
+}

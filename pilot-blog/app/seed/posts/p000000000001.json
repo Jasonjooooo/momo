@@ -1,0 +1,34 @@
+{
+    "id": "p000000000001",
+    "rev": 1,
+    "slug": "minms",
+    "fix": "MINMS",
+    "created_at": "2026-10-14T00:00:00Z",
+    "updated_at": "2026-10-14T00:00:00Z",
+    "first_published_at": null,
+    "teaser_order": 1,
+    "draft": {
+        "title": "低云进近：决断高度前的那两秒",
+        "excerpt": "云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。",
+        "tags": [
+            "IMC"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 8
+    },
+    "live": {
+        "mode": "teaser",
+        "published_at": "2026-10-14T00:00:00Z",
+        "title": "低云进近：决断高度前的那两秒",
+        "excerpt": "云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。",
+        "tags": [
+            "IMC"
+        ],
+        "body": "",
+        "cover": null,
+        "date": null,
+        "minutes": 8
+    }
+}
