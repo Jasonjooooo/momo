@@ -98,15 +98,41 @@ function admin_dispatch(): void
         }
         redirect('setup');
     }
+    // the post preview lives in an iframe: admin pages refuse to be framed, so say it there in words
+    if ($r === 'preview.post' && $access === 'auth' && !auth_check()) {
+        admin_frame_note(401, '登录已经过期，预览暂时看不了。点「保存草稿」，输入密码以后就能接着写，写的内容还在。');
+        return;
+    }
     if ($access === 'auth') {
         auth_require($json);
     }
     if ($method === 'POST') {
         origin_verify($json);
+        if ($r === 'preview.post' && !admin_csrf_ok()) {
+            admin_frame_note(403, '这一页放得太久了，预览暂时看不了。点一次「保存草稿」就会恢复。');
+            return;
+        }
         csrf_verify($json);
     }
     $_GET['r'] = $r;
     $handler();
+}
+
+function admin_csrf_ok(): bool
+{
+    $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['_csrf'] ?? '');
+    $want = session_status() === PHP_SESSION_ACTIVE ? ($_SESSION['csrf'] ?? '') : '';
+    return is_string($sent) && is_string($want) && strlen($want) === 64 && hash_equals($want, $sent);
+}
+
+/** A short note shown inside the post preview iframe (framing allowed, no script). */
+function admin_frame_note(int $status, string $msg): void
+{
+    send_headers('preview-post');
+    http_response_code($status);
+    echo '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">'
+        . '<meta name="robots" content="noindex,nofollow"><title>预览</title><link rel="stylesheet" href="' . h(asset_url('admin.css')) . '"></head>'
+        . '<body class="is-bare"><main class="main"><p class="notice notice-warn">' . h($msg) . '</p></main></body></html>';
 }
 
 function admin_wants_json(): bool
@@ -731,7 +757,7 @@ function admin_preview_post(): void
 {
     $p = post_get(post_str('id', 40));
     if ($p === null) {
-        admin_preview_fail('找不到这篇日志，可能已经删除了。');
+        admin_frame_note(404, '找不到这篇日志，可能已经删除了。');
         return;
     }
     $in = json_decode(post_str('post', 3000000), true);

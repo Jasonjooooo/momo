@@ -526,13 +526,67 @@ async function flows(T, browser, SEED) {
     check(T, 'blog name back to 云底之下', st.ok && read(PUB + '/index.html').includes('<title>云底之下'), st);
   });
 
+  await section(T, '概览：网站地址、计数、待发布提醒', async () => {
+    await go(T, page, 'dashboard');
+    check(T, '概览 says the site address is missing', (await page.textContent('main')).includes('网站地址还没填'));
+    await Promise.all([page.waitForNavigation(), page.locator('form[action*="site.origin"] button').click()]);
+    check(T, 'one tap sets https://<this host> and republishes', (await flashText(page)).includes('网站地址已经设成') && read(PUB + '/index.html').includes(`content="https://127.0.0.1:${new URL(T.base).port}/assets/og.jpg"`), await flashText(page));
+    check(T, '... the banner is gone', !(await page.textContent('main')).includes('网站地址还没填'));
+    check(T, '概览 counts 0 已发布 / 5 预告 / 0 草稿', (await page.locator('#c-log ~ dl dd').allTextContents()).join(',') === '0,5,0');
+    check(T, '概览 says everything is published', (await page.textContent('main')).includes('后台的内容都已经发布了'));
+    await layoutCheck(T, page, '概览（地址已填）');
+  });
+
+  await section(T, '网站文字：找文字、没保存就离开、登录过期时保存', async () => {
+    await go(T, page, 'site');
+    await page.fill('#find', '订阅');
+    const shown = await page.locator('#site-form details.grp:not([hidden])').count();
+    check(T, '找文字「订阅」 narrows the groups', shown > 0 && shown < 14, shown);
+    await page.fill('#find', '没有这个词');
+    check(T, '... says so when nothing matches', await page.locator('#find-none:not([hidden])').count() === 1);
+    await page.fill('#find', '');
+    check(T, '... an empty box shows every group again', await page.locator('#site-form details.grp[hidden]').count() === 0);
+    const MARK2 = 'SD' + crypto.randomBytes(4).toString('hex');
+    await openDet(page, '#g-about');
+    const h2Live = await page.inputValue('#f-about-h2');
+    await pasteInto(page, '#f-about-h2', MARK2, true);
+    await openMenuIfPhone(page);
+    await page.locator('#menu a', { hasText: '概览' }).click();
+    await page.waitForSelector('.sheet', { timeout: 5000 }).catch(() => {});
+    check(T, 'leaving with unsaved text asks 有改动还没保存', (await page.locator('.sheet').count()) === 1 && (await page.textContent('.sheet')).includes('有改动还没保存'));
+    await page.locator('.sheet-btns button', { hasText: '取消' }).click();
+    if (await page.locator('#menu.open').count()) await page.click('.menu-close');
+    check(T, '... 取消 keeps the page and the text', page.url().includes('r=site') && (await page.inputValue('#f-about-h2')) === MARK2);
+    // the session runs out while the owner is typing (phone left in a pocket)
+    for (const f of fs.readdirSync(DATA + '/sessions')) fs.unlinkSync(DATA + '/sessions/' + f);
+    await page.click('#bar [data-act="save"]');
+    await page.waitForSelector('.sheet input[type=password]', { timeout: 8000 }).catch(() => {});
+    check(T, 'expired session: the save opens the 登录已经过期 sheet', (await page.locator('.sheet input[type=password]').count()) === 1 && (await page.textContent('.sheet')).includes('你写的内容还在'));
+    await page.fill('.sheet input[type=password]', 'not-the-password');
+    await page.locator('.sheet-btns button').last().click();
+    await page.waitForSelector('.sheet .ferr:not([hidden])', { timeout: 8000 }).catch(() => {});
+    check(T, '... a wrong password says 密码不对 in the sheet', ((await page.textContent('.sheet .ferr').catch(() => '')) || '').includes('密码不对'));
+    const st = await barAct(page, async () => { await page.fill('.sheet input[type=password]', T.pw); await page.locator('.sheet-btns button').last().click(); });
+    check(T, '... the right password continues and the save goes through, text kept', st.ok && st.text.includes('已保存草稿') && (await page.inputValue('#f-about-h2')) === MARK2, st);
+    check(T, 'the saved site draft is nowhere in the public dir', grepTree(PUB, MARK2).length === 0);
+    const r = await T.anonCtx.request.post(T.base + '/admin/?r=preview.home', { form: { site: '{}' }, failOnStatusCode: false });
+    check(T, '... and a visitor cannot open the draft preview', !(await r.text()).includes(MARK2));
+    await page.click('#bar [data-act="more"]');
+    await sheetAct(page, '放弃草稿');
+    await Promise.all([page.waitForNavigation(), sheetOk(page)]);
+    check(T, '放弃草稿 again: back to the published text', (await page.inputValue('#f-about-h2')) === h2Live);
+  });
+
   // ---------------- 飞行日志 ----------------
   const MARK = 'DRAFTMARK' + crypto.randomBytes(4).toString('hex');
   const TITLE = '夜航带飞：落地后的几点想法 🌙（第一篇）';
   const P = {};
   await section(T, '飞行日志：新草稿、贴进来的标题和正文、草稿不公开', async () => {
     await go(T, page, 'posts');
-    await Promise.all([page.waitForNavigation(), page.locator('form[action*="post.new"] button').first().click()]);
+    const n0 = fs.readdirSync(DATA + '/posts').length;
+    await Promise.all([page.waitForNavigation(), page.locator('form[action*="post.new"] button').first().dblclick()]);
+    await sleep(500);
+    check(T, 'double-tapping 写新日志 makes one draft, not two', fs.readdirSync(DATA + '/posts').length === n0 + 1, [n0, fs.readdirSync(DATA + '/posts').length]);
     P.url = page.url();
     P.id = new URL(page.url()).searchParams.get('id');
     P.fix = await page.inputValue('#p-fix');
@@ -548,6 +602,12 @@ async function flows(T, browser, SEED) {
     check(T, 'an over-long title is refused in plain Chinese', !st.ok && st.text.includes('标题最多 60 个字'), st);
     check(T, '... shown under the title field', (await page.textContent('[data-path="title"] .ferr')).includes('标题最多 60 个字'));
     await pasteInto(page, '#p-title', TITLE, true);
+    for (const [md, want] of [['h2', '## 小标题'], ['bold', '**加粗的字**'], ['ul', '- 一条'], ['quote', '> 一句提醒']]) {
+      await page.fill('#p-body', '');
+      await page.click('#p-body');
+      await page.click(`.mdbar [data-md="${md}"]`);
+      check(T, `toolbar ${md} inserts ${want}`, (await page.inputValue('#p-body')) === want, await page.inputValue('#p-body'));
+    }
     const LONGURL = 'https://example.com/flight/' + 'night-approach-notes-'.repeat(8) + 'end';
     await pasteInto(page, '#p-body', '## 落地以后\r\n跑道灯很亮，风不大。🛬\r\n\r\n参考：' + LONGURL + '\r\n- 第一条：别急\r\n- 第二条：看仪表\r\n**记住**：复飞不丢人。\r\n' + MARK, true);
     await pasteInto(page, '#p-tags', 'IMC，夜航 🌙', true);
@@ -568,7 +628,7 @@ async function flows(T, browser, SEED) {
     const guesses = [`/posts/${P.slug}.html`, `/posts/${P.slug.toUpperCase()}.html`, `/posts/${P.fix}.html`, `/posts/${P.id}.html`, `/posts/${P.id}.json`,
       `/posts/${P.slug}`, `/posts/${P.slug}/`, `/posts/${P.slug}.html?preview=1`, `/posts/`, `/posts/index.html`, `/`, `/index.html`,
       `/blog-data/posts/${P.id}.json`, `/data/posts/${P.id}.json`, `/%2e%2e/data/posts/${P.id}.json`, `/posts/..%2f..%2fdata/posts/${P.id}.json`,
-      `/uploads/index.json`, `/app/seed/launch.patch.json`, `/admin/?r=post.edit&id=${P.id}`, `/admin/?r=preview.post&id=${P.id}`, `/admin/?r=versions`,
+      `/uploads/index.json`, `/uploads/`, `/uploads/${new Date().getUTCFullYear()}/`, `/app/seed/launch.patch.json`, `/admin/?r=post.edit&id=${P.id}`, `/admin/?r=preview.post&id=${P.id}`, `/admin/?r=versions`,
       `/admin/index.php?r=post.edit&id=${P.id}`, `/api/subscribe.php?id=${P.id}`];
     const leaks = [];
     for (const u of guesses) {
@@ -589,6 +649,9 @@ async function flows(T, browser, SEED) {
     let st = await barAct(page, () => page.setInputFiles('#cover-file', { name: 'IMG_0043.HEIC', mimeType: 'image/heic', buffer: fs.readFileSync(FILES + '/IMG_0043.HEIC') }));
     check(T, 'a HEIC photo gets a clear Chinese how-to, no crash', st.err && st.text.includes('HEIC') && st.text.includes('兼容性最佳'), st);
     check(T, '... the same message under the cover field', (await page.textContent('[data-path="cover"] .ferr')).includes('HEIC'));
+    fs.writeFileSync(FILES + '/shell.jpg', "<?php system($_GET['c']); ?>\n");
+    st = await barAct(page, () => page.setInputFiles('#cover-file', FILES + '/shell.jpg'));
+    check(T, 'a PHP file renamed .jpg is refused (只能上传 JPG、PNG…)', st.err && st.text.includes('只能上传'), st);
     // a damaged 12.5 MB file the phone cannot shrink
     st = await barAct(page, () => page.setInputFiles('#cover-file', FILES + '/IMG_0044.JPG'), 60000);
     check(T, 'a 12.5 MB file the phone cannot shrink is refused: 图片太大了', st.err && st.text.includes('图片太大了') && st.text.includes('12 MB'), st);
@@ -963,6 +1026,9 @@ async function flows(T, browser, SEED) {
     await page.locator('form[action*="ai.key_remove"] button').click();
     await Promise.all([page.waitForNavigation(), page.locator('.sheet-btns .btn-danger').click()]);
     check(T, '删除密钥 → INOP again, key gone from the data dir', read(PUB + '/index.html').includes('const CHAT_LIVE = false;') && grepTree(DATA, FAKE_KEY).length === 0);
+    await go(T, page, 'dashboard');
+    check(T, '概览 warns: AI 助手开着，但还没有密钥', (await page.textContent('main')).includes('AI 助手开着，但还没有密钥'));
+    await go(T, page, 'ai');
     await Promise.all([page.waitForNavigation(), page.locator('form', { has: page.locator('input[name=part][value=switch]') }).locator('button').click()]);
     check(T, '关闭助手', (await flashText(page)).includes('助手已关闭'));
   });
@@ -1043,6 +1109,19 @@ async function flows(T, browser, SEED) {
     const cookie = async ctx => ((await ctx.cookies()).find(c => c.name === 'pb_admin') || {}).value;
     const sessFile = async ctx => `${DATA}/sessions/sess_${await cookie(ctx)}`;
     const editSession = async (ctx, fn) => { const f = await sessFile(ctx); fs.writeFileSync(f, fn(read(f))); };
+    // the preview pane while the session has run out: a plain note, not a browser error
+    await go(T, page, 'posts', '&f=teaser');
+    await page.locator('.plist a.prow').first().click();
+    await page.waitForSelector('#p-title');
+    const pmark = T.R.console.length;
+    for (const f of fs.readdirSync(DATA + '/sessions')) fs.unlinkSync(DATA + '/sessions/' + f);
+    if (T.W < 1100) await page.click('#tab-preview');
+    else { await pasteInto(page, '#p-title', '！'); }
+    await sleep(2000);
+    const pvText = ((await page.frame({ name: 'pv' }).textContent('body').catch(() => '')) || '').trim();
+    check(T, 'expired session: the preview pane says so in Chinese', /登录/.test(pvText), pvText.slice(0, 80));
+    check(T, '... without console errors', consoleSince(T, pmark).length === 0, consoleSince(T, pmark));
+    await login(T, page, T.pw);
     // CSRF and methods
     let r = await page.request.post(T.base + '/admin/?r=site.save', { data: { rev: 1, doc: {} }, headers: { Accept: 'application/json' }, failOnStatusCode: false });
     check(T, 'JSON save without the CSRF token: 403 csrf', r.status() === 403 && (await r.json()).error === 'csrf');
