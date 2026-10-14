@@ -1652,7 +1652,7 @@ function unloadVideo() {
   seekBusy = false; pendingTime = null; primed = false; priming = false;
   videoReady = false; peOp = -1; pfOp = -1;   // the still journey carries the stage until the new footage is in
   stage.classList.remove('video-ready', 'video-failed');
-  if (ring) ring.style.setProperty('--ld', 126);
+  if (ring) { ring.style.display = ''; ring.style.setProperty('--ld', 126); }
 }
 async function loadHeroBlob(v, seq) {
   if (location.protocol === 'file:') throw new Error('file');   // browsers block fetch on file://; the still hero is the designed state
@@ -1725,6 +1725,8 @@ function setSource(url, path, seq) {
     primeDecoder();                     // before the first seek: play() on an ended video would rewind it to 0
     requestSeek(footageAt(shown) * video.duration, true);
     videoReady = true;
+    stage.classList.remove('video-failed');   // a slow link's late first frame still wins over an earlier give-up
+    if (ring) ring.style.display = 'none';
     stage.classList.add('video-ready');
     primeViaWeixin();
   };
@@ -1749,7 +1751,7 @@ function videoTrouble() {
   else failVideo();
 }
 function failVideo() {
-  if (ring) { ring.remove(); ring = null; }   // the cue stays as the honest scroll cue
+  if (ring) ring.style.display = 'none';   // hidden, not removed: a later footage swap shows its progress again
   videoReady = false; peOp = -1; pfOp = -1;    // a late decode error hands the stage back to the still journey
   stage.classList.remove('video-ready');
   stage.classList.add('video-failed');
@@ -1849,7 +1851,10 @@ function swapFootage(mode) {            // portrait <-> desktop while scrubbing:
 }
 function applyHeroMode() {
   const mode = heroMode();
-  if (mode === 'static') disableScrub();
+  if (mode === 'static') {
+    disableScrub();
+    if (saveData() && variant !== null) { unloadVideo(); variant = null; }   // the visitor asked to save data: drop the footage too
+  }
   else if (!scrubOn) enableScrub(mode);
   else if (mode !== variant) swapFootage(mode);
   measure();
