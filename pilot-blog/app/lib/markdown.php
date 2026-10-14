@@ -219,7 +219,9 @@ function md_plain(string $src): string
 
 function md_excerpt(string $src, int $max = 80): string
 {
-    $t = trim((string) preg_replace('/\s+/u', ' ', md_plain($src)));
+    // lines that end with CJK punctuation join without a space
+    $t = (string) preg_replace('/([。！？；：，、」』）])\n/u', '$1', md_plain($src));
+    $t = trim((string) preg_replace('/\s+/u', ' ', $t));
     if (mb_strlen($t) <= $max) {
         return $t;
     }

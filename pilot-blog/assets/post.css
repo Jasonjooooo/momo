@@ -39,7 +39,7 @@ p{margin:0 0 1em;line-break:strict;text-wrap:pretty}
 
 /* top bar */
 .pbar{position:sticky;top:0;z-index:50;display:flex;align-items:center;gap:16px;height:56px;padding:0 var(--gutter);background:rgba(10,23,51,.92);border-bottom:1px solid var(--line)}
-.wordmark{display:flex;align-items:baseline;gap:10px;min-width:0;text-decoration:none;white-space:nowrap}
+.wordmark{display:flex;align-items:baseline;gap:10px;min-width:0;padding:13px 0;text-decoration:none;white-space:nowrap}
 .brand-name{font:600 18px/1 var(--font-head);letter-spacing:.06em}
 .wordmark .mono{font-size:11px;color:var(--text-secondary)}
 .pbar-links{display:flex;align-items:center;gap:8px;margin-left:auto}
