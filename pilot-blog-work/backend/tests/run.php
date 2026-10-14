@@ -388,6 +388,49 @@ function group_publish(): void
     ok(json_read(data_path('content', 'site.draft.json')) === $draftBefore, 'rollback leaves drafts untouched');
     ok(version_file($v1, 'index.html') !== null && version_file($v1, '../secrets.json') === null && version_file('../../x', 'index.html') === null, 'version_file serves only manifest names');
 
+    // site copy and shelf through the draft/live functions the admin uses
+    $draft = content_get('site');
+    $live0 = pub('index.html');
+    $input = $draft;
+    $input['fields']['hero.b1.hl'] = '三千英尺，|云层之上。';
+    $input['faq'][] = ['nid' => '', 'q' => '新的问题？', 'r' => '新', 'a' => '新的回答。', 'subscribe_note' => false];
+    $saved = content_save_draft('site', $input, (int) $draft['rev']);
+    ok(pub('index.html') === $live0, 'saving the site draft leaves index.html unchanged');
+    ok(in_array('hero.b1.hl', content_changed_fields(), true), 'changed fields reported');
+    ok(throws(fn() => content_save_draft('site', $input, (int) $draft['rev']), ConflictException::class), 'stale site draft rev rejected');
+    $bad = $input;
+    $bad['fields']['about.h2'] = "两行\n标题";
+    $bad['fields']['about.h2'] = str_repeat('长', 401);
+    ok(throws(fn() => content_save_draft('site', $bad, (int) $saved['rev']), ValidationError::class), 'invalid site draft rejected');
+    $html = preview_home($saved, content_get('shelf'));
+    ok(str_contains($html, '云层之上') && str_contains($html, '<base href="../">') && str_contains($html, '预览：'), 'preview_home shows the draft with base href and banner');
+    $res = content_publish('site', (int) $saved['rev']);
+    ok($res['ok'] && str_contains(pub('index.html'), '三千英尺，<wbr>云层之上。') && str_contains(pub('index.html'), '新的问题？'), 'site publish updates the page');
+    ok(preg_match('/<span class="nid" aria-hidden="true">A0105\/\d\d<\/span><span class="q">新的问题？/', pub('index.html')) === 1, 'empty NID gets an automatic one');
+    ok(hero_compare(pub('index.html')) === [], 'T3 after a site publish');
+    $sh = content_get('shelf');
+    $sh['shelves'][] = ['id' => '', 'title' => '新货架', 'blurb' => '测试', 'tools' => [['name' => '工具', 'desc' => '一句话', 'url' => 'https://example.com', 'cn_access' => '还没确认', 'note' => '']]];
+    array_unshift($sh['shelves'], array_pop($sh['shelves']));
+    $sh = content_save_draft('shelf', $sh, (int) $sh['rev']);
+    ok(preg_match('/^s[0-9a-f]{6}$/', $sh['shelves'][0]['id']) === 1 && $sh['shelves'][0]['tools'][0]['cn_access'] === null, 'new shelf gets an id; 还没确认 stored as null');
+    content_publish('shelf', (int) $sh['rev']);
+    preg_match('/<script type="application\/json" id="shelf-data">\n(.*?)\n<\/script>/s', pub('index.html'), $m);
+    $j = json_decode($m[1] ?? '', true);
+    ok(($j['shelves'][0]['title'] ?? '') === '新货架' && str_contains(pub('index.html'), '<span class="nm" id="f-act-n">A1 新货架</span>'), 'shelf publish: JSON valid, radio shows the new shelf');
+    $sh2 = $sh;
+    $sh2['shelves'][0]['tools'][0]['url'] = 'javascript:alert(1)';
+    ok(throws(fn() => content_save_draft('shelf', $sh2, (int) $sh['rev']), ValidationError::class), 'javascript: tool URL rejected');
+    $sh3 = $sh;
+    $sh3['shelves'][0]['tools'] = [];
+    $sh3 = content_save_draft('shelf', $sh3, (int) $sh['rev']);
+    ok(throws(fn() => content_publish('shelf', (int) $sh3['rev']), ValidationError::class), 'an empty shelf cannot be published');
+    content_discard('shelf');
+    ok(content_get('shelf')['shelves'][0]['tools'] !== [], 'discard restores the live shelf into the draft');
+    $o = site_origin_set('https://pilot.example.com');
+    ok($o['ok'] && str_contains(pub('index.html'), 'content="https://pilot.example.com/assets/og.jpg"') && !str_contains(pub('index.html'), 'DEPLOY STEP'), 'origin quick-set fills og URLs and drops the deploy note');
+    version_rollback(versions_list()[count(versions_list()) - 1]['id']);
+    ok(str_contains(pub('index.html'), 'https://pilot.example.com/'), 'rollback keeps the current site address');
+
     // version pruning
     for ($i = 0; $i < 11; $i++) {
         $site = site_live();

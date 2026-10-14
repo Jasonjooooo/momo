@@ -22,6 +22,7 @@ require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/images.php';
 require_once __DIR__ . '/subscribers.php';
 require_once __DIR__ . '/publish.php';
+require_once __DIR__ . '/content.php';
 
 const DATA_SUBDIRS = ['content', 'posts', 'trash', 'trash/posts', 'uploads', 'usage', 'ratelimit', 'sessions', 'versions', 'locks', 'log'];
 

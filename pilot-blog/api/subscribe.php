@@ -71,8 +71,9 @@ if ($limited) {
     respond(429, ['error' => 'rate_limited', 'message' => '提交得有点频繁，过一会儿再试。'], 'subscribe.rate_limited');
 }
 
-$honeypot = (string) ($_POST['website'] ?? '');
-$t = (int) ($_POST['t'] ?? 0);
+$honeypot = $_POST['website'] ?? '';
+$honeypot = is_string($honeypot) ? $honeypot : 'x';
+$t = is_string($_POST['t'] ?? null) && ctype_digit($_POST['t']) ? (int) $_POST['t'] : 0;
 if ($honeypot !== '' || $t < 1500) {
     // filled the hidden field, or submitted faster than a person can type: answer like a success, store nothing
     respond(200, ['ok' => true], 'subscribe.bot_dropped');

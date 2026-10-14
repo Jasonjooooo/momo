@@ -169,6 +169,9 @@ function render_site(array $site, array $shelf, array $posts, array $settings, b
         $published = posts_published_sorted($posts);
         $base = page_base_ctx($site, $settings);
         foreach ($published as $i => $p) {
+            if (!preg_match(SLUG_RE, (string) $p['slug']) || $p['slug'] === 'index') {
+                return ['ok' => false, 'errors' => ['slug' => '《' . $p['live']['title'] . '》的网址不对。']];
+            }
             $files['posts/' . $p['slug'] . '.html'] = render_post_page($p, $base, $published[$i + 1] ?? null, $published[$i - 1] ?? null);
         }
         $files['posts/index.html'] = render_archive($base, $published);
@@ -251,6 +254,8 @@ function publish_site(string $reason, array $opts = []): array
             $newest = versions_list()[0] ?? null;
             if ($newest === null || $newest['content_hash'] !== $hash) {
                 $versionId = version_create($reason, $hash, $site, $shelf, $posts, $files);
+            } else {
+                version_touch_files($files);
             }
         } else {
             // keep the newest manifest's file hashes current so site_status() does not report a mismatch
@@ -368,6 +373,10 @@ function version_rollback(string $id): array
             $now = now_iso();
             $curSite = json_read(data_path('content', 'site.live.json'), []);
             $site['rev'] = $curSite['rev'] ?? ($site['rev'] ?? 1);
+            // the site address behaves like a setting: a rollback never brings back an older one
+            if (isset($curSite['fields']['site.origin'])) {
+                $site['fields']['site.origin'] = $curSite['fields']['site.origin'];
+            }
             json_write_atomic(data_path('content', 'site.live.json'), $site);
             json_write_atomic(data_path('content', 'shelf.live.json'), $shelf);
             $skipped = [];

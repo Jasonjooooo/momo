@@ -51,8 +51,13 @@ function json_write_atomic(string $path, mixed $data, int $mode = 0600): void
 function file_write_atomic(string $path, string $bytes, int $mode = 0644): void
 {
     $dir = dirname($path);
-    if (!is_dir($dir) && !@mkdir($dir, 0700, true) && !is_dir($dir)) {
-        throw new RuntimeException('cannot create dir for ' . basename($path));
+    if (!is_dir($dir)) {
+        // public output (served by the web server) needs readable dirs; everything else stays private
+        $dirMode = defined('PUBLIC_DIR') && str_starts_with($dir . '/', PUBLIC_DIR . '/') ? 0755 : 0700;
+        if (!@mkdir($dir, $dirMode, true) && !is_dir($dir)) {
+            throw new RuntimeException('cannot create dir for ' . basename($path));
+        }
+        @chmod($dir, $dirMode);
     }
     $tmp = $dir . '/.' . basename($path) . '.tmp-' . bin2hex(random_bytes(4));
     $fp = @fopen($tmp, 'xb');

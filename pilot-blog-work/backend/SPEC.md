@@ -1552,3 +1552,76 @@ only files you own; never commit `blog-data/`, sessions, subscribers, usage, upl
 
 If a requirement here turns out to be impossible as written (for example a byte-identity detail),
 stop, write the finding and the smallest deviation in PROGRESS.md, and keep T1 and T3 intact.
+
+---
+
+## 18. Deviations (core build, 2026-10-14)
+
+Recorded by the core build agent. Everything else in §0–§15 is implemented as written.
+
+1. **chat.php when switched off.** §10.2 orders "enabled false → 站长暂时关掉了助手" before the key check.
+   On a fresh install (assistant off, no key ever set) that sentence would be untrue, so the message
+   depends on the key: off and no key → today's 「助手还在接入中…」; off with a key → 「站长暂时关掉了助手…」.
+   Both are `503 not_configured`, both count `errors.disabled`.
+2. **Live post snapshots carry `fix`.** `live.fix` is written on every publish/teaser so that changing a
+   published post's 航路点代号 in its draft does not move the home leg until 发布修改. Seed teasers have no
+   `live.fix` and fall back to the top-level `fix`.
+3. **Extra template names.** Post/archive templates use values `post_title_attr`, `post_excerpt_attr`,
+   `archive_count`, blocks `post_tag_first`, and conditions `has_tags`, `has_excerpt`, `has_prevnext`
+   (a value has one encoding, so the title and excerpt needed attribute variants). The lede under a post
+   title shows only an excerpt the owner wrote; the derived 80-character excerpt is used for the home leg,
+   the archive and the meta description.
+4. **Registry encodings.** `post.prev`, `post.next` and `archive.empty` are rendered inside blocks, so
+   their registry `enc` list is empty (like the pattern keys); `archive.title` is also used as `attr`.
+5. **Rollback keeps the site address.** `site.origin` behaves like a setting (its quick-set makes no
+   version), so `version_rollback()` keeps the current live value instead of restoring an older one.
+6. **New posts.** `post_create()` suggests a pronounceable random fix (consonant-vowel, e.g. `BAKOR`) and
+   slug = lowercase fix; `fix_suggest(slug)` implements the §5.4 rule for when the owner types a slug.
+7. **Content helpers for the admin.** `app/lib/content.php` (not listed in §13) holds
+   `content_get/save_draft/publish/discard('site'|'shelf')`, `content_changed_fields()` and
+   `site_origin_set()`. `settings_save()` returns `['settings' => …, 'publish' => ?array]` and republishes
+   itself when the page changes; `chat_key_set()`/`chat_key_remove()` return the republish result or null.
+   `site_self_heal()` implements §6.5 for the dashboard.
+8. **Not built here (admin phase).** `security.php` has `h`, `j`, `is_https`, `send_headers`, `client_ip`,
+   `ip_hash`, `audit` and the secrets helpers; the login, session, setup-code and CSRF functions of §13,
+   `view.php`, `admin/index.php`, `admin/assets/*` and `app/views/` are left to the admin agent, as is
+   step 3 of `app_init()` (setup code). `admin/.htaccess` and the router's `/admin/` route exist already.
+
+## 19. How to run locally
+
+Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
+
+```bash
+# T1 + T3 + template lint (prints T1 PASS, T3 PASS, LINT PASS)
+php pilot-blog/app/bin/check-template.php
+
+# re-extract the seed after editing defaults in home.tpl.html (then run the check again)
+php pilot-blog/app/bin/extract-seed.php
+
+# the committed index.html is the launch render (T2)
+php pilot-blog/app/bin/render-launch.php > pilot-blog/index.html
+
+# unit + HTTP tests (temp dirs only; ~10 s): template, markdown, publish, images, subscribers, http
+php pilot-blog-work/backend/tests/run.php            # or name groups: ... run.php http publish
+
+# public pages in Chromium: launch page + browser subscribe flow, then 0, 1, 3 and 8 published posts at 1440 and 390
+node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub3
+
+# a local site with its own data dir (never the repo's pilot-blog/ or /home/user/momo/blog-data)
+S=$(mktemp -d); mkdir -p $S/pub/posts $S/pub/uploads $S/data
+for d in assets api app admin; do ln -s $PWD/pilot-blog/$d $S/pub/$d; done
+cp pilot-blog/index.html $S/pub/; cp pilot-blog/posts/.htaccess $S/pub/posts/
+export BLOG_PUBLIC_DIR=$S/pub BLOG_DATA_DIR=$S/data
+php pilot-blog/app/bin/publish.php                   # installs the launch seed on first run, then publishes
+php -S 127.0.0.1:8977 -t $S/pub pilot-blog/app/dev/router.php   # add BLOG_CHAT_FAKE=1 for a fake chat answer
+# stop it with: kill $(pgrep -f "^php -S 127.0.0.1:8977")
+
+# the existing page regression (expects the server above on the same port; chat answers 503)
+cd pilot-blog-work/mockups/B-chart/_src && PORT=8977 node test.js both noshots
+```
+
+Notes: `BLOG_PUBLIC_DIR` / `BLOG_DATA_DIR` exist only for tests and local runs; on Hostinger the app uses
+`public_html` and `../blog-data`. The dev router mirrors the `.htaccess` denies (403) and sends the
+`posts/` and `uploads/` CSP headers, so CSP mistakes show up as console errors in the Playwright tests.
+`pilot-blog-work/backend/tools/make-template.php` is the one-time builder that produced `home.tpl.html`
+from the 08da7c1 page; keep it for history, edit the template directly from now on.
