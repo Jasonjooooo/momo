@@ -1,0 +1,425 @@
+
+<!-- ============ THE CHART: everything after the hero is one enroute chart, drawn as you fly it ============
+     Route order is DOM order of the [data-route] anchors (0x0 elements placed by CSS per layout); the script draws one
+     magenta line through them, with fly-by corners, and reveals it down to the reading line as the page scrolls. -->
+<div class="chart" id="chart">
+  <div class="chart-bg" id="chart-bg" aria-hidden="true">
+    <div class="neat neat-l"></div><div class="neat neat-r"></div>
+    <svg class="bg-svg" id="bg-svg" focusable="false"></svg>
+    <div id="bg-lbls"></div>
+  </div>
+  <svg class="airway-svg" id="airway-svg" aria-hidden="true" focusable="false"><path class="awy-ln" id="airway-path" d="M0 0"/></svg>
+  <div class="route-clip" id="route-clip" aria-hidden="true"><div class="route-inner" id="route-inner"><svg class="route-svg" id="route-svg" focusable="false"><path class="rt-glow" id="route-glow" d="M0 0"/><path class="rt-ln" id="route-path" d="M0 0"/></svg></div></div>
+  <div class="leg-lbls" id="leg-lbls" aria-hidden="true"></div>
+  <div class="ownship" id="ownship" aria-hidden="true"><svg viewBox="-26 -26 52 52"><path class="vec" d="M0,-27 V-86"/><circle class="halo" r="20"/><path class="os" d="M0,-21 C1.6,-21 2.4,-18 2.4,-14 L2.4,-5.4 L23,-3.2 L23.4,-.4 L2.4,1.4 L1.7,13.6 L8.4,15.6 L8.4,17.8 L1,17.4 L0,20 L-1,17.4 L-8.4,17.8 L-8.4,15.6 L-1.7,13.6 L-2.4,1.4 L-23.4,-.4 L-23,-3.2 L-2.4,-5.4 L-2.4,-14 C-2.4,-18 -1.6,-21 0,-21 Z"/></svg></div>
+
+  <!-- chart title block -->
+  <div class="ch-head cw" data-io>
+    <div class="chh">
+      <div class="chh-a">
+        <p class="chh-k">ENROUTE CHART · NIGHT</p>
+        <p class="chh-t">航路图</p>
+        <p class="chh-go">向下滚动，沿航路飞到跑道。</p>
+      </div>
+      <dl class="chh-cells">
+        <div><dt>ROUTE</dt><dd>PILOT Y12 RW24</dd></div>
+        <div><dt>FIX</dt><dd>PILOT · LOGBK · PC12X · AISHP · CHKLT</dd></div>
+        <div><dt>SCALE · NM</dt><dd><svg class="scale" viewBox="0 0 170 26" aria-hidden="true" focusable="false"><rect class="on" x="0.5" y="2.5" width="32" height="5"/><rect x="32.5" y="2.5" width="32" height="5"/><rect class="on" x="64.5" y="2.5" width="32" height="5"/><rect x="96.5" y="2.5" width="32" height="5"/><rect class="on" x="128.5" y="2.5" width="32" height="5"/><text x="0" y="20">0</text><text x="157" y="20">5</text></svg></dd></div>
+        <div><dt>10-1 · VAR 6°W</dt><dd class="cn">示意航图，不作领航用</dd></div>
+      </dl>
+    </div>
+    <span class="dep" data-route="DEP" aria-hidden="true"><svg viewBox="-11 -11 22 22"><circle r="9"/><path d="M-5,4 L5,-4"/></svg></span>
+  </div>
+
+<!-- ============ 01 ABOUT · fix PILOT (VOR/DME) ============ -->
+<section class="sec about" id="about" aria-labelledby="about-h" data-io data-live>
+  <div class="cw about-grid">
+    <div class="about-nav" aria-hidden="true">
+      <div class="rose-wrap">
+        <svg class="rose" id="rose" viewBox="-230 -230 460 460" focusable="false"></svg>
+      <span class="fix vor-fix" data-route="PILOT"><svg class="vor" viewBox="-12 -12 24 24"><circle class="ring" r="15"/><rect class="sq" x="-10" y="-10" width="20" height="20"/><path class="hx" d="M-4.6,-8 L4.6,-8 L9.2,0 L4.6,8 L-4.6,8 L-9.2,0 Z"/><circle class="dot" r="2"/></svg></span>
+      <p class="navbox"><b>PILOT</b><span><span class="fq">113.85</span> PLT<span class="morse" data-morse="PLT"></span></span><span>VOR/DME</span><i class="fx-co" data-co="PILOT"></i></p>
+      </div>
+      <i class="bend" data-route=""></i>
+    </div>
+    <div class="about-text">
+      <p class="kicker rv" style="--i:1">01 / ABOUT</p>
+      <h2 class="rv" id="about-h" style="--i:2">左座上的人。</h2>
+      <p class="rv" style="--i:3">我是机长，飞 PC-12 NGX，跑短途支线。航段短，一天要起降好几次。</p>
+      <p class="rv" style="--i:4">这些航线没有长巡航可以喘口气。起飞、爬升、进近、落地，然后再来一遍。小机场跑道短，备降场远，天气说变就变，很多决定要在地面上做完。</p>
+      <p class="rv" style="--i:5">我写这个博客，想把驾驶舱里的事讲清楚：一个数字从哪里来，一条程序为什么这样写，一次进近里我在看什么。同行可以拿来对照，没飞过的人也看得懂。</p>
+      <p class="staccato rv" style="--i:6">不露脸，不写公司，只写飞行。</p>
+      <dl class="logbook rv" style="--i:7">
+        <div><dt>TYPE</dt><dd><span class="lat">PC-12 NGX</span></dd></div>
+        <div><dt>SEAT</dt><dd>左座</dd></div>
+        <div><dt>ROUTE</dt><dd>短途支线</dd></div>
+        <div><dt>WX</dt><dd>低云 · 侧风 · 结冰季</dd></div>
+      </dl>
+    </div>
+    <figure class="about-fig">
+      <div class="about-art">
+        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。">
+        <p class="inset-tag" aria-hidden="true">INSET A</p>
+      </div>
+      <figcaption>ON TOP · 云层上方 · 日落之后</figcaption>
+    </figure>
+  </div>
+</section>
+
+<!-- ============ 02 LOG · fix LOGBK, each draft a leg of the airway ============ -->
+<section class="sec log" id="log" aria-labelledby="log-h" data-live>
+  <div class="cw log-grid">
+    <div class="log-intro" data-io>
+      <div class="plate-head rv" style="--i:0">
+        <p class="kicker">02 / LOG</p>
+        <h2 id="log-h">飞行日志</h2>
+        <p class="kicker">在写 5 篇</p>
+      </div>
+      <p class="lede rv" style="--i:1">落地之后写。每篇只讲一件事，写完先对一遍手册。</p>
+      <p class="list-end rv" style="--i:2">这几篇还在写，写完一篇放一篇。</p>
+      <p class="rv" style="--i:3"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
+    </div>
+
+    <div class="log-route">
+      <div class="hold-fig" aria-hidden="true">
+        <svg class="racetrack" viewBox="0 0 330 92" focusable="false">
+          <path class="rk" d="M330,46 H96 A40,40 0 0 1 96,-34 H260"/>
+          <path class="rk" d="M260,-34 A40,40 0 0 1 300,6"/>
+          <path class="ar" d="M200,46 l-12,-5 v10 z"/>
+          <path class="ar" d="M150,-34 l12,-5 v10 z"/>
+          <text x="128" y="68">067° · 1 MIN</text>
+        </svg>
+        <span class="fix wpt" data-route="LOGBK" data-leg="Y12|5200|4100T"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>LOGBK</b><i class="fx-co" data-co="LOGBK"></i></span></span>
+        <p class="hold-lbl"><b>HOLD</b> · 在写<br>LOGBK 067° · RIGHT TURNS</p>
+      </div>
+
+      <!-- SAMPLE POSTS: drafts, shown on screen as DRAFT with an estimated read time. Titles are not links in v1.
+           When a post is published: replace DRAFT with <time datetime="YYYY-MM-DD">YYYY.MM.DD</time>, drop 预计 from its read time,
+           wrap its title in <a href="posts/<slug>.html">, and once every strip is live, put 最新 5 篇 back in the plate header.
+           Each leg's course and distance are measured from the drawn route by the script; the read time is the leg's ETE. -->
+      <ol class="legs" data-io>
+        <li class="rv" style="--i:0"><article class="post">
+          <span class="fix rp" data-route="MINMS" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>MINMS</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 1</span><span aria-hidden="true">LOGBK<i class="to"></i>MINMS</span><span class="lv" aria-hidden="true" data-crs="MINMS">---°</span><span class="lv" aria-hidden="true" data-dis="MINMS">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 8 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">IMC</p></div>
+          <h3>低云进近：决断高度前的那两秒</h3><p class="ex">云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p>
+        </article></li>
+        <li class="rv" style="--i:1"><article class="post">
+          <span class="fix rp" data-route="SHORT" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>SHORT</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 2</span><span aria-hidden="true">MINMS<i class="to"></i>SHORT</span><span class="lv" aria-hidden="true" data-crs="SHORT">---°</span><span class="lv" aria-hidden="true" data-dis="SHORT">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 7 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PERF</p></div>
+          <h3>短跑道上的 PC-12：先算数，再上跑道</h3><p class="ex">起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p>
+        </article></li>
+        <li class="rv" style="--i:2"><article class="post">
+          <span class="fix rp" data-route="ICING" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>ICING</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 3</span><span aria-hidden="true">SHORT<i class="to"></i>ICING</span><span class="lv" aria-hidden="true" data-crs="ICING">---°</span><span class="lv" aria-hidden="true" data-dis="ICING">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 9 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">WX</p></div>
+          <h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p class="ex">PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。这篇讲我怎么看云、看温度，什么情况下直接改天。</p>
+        </article></li>
+        <li class="rv" style="--i:3"><article class="post">
+          <span class="fix rp" data-route="GLIDE" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>GLIDE</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 4</span><span aria-hidden="true">ICING<i class="to"></i>GLIDE</span><span class="lv" aria-hidden="true" data-crs="GLIDE">---°</span><span class="lv" aria-hidden="true" data-dis="GLIDE">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 6 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">OPS</p></div>
+          <h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p class="ex">PT6 很少停车，可飞机上只有这一台。每一段起飞前，我先找好滑翔得到的落地点，再定航路和高度。</p>
+        </article></li>
+        <li class="rv" style="--i:4"><article class="post">
+          <span class="fix rp" data-route="CHOCK" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>CHOCK</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 5</span><span aria-hidden="true">GLIDE<i class="to"></i>CHOCK</span><span class="lv" aria-hidden="true" data-crs="CHOCK">---°</span><span class="lv" aria-hidden="true" data-dis="CHOCK">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 5 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PREFLT</p></div>
+          <h3>绕机一圈：我的航前检查顺序</h3><p class="ex">从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。</p>
+        </article></li>
+      </ol>
+      <i class="bend log-exit" data-route=""></i>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 TYPE · fix PC12X, the chart legend ============ -->
+<section class="sec type" id="type" aria-labelledby="type-h" data-live>
+  <div class="cw">
+    <span class="fix wpt lane tag-l" data-route="PC12X" data-leg="Y12|4900|3800T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>PC12X</b><i class="fx-co" data-co="PC12X"></i></span></span>
+    <div class="legend-wrap" data-io>
+    <div class="legend">
+      <p class="lg-tab" aria-hidden="true">LEGEND · AIRCRAFT</p>
+      <ul class="icao" aria-label="ICAO">
+        <li>TYP PC12</li><li>L1T</li><li>WTC L</li><li>SINGLE PILOT IFR</li><li>FIKI</li><li>MAX CRZ 290 KTAS</li>
+      </ul>
+      <p class="icao-gloss">单发涡桨 · 轻型 · 可单人驾驶仪表飞行 · 获准在已知结冰条件下飞行</p>
+      <div class="lg-body">
+        <div>
+          <p class="kicker">03 / TYPE</p>
+          <h2 id="type-h">机型手记：PC-12 NGX</h2>
+          <p class="lede">一台发动机，五片桨叶，一个 T 型尾翼。下面这些数字，都查得到出处。</p>
+          <ol class="callouts">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">1</text></svg>五叶螺旋桨<span class="lk" aria-hidden="true">PROP</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">2</text></svg><span class="lat">PT6E-67XP</span><span class="lk" aria-hidden="true">ENG</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">3</text></svg>货舱门 <span class="lat">1.35 × 1.32</span> 米<span class="lk" aria-hidden="true">CARGO</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">4</text></svg>T 型尾翼<span class="lk" aria-hidden="true">TAIL</span></li>
+          </ol>
+        </div>
+        <figure class="outline" data-io>
+          <svg viewBox="220 190 1680 640" aria-hidden="true" focusable="false">
+            <path class="o dim" d="M316,398 A78,168 0 1,0 316,734 A78,168 0 1,0 316,398"/>
+            <g transform="translate(316 566) scale(.32 1)" class="fade-l" style="--d:1.6s"><g class="ghost-rot"><g class="ghost-blades">
+              <path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(72)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(144)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(216)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(288)"/>
+            </g></g></g>
+            <path class="o" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
+            <path class="o" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z"/>
+            <path class="o" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z"/>
+            <path class="o dim" d="M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273"/>
+            <path class="o dim" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z"/>
+            <path class="o dim" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z"/>
+            <path class="o dim" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z"/>
+            <path class="o dim" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1452,578 L1476,598 L1480,580"/>
+            <path class="o" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
+            <path class="lead" d="M316,396 V302"/>
+            <path class="lead" d="M470,540 V334"/>
+            <path class="lead" d="M1189,604 V766"/>
+            <path class="lead" d="M1560,262 L1652,232"/>
+            <g class="mk fade-l" style="--d:2.1s"><circle cx="316" cy="282" r="20"/><text x="316" y="283">1</text></g>
+            <g class="mk fade-l" style="--d:2.2s"><circle cx="470" cy="314" r="20"/><text x="470" y="315">2</text></g>
+            <g class="mk fade-l" style="--d:2.3s"><circle cx="1189" cy="786" r="20"/><text x="1189" y="787">3</text></g>
+            <g class="mk fade-l" style="--d:2.4s"><circle cx="1672" cy="226" r="20"/><text x="1672" y="227">4</text></g>
+          </svg>
+        </figure>
+      </div>
+      <dl class="facts">
+        <div><dt>ENG</dt><dd><span class="val">PT6E-67XP</span><span class="line">单台普惠加拿大涡桨发动机，起飞功率 1200 轴马力。电子发动机与螺旋桨控制，一根功率手柄。</span></dd></div>
+        <div><dt>PROP</dt><dd><span class="val">5 BLD</span><span class="line">五叶复合材料螺旋桨，可以反桨，落地后靠它减速，短跑道上用得上。</span></dd></div>
+        <div><dt>TAIL</dt><dd><span class="val">T-TAIL</span><span class="line">水平尾翼装在垂尾顶端，远离机翼下洗和螺旋桨滑流。</span></dd></div>
+        <div><dt>TO</dt><dd><span class="val">758 M</span><span class="line">最大起飞重量下，越过 15 米障碍物的起飞距离。</span></dd></div>
+        <div><dt>LDG</dt><dd><span class="val">661 M</span><span class="line">最大着陆重量下，越过 15 米障碍物的着陆距离。着陆形态失速速度 67 节，进近可以飞得又慢又稳。</span></dd></div>
+        <div><dt>RWY</dt><dd><span class="val">UNPAVED</span><span class="line">起落架按非铺装跑道设计，砂石和草地跑道也能起降。</span></dd></div>
+      </dl>
+      <p class="fnote"><span class="src" aria-hidden="true">SOURCE</span>数据来自 Pilatus 公开资料，条件为海平面、标准大气、干燥铺装跑道。实际运行以飞机飞行手册为准。</p>
+    </div>
+    </div>
+    <i class="bend" data-route=""></i>
+  </div>
+</section>
+
+<!-- ============ 04 AI 超市 · fix AISHP, the communications panel ============ -->
+<section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
+  <div class="cw">
+    <span class="fix wpt lane" data-route="AISHP" data-leg="Y12|4900|3600T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>AISHP</b><i class="fx-co" data-co="AISHP"></i></span></span>
+    <div class="comm">
+      <div class="comm-head">
+        <img class="ai-img" src="assets/ai-banner.webp" width="1600" height="800" loading="lazy" decoding="async" alt="">
+        <span class="ai-dim" aria-hidden="true"></span>
+        <div class="drz" aria-hidden="true">
+          <i style="--x:6%;--t:7.2s;--dl:-1.1s;--o:.12"></i><i style="--x:15%;--t:8.4s;--dl:-5.3s;--o:.16"></i><i style="--x:24%;--t:6.3s;--dl:-2.7s;--o:.1"></i><i style="--x:37%;--t:9s;--dl:-6.1s;--o:.14"></i><i style="--x:48%;--t:7.7s;--dl:-3.9s;--o:.18"></i>
+          <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
+        </div>
+        <p class="comm-tag" aria-hidden="true">COMM · AISHP</p>
+        <p class="kicker rv" style="--i:0">04 / AI 超市</p>
+        <h2 id="ai-h" class="rv" style="--i:1">AI 超市</h2>
+      </div>
+      <p class="lede rv" style="--i:2">按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。</p>
+      <div class="comm-grid">
+        <div class="radio" id="radio">
+          <div class="radio-head">
+            <span class="rh-l" aria-hidden="true">COM1</span>
+            <span class="rh-f rh-act" aria-hidden="true"><i>ACT</i><b id="f-act">118.250</b><span class="nm" id="f-act-n">A1 对话与写作</span></span>
+            <button class="rh-swap" id="f-swap" type="button" aria-label="切换到备用频率"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 7h13m-4-4 4 4-4 4M17 13H4m4-4-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <span class="rh-f rh-sby" aria-hidden="true"><i>STBY</i><b id="f-sby">121.650</b><span class="nm" id="f-sby-n">A2 图像与视频</span></span>
+          </div>
+          <div class="tune" id="tune" role="tablist" aria-label="货架"></div>
+          <div class="shelves" id="shelves">
+            <!-- Shelves render from the #shelf-data JSON below, one tab (a frequency) per shelf. -->
+            <p class="shelf-note">货架上的工具与本站没有合作关系，链接直达官网。</p>
+          </div>
+        </div>
+
+        <aside class="chat" aria-labelledby="chat-h">
+          <p class="twr" aria-hidden="true"><b>TWR</b> 塔台频率<span class="twf">118.100</span></p>
+          <div class="chat-head">
+            <h3 id="chat-h">AI 助手</h3>
+            <p class="lamp" id="lamp" data-state="inop"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code" id="lamp-code">INOP</span><span id="lamp-txt">接入中</span></p>
+          </div>
+          <p class="chat-lede">问飞行常识、PC-12，或者货架上哪样工具适合你。</p>
+          <p class="chat-caution">它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。</p>
+          <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
+          <div class="chips" id="chips">
+            <button type="button">决断高度和决断高有什么区别？</button>
+            <button type="button">PC-12 为什么用 T 型尾翼？</button>
+            <button type="button">读英文资料用哪个工具？</button>
+          </div>
+          <form class="chat-form" id="chat-form">
+            <label class="sr" for="chat-in">你的问题</label>
+            <textarea id="chat-in" rows="2" maxlength="500" placeholder="输入你的问题" autocomplete="off"></textarea>
+            <button class="btn btn-ghost" id="chat-send" type="submit">发送</button>
+          </form>
+          <p class="chat-limit" id="chat-limit" aria-live="polite"></p>
+          <p class="chat-privacy">对话会经本站服务器转给 AI 服务商处理，请不要输入个人信息。</p>
+        </aside>
+      </div>
+    </div>
+    <i class="bend" data-route=""></i>
+  </div>
+</section>
+
+<!-- ============ 05 FAQ · fix CHKLT, notes and NOTAM ============ -->
+<section class="sec faq" id="faq" aria-labelledby="faq-h" data-io data-live>
+  <div class="cw">
+    <span class="fix wpt lane tag-l" data-route="CHKLT" data-leg="Y12|4300|3200T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>CHKLT</b><i class="fx-co" data-co="CHKLT"></i><i class="fx-co">IAF</i></span></span>
+    <div class="faq-grid">
+      <!-- Reserved: up to three short real reader quotes go above this card, with the reader's permission. None are invented. -->
+      <div class="checklist rv" style="--i:0">
+        <div class="cl-bar"><p class="cl-head">CHECKLIST · 读之前</p><p class="cl-id" aria-hidden="true">NOTAM · CHKLT</p></div>
+        <div class="cl-body">
+          <p class="kicker">05 / FAQ</p>
+          <h2 id="faq-h">读之前，先过一遍检查单。</h2>
+          <dl class="cl-rows">
+            <div class="cl-row" style="--i:0"><dt><span class="nid" aria-hidden="true">A0101/26</span><span class="q">作者真的在飞吗？</span><span class="lead" aria-hidden="true"></span><span class="r">在飞</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>我是现役机长，飞 PC-12 NGX 短途支线。匿名写，技术问题可以讲得更直接。</p></dd></div>
+            <div class="cl-row" style="--i:1"><dt><span class="nid" aria-hidden="true">A0102/26</span><span class="q">能当训练资料用吗？</span><span class="lead" aria-hidden="true"></span><span class="r">不能</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>这里写的是个人经验和理解。训练和运行，以飞机飞行手册、公司程序和你的教员为准。文中引用的数字会注明出处。</p></dd></div>
+            <div class="cl-row" style="--i:2"><dt><span class="nid" aria-hidden="true">A0103/26</span><span class="q">单发飞机，安全吗？</span><span class="lead" aria-hidden="true"></span><span class="r">按单发计划</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>PC-12 用的是 PT6 系列发动机，六十年代投入使用，是装机最多的涡桨发动机之一。单发的不同在计划：每一段都先想好发动机停车后往哪里滑翔、在哪里落地，航路、高度和天气按这个来定。</p></dd></div>
+            <div class="cl-row" style="--i:3"><dt><span class="nid" aria-hidden="true">A0104/26</span><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>每篇一封邮件。不发广告，不转让邮箱，随时退订。<span class="mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</span></p></dd></div>
+          </dl>
+        </div>
+        <div class="scan" aria-hidden="true"></div>
+      </div>
+      <div class="msa" aria-hidden="true">
+        <svg viewBox="-160 -170 320 340" focusable="false">
+          <circle class="c" r="130"/>
+          <path class="s" d="M0,0 L112.6,-65 M0,0 L-112.6,65"/>
+          <path class="ar" d="M112.6,-65 l-11,1 l5,-9 z"/>
+          <text x="-34" y="-40">4800</text>
+          <text x="40" y="44">6300</text>
+          <text class="sm" x="0" y="-150">MSA PLT 25 NM</text>
+          <text class="sm" x="0" y="152">060° · 240°</text>
+          <circle class="ar" r="3"/>
+        </svg>
+      </div>
+      <p class="after"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APPROACH · the plate, and the one thing you fly by hand ============ -->
+<section class="sec apch" id="apch" aria-labelledby="apch-h">
+  <div class="cw">
+    <div class="fly" id="fly" data-io data-live>
+      <dl class="brief" aria-hidden="true">
+        <div class="ttl"><dt>11-1 · APCH</dt><dd>ILS RWY 24</dd></div>
+        <div><dt>LOC</dt><dd>IYD 110.30</dd></div>
+        <div><dt>FINAL APCH CRS</dt><dd>243°</dd></div>
+        <div><dt>GS</dt><dd>3.0° · TCH 50</dd></div>
+        <div><dt>DA</dt><dd>200</dd></div>
+        <div><dt>FAF FINAL</dt><dd>1500 · 5.0 NM</dd></div>
+      </dl>
+      <div class="fly-plate" id="fly-plate">
+        <img class="fly-img" src="assets/log-breakout.webp" width="1920" height="1088" loading="lazy" decoding="async" alt="">
+        <span class="fly-dim" aria-hidden="true"></span>
+        <svg class="plate" viewBox="0 0 1000 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path class="ln" d="M20,280 H980"/>
+          <path class="ln" d="M40,70 H150"/>
+          <path class="ln" d="M150,54 V280"/>
+          <path class="ln gs" d="M150,70 L760,280"/>
+          <path class="da" d="M40,252 H760"/>
+          <path class="ln rwy" d="M760,280 H960"/>
+          <path class="ma" d="M960,270 L990,150"/>
+        </svg>
+        <div aria-hidden="true">
+          <span class="pl faf-x" style="--x:15;--y:21.875"><svg viewBox="-9 -9 18 18"><path d="M-2,-2 L-3,-8 L3,-8 L2,-2 L8,-3 L8,3 L2,2 L3,8 L-3,8 L-2,2 L-8,3 L-8,-3 Z"/></svg></span>
+          <span class="pl alb" style="--x:65;--y:82.8"></span><span class="pl alb" style="--x:67.2;--y:82.8"></span><span class="pl alb" style="--x:69.4;--y:82.8"></span><span class="pl alb" style="--x:71.6;--y:82.8"></span><span class="pl alb" style="--x:73.8;--y:82.8"></span>
+          <span class="pl thb" style="--x:76;--y:87.5"></span>
+          <span class="pl edg" style="--x:78.4;--y:85.3"></span><span class="pl edg" style="--x:80.8;--y:85.3"></span><span class="pl edg" style="--x:83.2;--y:85.3"></span><span class="pl edg" style="--x:85.6;--y:85.3"></span><span class="pl edg" style="--x:88;--y:85.3"></span><span class="pl edg" style="--x:90.4;--y:85.3"></span><span class="pl edg" style="--x:92.8;--y:85.3"></span><span class="pl edg" style="--x:95.2;--y:85.3"></span>
+          <span class="dev"><i></i><i></i><i class="dia"></i><i></i><i></i></span>
+          <span class="pglyph" id="glyph"><svg viewBox="-12 -12 24 24"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></svg></span>
+        </div>
+        <p class="plate-lbl lbl-fap" aria-hidden="true">FAP 1500</p>
+        <p class="plate-lbl lbl-gs" aria-hidden="true">GS 3.0°</p>
+        <p class="plate-lbl lbl-da" aria-hidden="true">DA 200</p>
+        <p class="plate-lbl lbl-dme" aria-hidden="true">5.0 NM</p>
+        <p class="plate-lbl lbl-thr" aria-hidden="true">THR</p>
+        <p class="plate-lbl lbl-rwy" aria-hidden="true">RWY 24</p>
+        <p class="plate-lbl lbl-ma" aria-hidden="true">MISSED APCH</p>
+        <p class="mins-tag" aria-hidden="true">MINIMUMS</p>
+      </div>
+      <div class="fly-ctl">
+        <div>
+          <p class="kicker">ILS 示意 · 按住下降</p>
+          <h2 id="apch-h">换你来飞。</h2>
+          <p class="ins">按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。</p>
+        </div>
+        <div class="fly-act">
+          <button class="btn btn-ghost hold" id="hold" type="button"><span class="hold-label" id="hold-label">按住下降</span><span class="hold-track" aria-hidden="true"><span class="hold-fill" id="hold-fill"></span></span></button>
+          <p class="fly-status" id="fly-status" aria-live="polite">已截获下滑道，等你按住。</p>
+          <p class="fly-read" id="fly-read" aria-hidden="true">ALT 1500</p>
+        </div>
+      </div>
+      <div class="mins-strip" aria-hidden="true">
+        <p><b>MINIMUMS</b> · DA 200 · RVR 550 M</p>
+        <p><b>MISSED APCH</b> · CLIMB 3000 · DIRECT CHKLT · HOLD</p>
+      </div>
+    </div>
+    <i class="bend" data-route=""></i>
+  </div>
+</section>
+
+<!-- ============ 06 SUBSCRIBE · RWY 24, the far end reads 06 (the one call to action) ============ -->
+<section class="sec subscribe" id="subscribe" aria-labelledby="sub-h" data-io data-live>
+  <div class="rwy-zone">
+    <svg class="loc" viewBox="0 0 76 300" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="lf" d="M38,0 L76,26 L38,300 L0,26 Z"/><path d="M38,0 L76,26 L38,300 L0,26 Z M38,0 V300"/></svg>
+    <span class="fix faf" data-route="FINAL" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M-2,-2 L-3,-9 L3,-9 L2,-2 L9,-3 L9,3 L2,2 L3,9 L-3,9 L-2,2 L-9,3 L-9,-3 Z"/><path class="f1" d="M-1,-1 L-1.5,-4.5 L1.5,-4.5 L1,-1 L4.5,-1.5 L4.5,1.5 L1,1 L1.5,4.5 L-1.5,4.5 L-1,1 L-4.5,1.5 L-4.5,-1.5 Z"/><path class="f2" d="M-1,-1 L-1.5,-4.5 L1.5,-4.5 L1,-1 L4.5,-1.5 L4.5,1.5 L1,1 L1.5,4.5 L-1.5,4.5 L-1,1 L-4.5,1.5 L-4.5,-1.5 Z"/></svg><span class="fx-tag"><b>FINAL</b><i class="fx-co">FAF · 1500</i></span></span>
+    <p class="loc-lbl" aria-hidden="true"><b>LOC 243°</b><span>IYD 110.30</span></p>
+    <div class="als" id="rw-als" aria-hidden="true"></div>
+    <div class="rwy">
+      <div class="edges l" id="rw-edge-l" aria-hidden="true"></div><div class="edges r" id="rw-edge-r" aria-hidden="true"></div>
+      <div class="rwy-thr" aria-hidden="true">
+        <div class="lights g" id="rw-thr"></div>
+        <div class="keys"><span><i></i><i></i><i></i><i></i></span><span><i></i><i></i><i></i><i></i></span></div>
+        <p class="rwy-no">24</p>
+        <div class="tdz"><span><i></i><i></i><i></i></span><span><i></i><i></i><i></i></span></div>
+        <span class="fix td" data-route="RW24"><span class="fx-tag"><b>RW24</b></span></span>
+      </div>
+      <div class="rwy-cl" aria-hidden="true"></div>
+      <div class="sub-card">
+        <p class="kicker">06 / SUBSCRIBE</p>
+        <h2 id="sub-h">订阅飞行日志</h2>
+        <p class="lede">最低标准写在起飞前，日志写在落地后。</p>
+        <p class="sub2">新的一篇写完，发到你的邮箱。</p>
+        <form class="sub-form" id="sub-form" novalidate>
+          <label for="sub-email">邮箱</label>
+          <input id="sub-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="sub-err">
+          <p class="sub-err" id="sub-err" aria-live="polite"></p>
+          <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
+          <p class="micro">只发飞行日志。不发广告，随时退订。</p>
+          <p class="micro mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</p>
+        </form>
+        <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
+      </div>
+      <div class="rwy-end" aria-hidden="true">
+        <p class="rwy-no">06</p>
+        <div class="keys"><span><i></i><i></i><i></i><i></i></span><span><i></i><i></i><i></i><i></i></span></div>
+        <div class="lights r" id="rw-end"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div>
+</main>
+
+<p class="hud" id="hud" aria-hidden="true"><span class="to"></span><b id="hud-to">PILOT</b><span class="dtk">DTK <i id="hud-dtk">---°</i></span><span><i id="hud-dis">--</i> NM</span></p>
+
+<footer class="foot">
+  <div class="cw foot-grid">
+    <div>
+      <p class="foot-mark"><span class="brand-name">云底之下</span><span class="mono">PC12/L · L1T</span></p>
+      <p class="foot-tag">落地，关车，写日志。</p>
+    </div>
+    <nav aria-label="页脚导航">
+      <ul class="foot-links">
+        <li><a href="#about">关于</a></li><li><a href="#log">日志</a></li><li><a href="#type">机型</a></li><li><a href="#ai">AI 超市</a></li><li><a href="#faq">问答</a></li><li><a href="#subscribe">订阅</a></li>
+      </ul>
+    </nav>
+    <div class="foot-notes">
+      <p>本站的飞机影像和配图由 AI 生成，不对应任何真实航空器。</p>
+      <p>本站内容是个人飞行经验分享，不能代替飞机飞行手册、公司程序和教员的指导。</p>
+      <p>© 2026 <span class="brand-name">云底之下</span></p>
+      <p class="foot-chart" aria-hidden="true">CHART 10-1 · ENROUTE · NIGHT<br>示意航图，不作领航用</p>
+    </div>
+  </div>
+</footer>
