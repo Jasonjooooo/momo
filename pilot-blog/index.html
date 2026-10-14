@@ -2164,13 +2164,34 @@ subForm.addEventListener('submit', async e => {
       '---'
     ].concat(DIAG).join('\n');
   };
-  mark.addEventListener('click', e => {
+  const box = el => { if (!el) return 'missing'; const r = el.getBoundingClientRect(), cs = getComputedStyle(el); return Math.round(r.width) + 'x' + Math.round(r.height) + '@' + Math.round(r.top) + (cs.display === 'none' ? ' hidden' : '') + ' op' + cs.opacity; };
+  const layout = () => {
+    const cs = getComputedStyle(stage);
+    return [
+      'vars sh=' + cs.getPropertyValue('--sh').trim() + ' pw=' + cs.getPropertyValue('--pw').trim() + ' ph=' + cs.getPropertyValue('--ph').trim() + ' lvh=' + cs.getPropertyValue('--lvh').trim(),
+      'stage ' + box(stage) + ' | poster ' + box(posterLayer) + ' bg ' + (posterLayer.style.backgroundImage || 'none'),
+      'video ' + box(video) + ' | sky ' + box($('#sky')) + ' | fog ' + box(posterFog),
+      'fonts B612Mono ' + (document.fonts ? document.fonts.check('12px "B612 Mono"') : '?') + ' | origin ' + location.origin + ' | cookies ' + (navigator.cookieEnabled ? 'on' : 'off')
+    ].join('\n');
+  };
+  const probe = async () => {                // can this page fetch its own files? (status of the poster and the video head)
+    const out = [];
+    for (const u of [HERO_SRC[variant || 'portrait'].poster, HERO_SRC[variant || 'portrait'].video]) {
+      try { const r = await fetch(u, { method: 'GET', headers: { Range: 'bytes=0-1' }, cache: 'no-store' }); out.push(u.split('/').pop() + ' ' + r.status + ' ' + (r.headers.get('Content-Type') || '')); }
+      catch (err) { out.push(u.split('/').pop() + ' ' + (err && err.name)); }
+    }
+    return out.join('\n');
+  };
+  mark.addEventListener('click', async e => {
     const now = performance.now();
     taps = taps.filter(x => now - x < 3000); taps.push(now);
     if (taps.length < 5) return;
     e.preventDefault(); taps = [];
     if (!panel) { panel = document.createElement('pre'); panel.className = 'diag'; panel.addEventListener('click', () => { panel.remove(); panel = null; }); document.body.append(panel); }
-    panel.textContent = state() + '\n\n（点这里关闭）';
+    const head = state() + '\n---\n' + layout();
+    panel.textContent = head + '\n---\nprobing files...';
+    const pr = await probe();
+    if (panel) panel.textContent = head + '\n---\n' + pr + '\n\n（点这里关闭）';
   });
 })();
 
