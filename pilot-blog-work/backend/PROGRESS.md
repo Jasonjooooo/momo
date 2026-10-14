@@ -15,3 +15,5 @@
 - 2026-10-14T20:56:08Z QA agent: started; reading SPEC, PROGRESS, admin code, existing tests. Plan: backend/e2e.js (fresh temp data dir, 1440+390), owner-mistake cases, fix bugs, commit
 - 2026-10-14T21:02:16Z QA agent: baseline green (run.php 217, admin.e2e 386, check-template T1/T3). Writing backend/e2e.js
 - 2026-10-14T21:19:43Z QA agent: e2e.js 390 ALL PASS 421 after fixes: tabs in pasted text, long blog name overflow in admin top bar, lost-answer retry false 409 (site+post), local backup on pagehide/failed save, full-width digits, CRLF in FAQ rows; next: 1440 run
+- 2026-10-14T21:26:31Z QA agent: checkpoint pushed (preview frame note); e2e 390 ALL PASS 449, admin.e2e 386, public.e2e pass, run.php 219. Next: delete+rollback, long Latin title, upload with expired session, 60k body
+- 2026-10-14T21:41:11Z QA agent: e2e.js extended (delete+rollback exact, long Latin title, upload after expiry, 60k body, badges, FAQ delete, link tool, wrong current password); 390 ALL PASS 468; B-chart test.js both: only chat 503 logs

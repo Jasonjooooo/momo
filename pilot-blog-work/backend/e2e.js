@@ -181,7 +181,10 @@ async function pasteInto(page, sel, text, replace = false) {
 }
 function heroOk(file) { return spawnSync('php', [REPO + '/pilot-blog-work/backend/tests/hero-check.php', file]).stdout.toString().trim() === 'HERO OK'; }
 function versionsCount(T) { return fs.existsSync(T.DATA + '/versions') ? fs.readdirSync(T.DATA + '/versions').filter(n => /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(n)).length : 0; }
-function newestVersion(T) { return fs.readdirSync(T.DATA + '/versions').filter(n => /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(n)).sort().pop(); }
+function newestVersion(T) {
+  const ids = fs.readdirSync(T.DATA + '/versions').filter(n => /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(n));
+  return ids.map(id => [JSON.parse(read(`${T.DATA}/versions/${id}/manifest.json`)).seq || 0, id]).sort((a, b) => a[0] - b[0]).pop()[1];
+}
 function publicFiles(T) {
   const out = { 'index.html': sha(T.PUB + '/index.html') };
   for (const n of fs.readdirSync(T.PUB + '/posts')) if (n.endsWith('.html')) out['posts/' + n] = sha(T.PUB + '/posts/' + n);
@@ -446,6 +449,7 @@ async function flows(T, browser, SEED) {
     check(T, '... the counter turns red before saving', await page.locator('[data-path="fields.about.h2"] .count.over').count() === 1);
     check(T, '... nothing reached the public site', sha(PUB + '/index.html') === before);
     await pasteInto(page, '#f-about-h2', '关于我 👨‍✈️', true);
+    check(T, '改过 badge counts the edited fields of a group', (await page.locator('#g-about .badge').textContent()) === '改过 2' && await page.locator('#g-about .badge').isVisible(), await page.locator('#g-about .badge').textContent());
     st = await barAct(page, () => page.click('#bar [data-act="save"]'));
     check(T, 'with emoji, CRLF and a tab the draft saves', st.ok && st.text.includes('已保存草稿'), st);
     check(T, 'saving a draft leaves index.html unchanged', sha(PUB + '/index.html') === before);
@@ -472,7 +476,11 @@ async function flows(T, browser, SEED) {
     await row.locator('textarea').focus();
     await page.keyboard.insertText('夜航不多。\r\n冬天天黑得早，\r\n最后一段常常落在夜里。');
     await row.locator('[data-act="up"]').click();
-    check(T, 'FAQ 加一条 + 上移', (await page.locator('#faq-list .item').nth(n0 - 1).locator('input[type=text]').nth(0).inputValue()) === '夜里也飞吗？🌙');
+    const firstQ = await page.locator('#faq-list .item').first().locator('input[type=text]').nth(0).inputValue();
+    await page.locator('#faq-list .item').first().locator('[data-act="del"]').click();
+    await sheetOk(page);
+    check(T, 'FAQ 删除 (confirmed) removes the row', await page.locator('#faq-list .item').count() === n0 && (await page.locator('#faq-list .item').first().locator('input[type=text]').nth(0).inputValue()) !== firstQ);
+    check(T, 'FAQ 加一条 + 上移', (await page.locator('#faq-list .item').nth(n0 - 2).locator('input[type=text]').nth(0).inputValue()) === '夜里也飞吗？🌙');
     await openDet(page, '#g-type');
     const factVal = page.locator('#facts-list .item').first().locator('input[type=text]').nth(1);
     await factVal.fill('PT6E-67XP ⚙️');
@@ -488,6 +496,7 @@ async function flows(T, browser, SEED) {
     check(T, 'published: emoji headline with its line break hint', home.includes('三千英尺，<wbr>云顶之上 ✈️'));
     check(T, 'published: the about title and three paragraphs', home.includes('关于我 👨‍✈️') && home.includes('航段很短，一天起落好几次。'));
     check(T, 'published: the pasted one-line text is one line', /第一行 第二行 第三段 😀/.test(home), (home.match(/第一行[^<]*/) || [''])[0]);
+    check(T, 'published: the deleted FAQ row is gone', !home.includes('>' + firstQ + '<'), firstQ);
     check(T, 'published: the new FAQ row, its answer on one line', home.includes('夜里也飞吗？🌙') && home.includes('夜航不多。 冬天天黑得早， 最后一段常常落在夜里。'));
     check(T, 'hero regions untouched after editing hero text (T3)', heroOk(PUB + '/index.html'));
     const vmark = T.R.console.length;
@@ -571,6 +580,9 @@ async function flows(T, browser, SEED) {
     check(T, 'the saved site draft is nowhere in the public dir', grepTree(PUB, MARK2).length === 0);
     const r = await T.anonCtx.request.post(T.base + '/admin/?r=preview.home', { form: { site: '{}' }, failOnStatusCode: false });
     check(T, '... and a visitor cannot open the draft preview', !(await r.text()).includes(MARK2));
+    await go(T, page, 'dashboard');
+    check(T, '概览 links to 网站文字有没发布的修改', await page.locator('.pending a', { hasText: '网站文字有没发布的修改' }).count() === 1);
+    await go(T, page, 'site');
     await page.click('#bar [data-act="more"]');
     await sheetAct(page, '放弃草稿');
     await Promise.all([page.waitForNavigation(), sheetOk(page)]);
@@ -582,6 +594,9 @@ async function flows(T, browser, SEED) {
   const TITLE = '夜航带飞：落地后的几点想法 🌙（第一篇）';
   const P = {};
   await section(T, '飞行日志：新草稿、贴进来的标题和正文、草稿不公开', async () => {
+    await go(T, page, 'posts');
+    await page.locator('.chips a', { hasText: '预告' }).click();
+    check(T, 'filter 预告 lists the 5 teasers', await page.locator('.plist .prow').count() === 5);
     await go(T, page, 'posts');
     const n0 = fs.readdirSync(DATA + '/posts').length;
     await Promise.all([page.waitForNavigation(), page.locator('form[action*="post.new"] button').first().dblclick()]);
@@ -602,12 +617,24 @@ async function flows(T, browser, SEED) {
     check(T, 'an over-long title is refused in plain Chinese', !st.ok && st.text.includes('标题最多 60 个字'), st);
     check(T, '... shown under the title field', (await page.textContent('[data-path="title"] .ferr')).includes('标题最多 60 个字'));
     await pasteInto(page, '#p-title', TITLE, true);
+    await page.fill('#p-body', '');
+    await page.click('#p-body');
+    await page.click('.mdbar [data-md="link"]');
+    await page.waitForSelector('.sheet input');
+    await page.locator('.sheet input').nth(0).fill('风的预报');
+    await page.locator('.sheet input').nth(1).fill('https://www.windy.com');
+    await sheetOk(page);
+    await page.waitForFunction(() => document.getElementById('p-body').value !== '', null, { timeout: 3000 }).catch(() => {});
+    check(T, 'toolbar 链接 inserts [文字](网址)', (await page.inputValue('#p-body')) === '[风的预报](https://www.windy.com)', await page.inputValue('#p-body'));
     for (const [md, want] of [['h2', '## 小标题'], ['bold', '**加粗的字**'], ['ul', '- 一条'], ['quote', '> 一句提醒']]) {
       await page.fill('#p-body', '');
       await page.click('#p-body');
       await page.click(`.mdbar [data-md="${md}"]`);
       check(T, `toolbar ${md} inserts ${want}`, (await page.inputValue('#p-body')) === want, await page.inputValue('#p-body'));
     }
+    await page.fill('#p-body', '长'.repeat(60001));
+    let stb = await barAct(page, () => page.click('#bar [data-act="save"]'));
+    check(T, 'a 60 001-character body is refused: 正文最多 60000 个字', !stb.ok && stb.text.includes('正文最多 60000 个字'), stb);
     const LONGURL = 'https://example.com/flight/' + 'night-approach-notes-'.repeat(8) + 'end';
     await pasteInto(page, '#p-body', '## 落地以后\r\n跑道灯很亮，风不大。🛬\r\n\r\n参考：' + LONGURL + '\r\n- 第一条：别急\r\n- 第二条：看仪表\r\n**记住**：复飞不丢人。\r\n' + MARK, true);
     await pasteInto(page, '#p-tags', 'IMC，夜航 🌙', true);
@@ -645,6 +672,12 @@ async function flows(T, browser, SEED) {
   await section(T, '飞行日志：iPhone 照片（HEIC、12 MB）、预览、连点两下发布', async () => {
     await page.goto(P.url);
     await page.waitForSelector('#p-title');
+    // the phone sat for two hours: the session is gone when the photo is picked
+    for (const f of fs.readdirSync(DATA + '/sessions')) fs.unlinkSync(DATA + '/sessions/' + f);
+    await page.setInputFiles('#cover-file', FILES + '/cover.jpg');
+    await page.waitForSelector('.sheet input[type=password]', { timeout: 10000 }).catch(() => {});
+    let st0 = await barAct(page, async () => { await page.fill('.sheet input[type=password]', T.pw); await page.locator('.sheet-btns button').last().click(); });
+    check(T, 'a photo picked after the session ran out: re-login sheet, then it uploads', st0.ok && st0.text.includes('封面图已上传'), st0);
     // HEIC straight from the Files app
     let st = await barAct(page, () => page.setInputFiles('#cover-file', { name: 'IMG_0043.HEIC', mimeType: 'image/heic', buffer: fs.readFileSync(FILES + '/IMG_0043.HEIC') }));
     check(T, 'a HEIC photo gets a clear Chinese how-to, no crash', st.err && st.text.includes('HEIC') && st.text.includes('兼容性最佳'), st);
@@ -1045,11 +1078,20 @@ async function flows(T, browser, SEED) {
     check(T, 'publish 1 (网站文字)', st.ok, st);
     await go(T, page, 'posts');
     await Promise.all([page.waitForNavigation(), page.locator('form[action*="post.new"] button').first().click()]);
-    await page.fill('#p-title', '回滚以后不该出现的日志');
+    await page.fill('#p-title', 'Lijiang-ZPLJ-night-approach-briefing-notes-回滚以后不该出现的日志');
     await pasteInto(page, '#p-body', '这一篇会被回滚掉。');
     const slug2 = await page.inputValue('#p-slug');
     st = await barAct(page, () => page.click('#bar [data-act="publish"]'));
     check(T, 'publish 2 (新日志)', st.ok && fs.existsSync(`${PUB}/posts/${slug2}.html`), st);
+    const id2 = new URL(page.url()).searchParams.get('id');
+    for (const [u, name] of [['/', '首页'], [`/posts/${slug2}.html`, '日志页'], ['/posts/', '全部日志']]) {
+      await anon.goto(T.base + u, { waitUntil: 'load' });
+      await sleep(500);
+      const m = await anon.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
+      check(T, `a 50-letter unbroken title: ${name} has no horizontal overflow`, m.sw <= m.cw, m);
+    }
+    await go(T, page, 'posts');
+    await layoutCheck(T, page, '飞行日志列表（长英文标题）');
     await go(T, page, 'versions');
     await layoutCheck(T, page, '版本记录');
     const row = page.locator('.vrow', { has: page.locator(`input[name=id][value="${v0}"]`) });
@@ -1084,6 +1126,24 @@ async function flows(T, browser, SEED) {
     await Promise.all([page.waitForNavigation(), sheetOk(page)]);
     const r2 = await T.anonCtx.request.get(`${T.base}/posts/${slug2}.html`, { failOnStatusCode: false });
     check(T, 'rolling forward brings the newer post back', r2.status() === 200 && read(PUB + '/index.html').includes('回滚测试'), r2.status());
+    // the owner deletes a published post by mistake, then rolls back
+    const beforeDel = publicFiles(T);
+    await page.goto(T.base + '/admin/?r=post.edit&id=' + id2);
+    await page.waitForSelector('#p-title');
+    await page.click('#bar [data-act="more"]');
+    await sheetAct(page, '删除这篇');
+    await page.waitForSelector('.sheet-btns .btn-danger');
+    await Promise.all([page.waitForNavigation(), page.locator('.sheet-btns .btn-danger').click()]);
+    const r3 = await T.anonCtx.request.get(`${T.base}/posts/${slug2}.html`, { failOnStatusCode: false });
+    check(T, 'deleting the published post takes its page down', r3.status() === 404);
+    await go(T, page, 'versions');
+    check(T, 'the delete is the newest entry in 版本记录', (await page.locator('.vrow').first().textContent()).includes('删除日志'));
+    await page.locator('.vrow').nth(1).locator('form button').click();
+    await Promise.all([page.waitForNavigation(), sheetOk(page)]);
+    const afterBack = publicFiles(T);
+    const d2 = Object.keys({ ...beforeDel, ...afterBack }).filter(k => beforeDel[k] !== afterBack[k]);
+    check(T, 'rollback after a mistaken delete: every page byte-identical again', d2.length === 0, d2);
+    check(T, '... the post is back in the list (from the trash)', fs.existsSync(`${DATA}/posts/${id2}.json`) && JSON.parse(read(`${DATA}/posts/${id2}.json`)).live !== null);
     // 11 more publishes keep only 10 versions
     await go(T, page, 'site');
     const csrf = await page.locator('meta[name=csrf]').getAttribute('content');
@@ -1145,6 +1205,11 @@ async function flows(T, browser, SEED) {
     await login(T, op, T.pw);
     check(T, 'second device logged in', (await op.textContent('h1').catch(() => '')) === '概览');
     await go(T, page, 'password');
+    await page.fill('#old', 'not-my-password');
+    await page.fill('#new1', PW2);
+    await page.fill('#new2', PW2);
+    await Promise.all([page.waitForNavigation(), page.locator('main form button[type=submit]').click()]);
+    check(T, '修改密码 with a wrong current password: 当前密码不对', (await page.textContent('main')).includes('当前密码不对'));
     await page.fill('#old', T.pw);
     await page.fill('#new1', PW2);
     await page.fill('#new2', PW2);
