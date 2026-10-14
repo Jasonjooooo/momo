@@ -20,7 +20,7 @@
 <link rel="preload" href="assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/b612-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="assets/fonts/b612-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
-<script>document.documentElement.classList.add('js')</script>
+<script>(function(d){d.classList.add('js');try{var c=navigator.connection;if(c&&c.saveData===true)d.classList.add('save-data')}catch(e){}})(document.documentElement)</script>
 <style>
 /* Fonts: self-hosted only (no external requests; the audience is in mainland China). */
 @font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2");font-weight:600;font-display:swap;unicode-range:U+0000-00FF,U+2000-206F,U+20AC,U+2122,U+2190-2193,U+2212}
@@ -217,13 +217,70 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 @media (max-height:640px){.tape{height:66px}.tape-win,.tape-m{display:none}}
 @media (max-height:560px){.tape,.cue{display:none}}
 
-/* ============ STATIC HERO (the five gates) ============ */
-.static-hero{display:none}
-@media (max-width: 720px), (orientation: portrait) and (max-width: 1024px), (orientation: portrait) and (pointer: coarse), (orientation: landscape) and (pointer: coarse) and (max-height: 560px), (prefers-reduced-motion: reduce){
+/* ============ HERO, PORTRAIT SCRUB (phones and portrait tablets) ============ */
+/* Mode string identical to PORTRAIT_GATE in the script. A dedicated 3:4 encode (hero-scrub-portrait.mp4, a moving crop that
+   follows the aircraft) on the desktop shot's timeline, so WARP, the bands and ALT_KEYS apply unchanged. The video shows its
+   full width, anchored to the bottom of the stage; the sky layer above it (dusk navy, cloud grey, cloud base, crossfaded on
+   footage progress to match the footage's top edge) runs 20% down into the video and fades out, so canvas and footage read
+   as one sky. The nav and the captions sit in that sky.
+   Measured on the portrait frames (fractions of the video height): on every held frame the aircraft stays below 29% (the
+   settle's fin tip; the start frame's prop disc tops out at 33%) and the runway lights below 48%; the bottom-right corner
+   (x > 45%, y > 70%) is cloud deck, fog or dark fields throughout. So captions live above sh - .72*ph and centre in the band
+   above the fade (sh - .82*ph); the compact tape sits at 71% on the right. --pw shrinks below full width only where that
+   would leave less than --cap (nav plus the heaviest caption block) above the 28% line: squarish windows, a folding phone.
+   Every length is static: the stage is 100lvh and the toolbar offsets use svh, so the iOS/Android URL bar never moves it. */
+.stage{--lvh:1vh;--svh:1vh}
+@supports (height:1lvh){.stage{--lvh:1lvh;--svh:1svh}}
+.sky{display:none}
+@media (orientation: portrait) and (max-width: 1024px){
+  .stage{height:100vh;height:100lvh;--sh:calc(var(--lvh)*100);--cap:260px;--pw:min(100vw,(var(--sh) - var(--cap))*1.0417);--ph:calc(var(--pw)*4/3);--fade:calc(var(--ph)*.2)}
+  .poster,.poster-fog,.stage video{inset:auto auto 0 calc((100% - var(--pw))/2);width:var(--pw);height:var(--ph)}
+  .poster{background-position:50% 50%}
+  .stage video{object-position:50% 50%}
+  .sky{display:block;position:absolute;left:0;right:0;top:0;height:calc(var(--sh) - var(--ph) + var(--fade));pointer-events:none;
+    background:linear-gradient(180deg,#0A1A40 0,#0E2961 calc(100% - var(--fade)));
+    -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade)),rgba(0,0,0,.84) calc(100% - var(--fade)*.75),rgba(0,0,0,.5) calc(100% - var(--fade)*.5),rgba(0,0,0,.16) calc(100% - var(--fade)*.25),transparent 100%);
+    mask-image:linear-gradient(180deg,#000 calc(100% - var(--fade)),rgba(0,0,0,.84) calc(100% - var(--fade)*.75),rgba(0,0,0,.5) calc(100% - var(--fade)*.5),rgba(0,0,0,.16) calc(100% - var(--fade)*.25),transparent 100%)}
+  .sky::before,.sky::after{content:"";position:absolute;inset:0}
+  .sky::before{opacity:var(--sf,0);background:linear-gradient(180deg,#323F5F 0,#56688E calc(100% - var(--fade)))}
+  .sky::after{opacity:var(--sb,0);background:linear-gradient(180deg,#3E5278 0,#6C8DBC calc(100% - var(--fade)))}
+  /* base scrim, plus side feathers that exist only when --pw is narrower than the stage (they collapse to zero width at full
+     width): the pillars fade into the canvas instead of ending on a hard edge */
+  .scrim{background:
+    linear-gradient(90deg,var(--canvas) calc((100% - var(--pw))/2),rgba(10,23,51,0) calc((100% - var(--pw))/2 + min(56px,(100% - var(--pw))*.75))),
+    linear-gradient(270deg,var(--canvas) calc((100% - var(--pw))/2),rgba(10,23,51,0) calc((100% - var(--pw))/2 + min(56px,(100% - var(--pw))*.75))),
+    radial-gradient(ellipse 130% 80% at 50% 58%,rgba(10,23,51,0) 42%,rgba(10,23,51,.5) 100%)}
+  .band .btn{min-height:48px}
+
+  .bands{left:var(--gutter);right:var(--gutter);top:76px;width:auto;max-width:640px;display:grid;align-items:center;min-height:calc(var(--sh) - var(--ph)*.82 - 76px)}
+  .band{position:relative;grid-area:1/1}
+  .band .chip{font-size:11px}
+  .hl{margin-top:12px;font-size:clamp(26px,7.6vw,46px);line-height:1.28}
+  .sub{margin-top:8px;font-size:clamp(15px,4.2vw,19px);line-height:1.7;max-inline-size:none}
+  /* the caption spans the whole width here, so its scrim is a soft horizontal band (radius well past both screen edges) that
+     falls off above and below the block, never an oval hanging in the sky */
+  .band::before,.band.b2::before,.band.b3::before,.band.b4::before{inset:-42% -60% -50% -60%;background:radial-gradient(ellipse 50% 50% at 50% 48%,rgba(10,23,51,var(--sa,.62)) 0%,rgba(10,23,51,calc(var(--sa,.62)*.9)) 40%,rgba(10,23,51,calc(var(--sa,.62)*.5)) 62%,rgba(10,23,51,0) 84%)}
+  .cta-row{margin-top:16px}
+
+  .cue{display:flex;left:var(--gutter);bottom:calc(var(--sh) - var(--svh)*100 + 16px)}
+  .tape{display:block;right:calc((100% - var(--pw))/2 + var(--gutter));bottom:auto;top:min(calc(var(--sh) - var(--ph)*.29),calc(var(--svh)*100 - 82px));height:66px}
+  .tape-win,.tape-m,.tape-qnh{display:none}
+  .tape-min{top:50%;left:auto;right:calc(100% + 24px);width:72px;transform:translateY(-50%)}
+}
+
+/* ============ STATIC HERO (the static gates) ============ */
+/* Phones and portrait tablets scrub too now (the portrait mode above); the static hero is only for phones held sideways,
+   reduced motion, and Data Saver. The two media strings are character-identical to STATIC_GATES in the script; Data Saver
+   (navigator.connection.saveData) has no media query, so the head script and the script's gate put .save-data on <html>. */
+.static-hero{display:none;grid-template-rows:auto 1fr auto;position:relative;isolation:isolate;min-height:100vh;min-height:100svh;padding:calc(64px + 4vh) var(--gutter) max(32px,env(safe-area-inset-bottom));background:var(--sky) url(assets/hero-poster.webp) 12% 50%/cover no-repeat}
+@media (orientation: landscape) and (pointer: coarse) and (max-height: 560px), (prefers-reduced-motion: reduce){
   .hero{height:auto}
   .stage{display:none}
-  .static-hero{display:grid;grid-template-rows:auto 1fr auto;position:relative;isolation:isolate;min-height:100vh;min-height:100svh;padding:calc(64px + 4vh) var(--gutter) max(32px,env(safe-area-inset-bottom));background:var(--sky) url(assets/hero-poster.webp) 12% 50%/cover no-repeat}
+  .static-hero{display:grid}
 }
+.save-data .hero{height:auto}
+.save-data .stage{display:none}
+.save-data .static-hero{display:grid}
 /* Static hero image: the start frame (checked against the ending frame at 390x844: the start frame's nose, prop disc and cockpit
    sit between a navy sky for the H1 and the cloud deck for the buttons; the ending crop puts light cloud base behind the H1).
    Phones show frame x ~9-35% (prop disc to cockpit); portrait tablets ~11-50%; sideways screens show the whole aircraft. */
@@ -613,7 +670,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     <div class="poster" aria-hidden="true"></div>
     <div class="poster poster-end" aria-hidden="true"></div>
     <div class="poster-fog" aria-hidden="true"></div>
-    <video id="hero-video" preload="none" muted playsinline disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+    <video id="hero-video" preload="none" muted playsinline webkit-playsinline x5-playsinline disablepictureinpicture aria-hidden="true" tabindex="-1"></video>
+    <div class="sky" id="sky" aria-hidden="true"></div>
     <div class="scrim" aria-hidden="true"></div>
     <div class="navscrim" aria-hidden="true"></div>
 
@@ -1190,6 +1248,10 @@ const VIDEO_URL = 'assets/hero-scrub.mp4';
 const VIDEO_BYTES = 4640306;        // the real byte size of assets/hero-scrub.mp4 (ring fallback when Content-Length is missing)
 const POSTER_URL = 'assets/hero-poster.webp';
 const POSTER_END_URL = 'assets/hero-end.webp';
+const VIDEO_URL_PORTRAIT = 'assets/hero-scrub-portrait.mp4';   // phones and portrait tablets: 816x1088, same timeline
+const VIDEO_BYTES_PORTRAIT = 1273741;
+const POSTER_URL_PORTRAIT = 'assets/hero-poster-portrait.webp';
+const POSTER_END_URL_PORTRAIT = 'assets/hero-end-portrait.webp';
 const CHAT_LIVE = false;            // set true once api/chat.php answers
 const CHAT_URL = 'api/chat.php';    // relative; the key lives server-side in that file, never here
 const SUBSCRIBE_ENDPOINT = '';      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
@@ -1305,7 +1367,10 @@ let heroTop = 0, heroRange = 1, heroBottom = 0;
 function measure() {
   heroTop = hero.getBoundingClientRect().top + scrollY;
   heroBottom = heroTop + hero.offsetHeight;
-  heroRange = Math.max(1, hero.offsetHeight - innerHeight);
+  // the pinned range is the hero minus the sticky stage, not minus innerHeight: on phones the stage is 100lvh while innerHeight
+  // grows and shrinks with the URL bar, so this keeps progress (and the frame) still when the toolbar slides. On desktop the
+  // stage is 100vh, which is innerHeight, so nothing changes there.
+  heroRange = Math.max(1, hero.offsetHeight - (stage.offsetHeight || innerHeight));
   tapeH = tapeWin.clientHeight || tapeH;
 }
 /* nav: transparent over the scrub stage, solid once content can slide under it */
@@ -1455,14 +1520,25 @@ function updateTape(s, now, force) {
   }
   const deep = smoothstep(p, 0.20, 0.28);   // from the cloud tops down, every frame behind the tape is lighter than the dusk sky
   if (Math.abs(deep - lastDeep) > 0.01 || (deep !== lastDeep && (deep === 0 || deep === 1))) { tape.style.setProperty('--deep', deep.toFixed(2)); lastDeep = deep; }
+  if (variant === 'portrait') updateSky(p);
+}
+/* portrait sky: the layer above the 3:4 video follows the footage's top edge (sampled from the portrait frames): dusk navy
+   until the cloud tops, cloud grey from footage .12 to .45, then the lit cloud base from .60 to .84. Opacity only, delta-gated. */
+const sky = $('#sky');
+let lastSf = -1, lastSb = -1;
+function updateSky(p) {
+  const sf = smoothstep(p, 0.12, 0.45), sb = smoothstep(p, 0.60, 0.84);
+  if (Math.abs(sf - lastSf) > 0.01 || (sf !== lastSf && (sf === 0 || sf === 1))) { sky.style.setProperty('--sf', sf.toFixed(3)); lastSf = sf; }
+  if (Math.abs(sb - lastSb) > 0.01 || (sb !== lastSb && (sb === 0 || sb === 1))) { sky.style.setProperty('--sb', sb.toFixed(3)); lastSb = sb; }
 }
 minBox.addEventListener('animationend', () => minBox.classList.remove('blink'));
 
 /* ---------- gated seeks (deadlock-safe) ---------- */
 let seekBusy = false, pendingTime = null;
-function requestSeek(t) {
+function requestSeek(t, force) {
   if (!video.duration || !isFinite(video.duration)) return;
   if (seekBusy) { pendingTime = t; return; }
+  if (!force && Math.abs(video.currentTime - t) < 0.001) return;   // already on that frame (a toolbar resize, a rest tick)
   seekBusy = true;
   video.currentTime = t;
 }
@@ -1472,6 +1548,7 @@ video.addEventListener('seeked', () => {
 });
 video.addEventListener('error', () => {
   seekBusy = false; pendingTime = null;
+  if (!video.getAttribute('src')) return;   // a source swap emptied the element on purpose; nothing failed
   failVideo();                          // e.g. a browser that cannot decode H.264: drop the ring, keep the still journey
 });
 
@@ -1519,55 +1596,96 @@ function startLoadRamp() {
   requestAnimationFrame(step);
 }
 
-/* ---------- streamed Blob with the loading ring ---------- */
-let heroInit = false;
-function initHeroOnce() {
-  if (heroInit) return; heroInit = true;
-  posterLayer.style.backgroundImage = "url('" + POSTER_URL + "')";
-  posterEnd.style.backgroundImage = "url('" + POSTER_END_URL + "')";   // the same file 06's backdrop already loads
+/* ---------- streamed Blob with the loading ring, per footage variant ---------- */
+// 'desktop' is the 16:9 shot, 'portrait' the 3:4 crop for phones and portrait tablets (same timeline). The stage is wired to
+// one variant at a time. A live mode change (a tablet rotating, a window resized across the gate) swaps it: the in-flight
+// fetch is aborted, the old object URL revoked, the seek gate reset, and the new footage lands on the current scroll position
+// at canplay. Finished Blobs stay cached, so rotating back never downloads twice; a load that never changes mode fetches one.
+const HERO_SRC = {
+  desktop: { video: VIDEO_URL, bytes: VIDEO_BYTES, poster: POSTER_URL, end: POSTER_END_URL },
+  portrait: { video: VIDEO_URL_PORTRAIT, bytes: VIDEO_BYTES_PORTRAIT, poster: POSTER_URL_PORTRAIT, end: POSTER_END_URL_PORTRAIT }
+};
+let variant = null, loadSeq = 0, loadCtrl = null, objectUrl = null;
+const blobCache = {};
+function wireHero(v) {
+  if (variant === v) return;
+  if (variant !== null) unloadVideo();
+  variant = v;
+  const seq = ++loadSeq, S = HERO_SRC[v];
+  posterLayer.style.backgroundImage = "url('" + S.poster + "')";
+  posterEnd.style.backgroundImage = "url('" + S.end + "')";   // desktop: the same file 06's backdrop already loads
+  if (needsPrime()) armPrime();
   let started = false;
-  const startBlobFetch = () => { if (started) return; started = true; loadHeroBlob().catch(failVideo); };
+  const startBlobFetch = () => {
+    if (started || seq !== loadSeq) return; started = true;
+    loadHeroBlob(v, seq).catch(() => { if (seq === loadSeq) failVideo(); });   // a swap's own abort is not a failure
+  };
   const posterImg = new Image();
   posterImg.onload = startBlobFetch;
   posterImg.onerror = startBlobFetch;
-  posterImg.src = POSTER_URL;
+  posterImg.src = S.poster;
   setTimeout(startBlobFetch, 4000);
 }
-async function loadHeroBlob() {
+function unloadVideo() {
+  if (loadCtrl) { loadCtrl.abort(); loadCtrl = null; }
+  video.removeAttribute('src');
+  video.load();                         // drops the old decoder and any seek in flight (whose 'seeked' will never come)
+  if (objectUrl) { URL.revokeObjectURL(objectUrl); objectUrl = null; }
+  seekBusy = false; pendingTime = null; primed = false; priming = false;
+  videoReady = false; peOp = -1; pfOp = -1;   // the still journey carries the stage until the new footage is in
+  stage.classList.remove('video-ready', 'video-failed');
+  if (ring) ring.style.setProperty('--ld', 126);
+}
+async function loadHeroBlob(v, seq) {
   if (location.protocol === 'file:') throw new Error('file');   // browsers block fetch on file://; the still hero is the designed state
-  const ctrl = new AbortController();
-  let watchdog = setTimeout(() => ctrl.abort(), 20000);
-  const res = await fetch(VIDEO_URL, { priority: 'low', signal: ctrl.signal });
-  if (!res.ok) { clearTimeout(watchdog); throw new Error('http ' + res.status); }
-  const total = Number(res.headers.get('Content-Length')) || VIDEO_BYTES;
-  let blob;
-  if (res.body && res.body.getReader) {
-    const reader = res.body.getReader();
-    const chunks = [];
-    let got = 0, lastRing = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
+  const S = HERO_SRC[v];
+  let blob = blobCache[v];
+  if (!blob) {
+    const ctrl = loadCtrl = new AbortController();
+    let watchdog = setTimeout(() => ctrl.abort(), 20000);
+    try {
+      const res = await fetch(S.video, { priority: 'low', signal: ctrl.signal });
+      if (!res.ok) throw new Error('http ' + res.status);
+      const total = Number(res.headers.get('Content-Length')) || S.bytes;
+      if (res.body && res.body.getReader) {
+        const reader = res.body.getReader();
+        const chunks = [];
+        let got = 0, lastRing = 0;
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          clearTimeout(watchdog);
+          watchdog = setTimeout(() => ctrl.abort(), 20000);
+          chunks.push(value);
+          got += value.length;
+          const frac = Math.min(1, got / total);
+          const now = performance.now();
+          if (ring && (now - lastRing > 100 || frac === 1)) { lastRing = now; ring.style.setProperty('--ld', Math.round(126 * (1 - frac))); }
+        }
+        blob = new Blob(chunks, { type: 'video/mp4' });
+      } else {
+        blob = await res.blob();
+      }
+    } finally {
       clearTimeout(watchdog);
-      watchdog = setTimeout(() => ctrl.abort(), 20000);
-      chunks.push(value);
-      got += value.length;
-      const frac = Math.min(1, got / total);
-      const now = performance.now();
-      if (ring && (now - lastRing > 100 || frac === 1)) { lastRing = now; ring.style.setProperty('--ld', Math.round(126 * (1 - frac))); }
+      if (loadCtrl === ctrl) loadCtrl = null;
     }
-    blob = new Blob(chunks, { type: 'video/mp4' });
-  } else {
-    blob = await res.blob();
+    blobCache[v] = blob;
   }
-  clearTimeout(watchdog);
+  if (seq !== loadSeq) return;          // swapped away while streaming
   if (ring) ring.style.setProperty('--ld', 0);
-  video.src = URL.createObjectURL(blob);
+  objectUrl = URL.createObjectURL(blob);
+  video.muted = true;
+  video.preload = 'auto';               // the markup's preload="none" only kept the element idle until the gate decided
+  video.src = objectUrl;
   video.load();
   video.addEventListener('canplay', () => {
+    if (seq !== loadSeq) return;
+    primeDecoder();                     // before the first seek: play() on an ended video would rewind it to 0
     requestSeek(footageAt(shown) * video.duration);
     videoReady = true;
     stage.classList.add('video-ready');
+    primeViaWeixin();
   }, { once: true });
 }
 function failVideo() {
@@ -1578,22 +1696,73 @@ function failVideo() {
   if (scrubOn) updateCaptions(shown);
 }
 
-/* ---------- the five static-hero gates, live ---------- */
-const GATES = [
-  '(max-width: 720px)',
-  '(orientation: portrait) and (max-width: 1024px)',
-  '(orientation: portrait) and (pointer: coarse)',
+/* ---------- iOS Safari / WeChat: prime the decoder so seeks paint ---------- */
+// A muted inline video that has never been played may not paint its seeks on iOS Safari. Once the Blob can play, play() and
+// an immediate pause() prime it: the pause rejects the play promise with AbortError, which is the success case. If play() is
+// refused (NotAllowedError: WeChat before its JS bridge is ready, iOS Low Power Mode), the first touch or tap primes it, and
+// so does WeChat's bridge. Touch devices and portrait mode only; a mouse-only desktop never calls play(). All passive.
+let primed = false, primeArmed = false;
+const PRIME_EVENTS = ['touchstart', 'pointerdown', 'touchend', 'click'];
+const needsPrime = () => variant === 'portrait' || navigator.maxTouchPoints > 0;
+function armPrime() {
+  if (primeArmed || primed) return; primeArmed = true;
+  PRIME_EVENTS.forEach(e => addEventListener(e, primeDecoder, { passive: true, capture: true }));
+}
+function disarmPrime() {
+  if (!primeArmed) return; primeArmed = false;
+  PRIME_EVENTS.forEach(e => removeEventListener(e, primeDecoder, { capture: true }));
+}
+let priming = false;                    // a play() promise is still out: one tap fires touchstart, pointerdown and touchend
+function primeDecoder() {
+  if (primed || priming || !needsPrime() || !objectUrl || !video.duration) return;
+  if (video.ended || video.currentTime >= video.duration - 0.05) return;   // at the very end play() would rewind: next gesture
+  const src = objectUrl;
+  let pr = null;
+  try { pr = video.play(); } catch (_) { /* old engines throw instead of rejecting */ }
+  video.pause();
+  const ok = () => {
+    priming = false;
+    if (primed || src !== objectUrl) return;   // swapped meanwhile: the new footage primes itself
+    primed = true; disarmPrime();
+    requestSeek(footageAt(shown) * video.duration, true);   // repaint the current frame through the gate
+  };
+  if (!pr || typeof pr.then !== 'function') { ok(); return; }
+  priming = true;
+  pr.then(() => { video.pause(); ok(); }, err => { if (!err || err.name !== 'NotAllowedError') ok(); else { priming = false; armPrime(); } });
+}
+function primeViaWeixin() {
+  try { const B = window.WeixinJSBridge; if (B && typeof B.invoke === 'function') B.invoke('getNetworkType', {}, () => primeDecoder()); } catch (_) {}
+}
+document.addEventListener('WeixinJSBridgeReady', () => { primeDecoder(); primeViaWeixin(); }, false);
+
+/* ---------- hero modes, live: static, portrait scrub, desktop scrub ---------- */
+// Static hero: phones held sideways, reduced motion, Data Saver. The media strings are character-identical to the CSS static
+// block and portrait block; Data Saver has no media query, so it is mirrored to CSS as .save-data on <html> (set first by the
+// head script, kept in sync here). Everything else scrubs: the portrait footage under PORTRAIT_GATE, the desktop shot otherwise.
+const STATIC_GATES = [
   '(orientation: landscape) and (pointer: coarse) and (max-height: 560px)',
   '(prefers-reduced-motion: reduce)'
 ];
+const PORTRAIT_GATE = '(orientation: portrait) and (max-width: 1024px)';
+const conn = navigator.connection || null;
+const saveData = () => { try { return !!conn && conn.saveData === true; } catch (_) { return false; } };
+function heroMode() {
+  const sd = saveData();
+  document.documentElement.classList.toggle('save-data', sd);
+  if (sd || STATIC_GATES.some(q => matchMedia(q).matches)) return 'static';
+  return matchMedia(PORTRAIT_GATE).matches ? 'portrait' : 'desktop';
+}
 let scrubOn = false;
-function enableScrub() {
+function resetHeroCaches() {
+  bands.forEach(b => { b.op = -1; b.k = -1; b.on = null; b.k1 = null; b.cta = null; });
+  cueOp = -1; peOp = -1; pfOp = -1; lastStripY = 1e9; lastDrumY = 1e9; lastHund = ''; lastMetric = ''; lastDeep = -1; lastSf = -1; lastSb = -1;
+}
+function enableScrub(mode) {
   if (scrubOn) return; scrubOn = true;
-  initHeroOnce();
+  wireHero(mode);
   measure();
   addEventListener('scroll', onScroll, { passive: true });
-  bands.forEach(b => { b.op = -1; b.k = -1; b.on = null; b.k1 = null; b.cta = null; });
-  cueOp = -1; peOp = -1; pfOp = -1; lastStripY = 1e9; lastDrumY = 1e9; lastHund = ''; lastMetric = ''; lastDeep = -1;
+  resetHeroCaches();
   unpinFinalStates();
   shown = target = heroProgress();
   updateCaptions(shown);
@@ -1606,9 +1775,20 @@ function disableScrub() {
   removeEventListener('scroll', onScroll);
   if (rafId !== null) { cancelAnimationFrame(rafId); rafId = null; lastTick = 0; }
 }
+function swapFootage(mode) {            // portrait <-> desktop while scrubbing: new layout is already live (CSS), re-wire and re-sync
+  wireHero(mode);
+  measure();
+  resetHeroCaches();
+  shown = target = heroProgress();
+  updateCaptions(shown);
+  updateTape(shown, performance.now(), true);
+  onScroll();
+}
 function applyHeroMode() {
-  if (GATES.some(q => matchMedia(q).matches)) disableScrub();
-  else enableScrub();
+  const mode = heroMode();
+  if (mode === 'static') disableScrub();
+  else if (!scrubOn) enableScrub(mode);
+  else if (mode !== variant) swapFootage(mode);
   measure();
   navSolid = null; navCheck();
 }
@@ -1918,8 +2098,9 @@ subForm.addEventListener('submit', async e => {
 });
 
 /* ---------- start ---------- */
-const MQLS = GATES.map(q => matchMedia(q));    // keep the lists referenced
+const MQLS = [...STATIC_GATES, PORTRAIT_GATE].map(q => matchMedia(q));    // keep the lists referenced
 MQLS.forEach(m => m.addEventListener('change', applyHeroMode));
+if (conn && conn.addEventListener) conn.addEventListener('change', applyHeroMode);   // Data Saver switched mid-visit
 renderFly(performance.now(), true);
 applyHeroMode();
 if (RM.matches) pinToFinalStates();
