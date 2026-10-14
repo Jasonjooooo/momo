@@ -226,7 +226,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 }
 /* Static hero image: the start frame (checked against the ending frame at 390x844: the start frame's nose, prop disc and cockpit
    sit between a navy sky for the H1 and the cloud deck for the buttons; the ending crop puts light cloud base behind the H1).
-   Phones show frame x ~9-35% (prop disc to cockpit); portrait tablets ~11-50%; landscape shows the whole aircraft. */
+   Phones show frame x ~9-35% (prop disc to cockpit); portrait tablets ~11-50%; sideways screens show the whole aircraft. */
 .static-hero::before{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(180deg,rgba(10,23,51,.78) 0%,rgba(10,23,51,.42) 24%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 56%,rgba(10,23,51,.6) 74%,rgba(10,23,51,.9) 100%)}
 @media (min-width:721px) and (orientation:portrait){.static-hero{background-position:16% 50%!important}}
 @media (min-width:721px) and (orientation:landscape){.static-hero{background-position:50% 50%!important}}
@@ -506,7 +506,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .thr5{display:flex;justify-content:center;gap:9px;margin:2px 0 4px}
 .thr5 i{width:8px;height:8px;border-radius:50%;background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.6)}
 .sub-form .btn{width:100%;min-height:52px;font-size:17px}
-.micro{margin:2px 0 0;font-size:13px;color:var(--text-secondary);text-align:center;max-inline-size:none}
+.micro{margin:2px 0 0;font-size:13px;color:var(--text-secondary);text-align:center;max-inline-size:none;text-wrap:balance}
 .sub-done{text-align:left;padding:16px 18px;border:1px solid var(--line-strong);border-radius:8px;background:rgba(10,23,51,.6)}
 .sub-done p{margin:0;font-size:15.5px;line-height:1.85;max-inline-size:none}
 .sub-done:focus{outline:none}
@@ -993,7 +993,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 </footer>
 
 <!-- AI shelf data: copied verbatim from ai-shelf.json. Restock by editing this block only.
-     cn_access null = not yet checked from a mainland connection: the card shows no badge, and launch waits until every card has one. -->
+     cn_access null = not yet checked from a mainland connection: the card shows no badge, and launch waits until every card has one.
+     The same mainland check confirms 文心 (yiyan.baidu.com opens the chat) and 千问 (qianwen.com); edit ai-shelf.json first, then copy it here. -->
 <script type="application/json" id="shelf-data">
 {
   "shelves": [
@@ -1099,7 +1100,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           "name": "文心",
           "category": "学习与研究",
           "desc": "百度的 AI 助手，查中文资料顺手。",
-          "url": "https://wenxin.baidu.com",
+          "url": "https://yiyan.baidu.com",
           "cn_access": "能直接访问"
         }
       ]
@@ -1207,7 +1208,7 @@ const T = {
   chatDown: '助手暂时连不上，稍后再试。',                                           // network failure or a 5xx without a message (same words as api/chat.php's 502)
   chatTimeout: '等了 60 秒没有回应。稍后再试一次。',
   chatRate: '问得有点快。请过一会儿再问。',
-  chatLimit: '最多 500 字，多出的部分没有收进来。',
+  chatLimit: '最多 500 字，超出的部分不会收进来。',
   send: '发送', sending: '发送中', answering: '正在回答',
   subEmpty: '请先填写邮箱。',
   subFormat: '邮箱格式不对，请再检查一遍。',
