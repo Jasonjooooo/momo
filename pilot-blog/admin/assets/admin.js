@@ -343,6 +343,7 @@
     var label = btn.textContent;
     barButtons().forEach(function (b) { b.setAttribute('aria-disabled', 'true'); });
     btn.textContent = text;
+    barStatus(text, '');
     try { return await fn(); } finally {
       if (btn.textContent === text) btn.textContent = label;
       barButtons().forEach(function (b) { b.removeAttribute('aria-disabled'); });
@@ -538,9 +539,15 @@
 
     // search
     var find = $('#find');
+    var openBefore = null;   // groups the owner had open before searching; restored when the box is cleared
     find.addEventListener('input', function () {
       var q = find.value.trim().toLowerCase();
       var any = false;
+      if (q && !openBefore) openBefore = $$('.grp', form).filter(function (g) { return g.open; });
+      if (!q && openBefore) {
+        $$('.grp', form).forEach(function (g) { g.open = openBefore.indexOf(g) >= 0; });
+        openBefore = null;
+      }
       $$('.grp', form).forEach(function (g) {
         var hits = 0;
         $$('.field[data-path^="fields."]', g).forEach(function (f) {
