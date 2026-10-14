@@ -1,0 +1,150 @@
+{
+ "desk1440": {
+  "logs": [
+   "error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "heroVideo": "stage video-ready t=6.04",
+  "hud": [
+   "hud on",
+   "CHOCKDTK 171°3.3 NM"
+  ],
+  "tuned": [
+   "132.450",
+   "118.250",
+   "true",
+   false
+  ],
+  "swapped": "118.250",
+  "chat": {
+   "lamp": "inop",
+   "last": "INOP助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。"
+  },
+  "goAround": "复飞是正常操作。再按住，再飞一次。",
+  "landed": [
+   "fly in live settled touched done",
+   "sec subscribe live landed",
+   "MINIMUMS。跑道可见，继续。",
+   "再飞一次"
+  ],
+  "subEmpty": "请先填写邮箱。",
+  "subDone": "INOP订阅通道还没接通。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。",
+  "ownEnd": "translate3d(720px, 8825.6px, 0px) rotate(180deg)",
+  "overflow": {
+   "sw": 1440,
+   "cw": 1440,
+   "bw": 1440
+  },
+  "keyTabs": [
+   "tab-learn",
+   "124.350"
+  ],
+  "keyHold": "MINIMUMS。跑道可见，继续。",
+  "rmOn": {
+   "clip": "translate3d(0px, -767.4px, 0px)",
+   "landed": true,
+   "hud": "none",
+   "labels": "true,true,true,true",
+   "own": "translate3d(720px, 8825.6px, 0px) rotate(180deg)"
+  },
+  "rmOff": {
+   "clip": "translate3d(0px, -5833px, 0px)",
+   "landed": false,
+   "status": "已截获下滑道，等你按住。"
+  },
+  "overflow2": {
+   "sw": 1440,
+   "cw": 1440,
+   "bw": 1440
+  }
+ },
+ "phone390": {
+  "logs": [
+   "error: Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+  ],
+  "heroVideo": "stage video-ready t=6.04",
+  "hud": [
+   "hud on",
+   "CHOCKDTK 186°7.9 NM"
+  ],
+  "tuned": [
+   "132.450",
+   "118.250",
+   "true",
+   false
+  ],
+  "swapped": "118.250",
+  "chat": {
+   "lamp": "inop",
+   "last": "INOP助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。"
+  },
+  "goAround": "复飞是正常操作。再按住，再飞一次。",
+  "landed": [
+   "fly in live settled touched done",
+   "sec subscribe live landed",
+   "MINIMUMS。跑道可见，继续。",
+   "再飞一次"
+  ],
+  "subEmpty": "请先填写邮箱。",
+  "subDone": "INOP订阅通道还没接通。这次提交没有保存你的邮箱，也不会发邮件给你。接通以后，这里会换成正式订阅。",
+  "ownEnd": "translate3d(195px, 11302.1px, 0px) rotate(180deg)",
+  "overflow": {
+   "sw": 390,
+   "cw": 390,
+   "bw": 390
+  },
+  "keyTabs": [
+   "tab-learn",
+   "124.350"
+  ],
+  "keyHold": "MINIMUMS。跑道可见，继续。",
+  "rmOn": {
+   "clip": "translate3d(0px, -713.6px, 0px)",
+   "landed": true,
+   "hud": "none",
+   "labels": "true,true,true,true",
+   "own": "translate3d(195px, 11100.4px, 0px) rotate(180deg)"
+  },
+  "rmOff": {
+   "clip": "translate3d(0px, -7647.8px, 0px)",
+   "landed": false,
+   "status": "已截获下滑道，等你按住。"
+  },
+  "overflow2": {
+   "sw": 390,
+   "cw": 390,
+   "bw": 390
+  }
+ },
+ "desk1920": {
+  "logs": [],
+  "overflow": {
+   "sw": 1920,
+   "cw": 1920,
+   "bw": 1920
+  },
+  "videoReq": 0
+ },
+ "phone360": {
+  "logs": [],
+  "overflow": {
+   "sw": 360,
+   "cw": 360,
+   "bw": 360
+  },
+  "videoReq": 0
+ },
+ "rm-cold-1440": {
+  "logs": [],
+  "overflow": {
+   "sw": 1440,
+   "cw": 1440,
+   "bw": 1440
+  },
+  "videoReq": 0,
+  "rm": {
+   "stage": "none",
+   "src": null,
+   "landed": true
+  }
+ }
+}

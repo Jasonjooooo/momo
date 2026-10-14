@@ -2765,7 +2765,11 @@ function printChartBg(W, H, P) {
   s += '<path class="iso" d="M' + (W * 0.2).toFixed(0) + ',0 L' + (W * 0.78).toFixed(0) + ',' + H + '"/>';
   const isoAt = t => [W * 0.2 + (W * 0.58) * t, H * t];
   const isoAng = Math.atan2(H, W * 0.58) * 180 / Math.PI - 90;
-  [0.16, 0.62].forEach(t => { const [x, y] = isoAt(t); lbl('iso', 'VAR 6°W', x, y, ' rotate(' + (isoAng + 90).toFixed(1) + 'deg) translate(-50%,-140%)'); });
+  [0.16, 0.62].forEach(t0 => {                              // slid along the line until it is clear of fixes and content
+    const t = [0, .02, -.02, .04, -.04, .06, -.06].map(d => t0 + d).find(t => { const [x, y] = isoAt(t); return !P.some(p => p.name && Math.hypot(p.x - x, p.y - y) < 150) && !hits(x - 20, y - 50, x + 20, y + 50); });
+    if (t === undefined) return;
+    const [x, y] = isoAt(t); lbl('iso', 'VAR 6°W', x, y, ' rotate(' + (isoAng + 90).toFixed(1) + 'deg) translate(-50%,-140%)');
+  });
   [['LOGBK', 64, 'W77'], ['AISHP', -58, 'V21']].forEach(([n, ang, des]) => {
     const p = byName(n); if (!p) return;
     const a = ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), len = Math.max(W, 1400);
