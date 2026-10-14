@@ -1587,6 +1587,19 @@ Recorded by the core build agent. Everything else in §0–§15 is implemented a
    `view.php`, `admin/index.php`, `admin/assets/*` and `app/views/` are left to the admin agent, as is
    step 3 of `app_init()` (setup code). `admin/.htaccess` and the router's `/admin/` route exist already.
 
+Added by the QA pass (owner end-to-end test `pilot-blog-work/backend/e2e.js`):
+
+9. **A retry is not a conflict (§11.5).** A save whose `rev` is old but whose content equals the stored
+   draft (the first try was saved, its answer was lost on a bad mobile connection) returns the current
+   draft instead of 409. Different content with an old `rev` still gets the 409.
+10. **Pasted whitespace (§5.2).** Tabs become spaces and CRLF becomes one line break in site fields, FAQ and
+   数据格子 rows and the assistant note, instead of 「看不见的特殊字符」. Full-width digits (１２０) count as
+   digits in 阅读时间 and the assistant limits.
+11. **Local backup (§12.3).** Besides every 5 s, the editors write their local copy when the page is hidden
+   or left (`pagehide`, `visibilitychange`; iOS Safari has no `beforeunload`) and when a save fails.
+12. **Post preview pane.** `preview.post` answers a short framed note (preview headers, no script) when the
+   session or its token has expired or the post is gone, instead of a redirect the iframe may not show.
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -1606,6 +1619,9 @@ php pilot-blog-work/backend/tests/run.php            # or name groups: ... run.p
 
 # public pages in Chromium: launch page + browser subscribe flow, then 0, 1, 3 and 8 published posts at 1440 and 390
 node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub3
+
+# the owner's end-to-end QA: every admin flow at 1440 and 390 on a throwaway site (~2.5 min)
+PORT=9300 node pilot-blog-work/backend/e2e.js         # or: ... e2e.js 390   (add keep to leave the temp dirs)
 
 # a local site with its own data dir (never the repo's pilot-blog/ or /home/user/momo/blog-data)
 S=$(mktemp -d); mkdir -p $S/pub/posts $S/pub/uploads $S/data

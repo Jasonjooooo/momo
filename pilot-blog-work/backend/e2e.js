@@ -160,6 +160,11 @@ async function closeSheets(page) {
   for (let i = 0; i < 3 && await page.locator('.sheet').count().catch(() => 0); i++) await page.keyboard.press('Escape').catch(() => {});
   if (await page.locator('#menu.open').count().catch(() => 0)) await page.click('.menu-close').catch(() => {});
 }
+/** A sheet focuses its first field 30 ms after opening; wait for that before typing (a person is never that fast). */
+async function sheetReady(page) {
+  await page.waitForSelector('.sheet', { timeout: 30000 });
+  await page.waitForFunction(() => document.activeElement && document.activeElement.closest('.sheet'), null, { timeout: 5000 }).catch(() => {});
+}
 async function sheetOk(page) { await page.waitForSelector('.sheet-btns button', { timeout: 5000 }); await page.locator('.sheet-btns button').last().click(); }
 async function sheetAct(page, label) { await page.waitForSelector('.sheet-acts button', { timeout: 5000 }); await page.locator('.sheet-acts button', { hasText: label }).first().click(); }
 async function openMenuIfPhone(page) { const b = page.locator('.menu-btn'); if (await b.isVisible()) { await b.click(); await page.waitForSelector('#menu.open'); } }
@@ -620,7 +625,7 @@ async function flows(T, browser, SEED) {
     await page.fill('#p-body', '');
     await page.click('#p-body');
     await page.click('.mdbar [data-md="link"]');
-    await page.waitForSelector('.sheet input');
+    await sheetReady(page);
     await page.locator('.sheet input').nth(0).fill('风的预报');
     await page.locator('.sheet input').nth(1).fill('https://www.windy.com');
     await sheetOk(page);
@@ -705,7 +710,7 @@ async function flows(T, browser, SEED) {
     await page.click('#p-body');
     await page.locator('#p-body').press('Control+End');
     await page.setInputFiles('#body-file', FILES + '/photo.png');
-    await page.waitForSelector('.sheet input', { timeout: 30000 });
+    await sheetReady(page);
     await page.locator('.sheet input').nth(0).fill('橙色的天');
     await sheetOk(page);
     check(T, '插入图片 writes the image line into the body', /!\[橙色的天\]\(uploads\/\d{4}\/\d{2}\/[0-9a-f]{16}\.webp\)/.test(await page.inputValue('#p-body')));
