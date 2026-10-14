@@ -1,0 +1,235 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>云底之下 · 方向 C 概念画面</title>
+<style>
+@font-face{font-family:"Barlow Condensed";src:url(assets/fonts/barlow-condensed-latin-600-normal.woff2) format("woff2");font-weight:600}
+@font-face{font-family:"B612";src:url(assets/fonts/b612-latin-400-normal.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"B612";src:url(assets/fonts/b612-latin-700-normal.woff2) format("woff2");font-weight:700}
+@font-face{font-family:"B612 Mono";src:url(assets/fonts/b612-mono-latin-400-normal.woff2) format("woff2");font-weight:400}
+@font-face{font-family:"B612 Mono";src:url(assets/fonts/b612-mono-latin-700-normal.woff2) format("woff2");font-weight:700}
+:root{
+  --canvas:#0A1733;--panel:#122452;--accent:#EA4C22;--text:#ECE9F1;--muted:#A9A8C0;--signal:#E6A948;--line:#2A3A66;--line-strong:#5E6EA2;--threshold:#4FD08A;
+  --cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC",sans-serif;
+  --mono:"B612 Mono",ui-monospace,Menlo,monospace;--display:"Barlow Condensed",var(--cjk);
+  --gut:clamp(16px,4vw,64px);
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--canvas);color:var(--text);font:400 17px/1.85 "B612",var(--cjk);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+p{margin:0}
+h1,h2,h3{margin:0;font-family:var(--cjk);font-weight:600}
+.mono{font-family:var(--mono);letter-spacing:.12em;font-size:12px;text-transform:uppercase;color:var(--muted)}
+.ch{position:relative;height:100vh;min-height:620px;overflow:hidden;isolation:isolate}
+.bg{position:absolute;inset:0;z-index:-2;background-size:cover;background-position:center}
+.grade{position:absolute;inset:0;z-index:-1}
+/* cinematic letterbox with timecode */
+.bars::before,.bars::after{content:"";position:absolute;left:0;right:0;height:5.5vh;background:#050c1d;z-index:3}
+.bars::before{top:0}.bars::after{bottom:0}
+.tc{position:absolute;z-index:4;font:400 11px/1 var(--mono);letter-spacing:.14em;color:#6f7aa3}
+.tc.tl{top:2.1vh;left:var(--gut)}.tc.tr{top:2.1vh;right:var(--gut)}.tc.bl{bottom:2.1vh;left:var(--gut)}.tc.br{bottom:2.1vh;right:var(--gut)}
+.ghost{position:absolute;font:600 clamp(220px,46vh,520px)/.8 var(--display);color:transparent;-webkit-text-stroke:1.5px rgba(236,233,241,.16);letter-spacing:-.02em;pointer-events:none;z-index:0}
+
+/* ---------- 01 ABOUT ---------- */
+#f1 .bg{background-image:url(assets/about.webp);background-position:70% 50%}
+#f1 .grade{background:linear-gradient(90deg,rgba(10,23,51,.96) 0%,rgba(10,23,51,.86) 34%,rgba(10,23,51,.15) 70%,rgba(10,23,51,.35) 100%),linear-gradient(0deg,rgba(10,23,51,.9),rgba(10,23,51,0) 45%)}
+#f1 .ghost{right:3vw;bottom:2vh}
+.f1-copy{position:absolute;left:var(--gut);bottom:12vh;width:min(620px,46vw);z-index:2}
+.f1-copy .mono{margin-bottom:18px;display:flex;gap:14px;align-items:center}
+.f1-copy .mono i{display:inline-block;width:44px;height:1px;background:var(--accent)}
+.f1-copy h2{font-size:clamp(56px,7.4vw,120px);line-height:1.04;letter-spacing:.01em;white-space:nowrap}
+.f1-copy .lede{margin-top:22px;font-size:18px;color:#d9d6e4;max-width:30em}
+.f1-copy .stacc{margin-top:18px;font:600 20px/1.6 var(--cjk);letter-spacing:.06em}
+.logrow{display:flex;gap:0;margin-top:26px;border-top:1px solid rgba(94,110,162,.5)}
+.logrow div{padding:12px 22px 0 0;margin-right:22px}
+.logrow dt{font:400 11px/1.4 var(--mono);letter-spacing:.14em;color:var(--muted)}
+.logrow dd{margin:4px 0 0;font:600 15px/1.5 var(--cjk)}
+
+/* ---------- 02 LOG (horizontal film strip) ---------- */
+#f2 .bg{background-image:url(assets/log-breakout.webp);filter:saturate(.7)}
+#f2 .grade{background:linear-gradient(180deg,rgba(10,23,51,.92),rgba(10,23,51,.8) 40%,rgba(10,23,51,.94))}
+.f2-head{position:absolute;left:var(--gut);top:11vh;display:flex;align-items:flex-end;gap:36px;z-index:2}
+.f2-head h2{font-size:clamp(48px,5.4vw,88px);line-height:1}
+.f2-head p{color:var(--muted);max-width:22em;padding-bottom:8px}
+.strip{position:absolute;left:0;top:30vh;display:flex;gap:28px;padding-left:var(--gut);transform:translateX(-22vw);z-index:2}
+.frame{position:relative;flex:none;width:min(560px,38vw);height:54vh;padding:44px 36px 40px;background:rgba(18,36,82,.72);border:1px solid rgba(94,110,162,.45);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);display:flex;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.frame::before,.frame::after{content:"";position:absolute;left:0;right:0;height:14px;background:repeating-linear-gradient(90deg,transparent 0 14px,rgba(5,12,29,.85) 14px 26px,transparent 26px 40px);opacity:.8}
+.frame::before{top:8px}.frame::after{bottom:8px}
+.frame .num{position:absolute;right:22px;top:14px;font:600 clamp(120px,15vh,190px)/1 var(--display);color:rgba(236,233,241,.1)}
+.frame.on{border-color:var(--text);background:rgba(18,36,82,.88)}
+.frame.on .num{color:rgba(234,76,34,.85)}
+.frame .tags{display:flex;gap:8px;margin-bottom:16px}
+.frame .tags span{padding:4px 8px;font:700 11px/1 var(--mono);letter-spacing:.12em;border:1px solid var(--line-strong)}
+.frame h3{font-size:clamp(22px,1.9vw,30px);line-height:1.4;margin-bottom:12px}
+.frame p{font-size:15.5px;color:var(--muted);line-height:1.8}
+.frame .eta{margin-top:18px;font:400 12px/1 var(--mono);letter-spacing:.12em;color:var(--signal)}
+.f2-prog{position:absolute;left:var(--gut);right:var(--gut);bottom:10vh;display:flex;align-items:center;gap:18px;z-index:2}
+.f2-prog .bar{flex:1;height:2px;background:var(--line);position:relative}
+.f2-prog .bar i{position:absolute;left:0;top:0;bottom:0;width:30%;background:var(--accent)}
+
+/* ---------- 03 TYPE (giant numbers) ---------- */
+#f3{background:radial-gradient(ellipse 70% 60% at 40% 55%,#132D61 0%,var(--canvas) 70%)}
+.f3-outline{position:absolute;left:8vw;right:16vw;top:9vh;opacity:.22}
+.f3-outline svg{width:100%;height:auto}
+.f3-outline path{fill:none;stroke:var(--text);stroke-width:2;vector-effect:non-scaling-stroke}
+.f3-big{position:absolute;left:var(--gut);bottom:14vh;z-index:2}
+.f3-big .val{font:600 clamp(160px,27vw,420px)/.82 var(--display);letter-spacing:-.01em}
+.f3-big .val sup{font-size:.22em;vertical-align:top;margin-left:.15em;color:var(--accent);letter-spacing:.06em}
+.f3-big p{margin-top:18px;max-width:28em;color:#d9d6e4}
+.f3-list{position:absolute;right:var(--gut);top:50%;transform:translateY(-50%);display:grid;gap:22px;z-index:2;text-align:right}
+.f3-list div{font:600 30px/1 var(--display);color:rgba(236,233,241,.28);letter-spacing:.04em}
+.f3-list div small{display:block;margin-top:6px;font:400 11px/1 var(--mono);letter-spacing:.14em}
+.f3-list div.on{color:var(--text)}
+.f3-list div.on::before{content:"";display:inline-block;width:28px;height:2px;background:var(--accent);vertical-align:middle;margin-right:12px}
+
+/* ---------- 04 AI STORE + drawer ---------- */
+#f4{background:var(--canvas)}
+.f4-top{position:absolute;left:0;right:0;top:0;height:46vh;background:url(assets/ai-banner.webp) 50% 40%/cover}
+.f4-top::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,.55),rgba(10,23,51,.2) 40%,var(--canvas) 100%)}
+.f4-head{position:absolute;left:var(--gut);top:12vh;z-index:2}
+.f4-head h2{font-size:clamp(72px,9vw,150px);line-height:.95}
+.f4-head p{margin-top:12px;color:#d9d6e4;max-width:30em}
+.tabs{position:absolute;left:var(--gut);top:45vh;display:flex;gap:10px;z-index:2}
+.tabs span{padding:10px 18px;font:600 15px/1 var(--cjk);border:1px solid var(--line-strong);border-radius:999px;color:var(--muted)}
+.tabs span.on{background:var(--text);color:var(--canvas);border-color:var(--text)}
+.store{position:absolute;left:var(--gut);right:calc(var(--gut) + 400px);top:54vh;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;z-index:2}
+.tool{position:relative;padding:22px 22px 18px;min-height:30vh;border:1px solid var(--line);background:rgba(18,36,82,.6);display:flex;flex-direction:column;gap:10px}
+.tool .mono2{font:600 64px/1 var(--display);color:rgba(236,233,241,.12);position:absolute;right:16px;top:10px}
+.tool h3{font-size:24px}
+.tool p{font-size:15px;color:#d9d6e4}
+.tool .badge{align-self:flex-start;padding:3px 9px;font-size:12px;color:var(--muted);border:1px solid var(--line-strong);border-radius:999px}
+.tool .open{margin-top:auto;font:400 12px/1 var(--mono);letter-spacing:.1em;color:var(--muted)}
+.drawer{position:absolute;right:0;top:0;bottom:0;width:400px;background:#0E1D44;border-left:1px solid var(--line-strong);z-index:5;display:flex;flex-direction:column;box-shadow:-30px 0 80px rgba(5,12,29,.6)}
+.drawer .hd{display:flex;justify-content:space-between;align-items:baseline;padding:28px 24px 0}
+.drawer .hd h3{font-size:22px}
+.drawer .lamp{font:700 12px/1 var(--mono);letter-spacing:.1em;color:var(--signal)}
+.drawer .lamp::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--signal);margin-right:8px}
+.drawer .log{flex:1;margin:18px 0 0;padding:18px 24px;border-block:1px solid var(--line);background:rgba(10,23,51,.5)}
+.msg{max-width:90%;padding:11px 14px;border:1px solid var(--line);background:#122452;font-size:15px;line-height:1.75}
+.msg .pl{display:inline-block;margin-right:8px;padding:1px 6px;font:700 11px/1.3 var(--mono);color:var(--signal);border:1px solid var(--signal)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;padding:16px 24px 0}
+.chips span{padding:7px 12px;font-size:13.5px;border:1px solid var(--line-strong);border-radius:999px}
+.inp{display:flex;gap:10px;padding:14px 24px 26px}
+.inp div{flex:1;height:52px;border:1px solid var(--line-strong);border-radius:8px;padding:14px;color:var(--muted);font-size:15px}
+.inp b{display:flex;align-items:center;padding:0 18px;border:1px solid var(--line-strong);border-radius:8px}
+.fab{position:absolute;right:430px;bottom:7vh;z-index:4;display:flex;align-items:center;gap:10px;padding:14px 20px;background:var(--accent);color:var(--canvas);font:700 15px/1 var(--cjk);border-radius:999px}
+
+/* ---------- 06 SUBSCRIBE (runway, end credits) ---------- */
+#f5 .bg{background-image:url(assets/hero-end.webp);background-position:40% 60%}
+#f5 .grade{background:radial-gradient(ellipse 50% 60% at 50% 46%,rgba(10,23,51,.55),rgba(10,23,51,.2) 70%),linear-gradient(180deg,rgba(10,23,51,.5),rgba(10,23,51,0) 30%,rgba(10,23,51,.7) 85%,#050c1d)}
+.card{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:min(520px,90vw);padding:36px 36px 30px;background:rgba(18,36,82,.82);border:1px solid var(--line-strong);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center;z-index:2}
+.card h2{font-size:clamp(40px,4vw,60px);line-height:1.1}
+.card .l{margin:14px 0 22px;font:600 18px/1.6 var(--cjk)}
+.card .in{height:52px;border:1px solid var(--line-strong);border-radius:8px;text-align:left;padding:14px;color:var(--muted)}
+.card .thr{display:flex;justify-content:center;gap:9px;margin:14px 0}
+.card .thr i{width:8px;height:8px;border-radius:50%;background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.7)}
+.card .btn{height:54px;display:flex;align-items:center;justify-content:center;background:var(--accent);color:var(--canvas);font:700 17px/1 var(--cjk);border-radius:6px}
+.card .micro{margin-top:12px;font-size:13px;color:var(--muted)}
+.credits{position:absolute;left:0;right:0;bottom:7vh;text-align:center;z-index:2;font-size:13px;color:var(--muted);line-height:2}
+.credits b{display:block;font:600 22px/1.4 var(--cjk);letter-spacing:.3em;color:var(--text);margin-bottom:6px}
+
+/* ---------- phones ---------- */
+@media (max-width:600px){
+  .ghost{font-size:40vh}
+  #f1 .grade{background:linear-gradient(0deg,rgba(10,23,51,.97) 0%,rgba(10,23,51,.86) 52%,rgba(10,23,51,.2) 78%)}
+  #f1 .bg{background-size:auto 46vh;background-position:30% 12vh;background-repeat:no-repeat;background-color:var(--canvas)}
+  #f1 .ghost{right:-4vw;top:12vh;bottom:auto;font-size:30vh}
+  .f1-copy{width:auto;right:var(--gut);bottom:9vh}
+  .f1-copy h2{font-size:48px;white-space:normal}
+  .f1-copy .lede{font-size:15.5px}
+  .logrow{flex-wrap:wrap}.logrow div{padding-right:0;margin-right:18px}
+  .f2-head{top:10vh;flex-direction:column;align-items:flex-start;gap:8px}
+  .f2-head h2{font-size:44px}
+  .strip{top:32vh;transform:translateX(-60vw);gap:14px}
+  .frame{width:78vw;height:50vh;padding:34px 22px 30px}
+  .frame h3{font-size:21px}
+  .f4-top{height:34vh}
+  .f4-head{top:9vh}.f4-head h2{font-size:64px}.f4-head p{font-size:14.5px}
+  .tabs{top:31vh;overflow:hidden;right:0}.tabs span{white-space:nowrap;font-size:14px;padding:9px 14px}
+  .store{right:var(--gut);top:38vh;grid-template-columns:1fr}
+  .tool{min-height:auto}
+  .drawer{left:0;right:0;top:auto;bottom:0;width:auto;height:60vh;border-left:0;border-top:1px solid var(--line-strong);border-radius:18px 18px 0 0}
+  .drawer::before{content:"";position:absolute;left:50%;top:10px;width:44px;height:4px;border-radius:2px;background:var(--line-strong);transform:translateX(-50%)}
+  .fab{display:none}
+  .card{top:46%;padding:28px 22px 24px}
+  .f3-outline{left:6vw;right:6vw;top:9vh}
+  .f3-list{left:var(--gut);right:var(--gut);top:31vh;transform:none;grid-template-columns:repeat(3,1fr);gap:18px 12px;text-align:left}
+  .f3-list div{font-size:22px}
+  .f3-list div.on::before{display:none}
+  .f3-list div.on{color:var(--accent)}
+}
+</style>
+</head>
+<body>
+
+<!-- 01 ABOUT: title card -->
+<section class="ch bars" id="f1">
+  <div class="bg"></div><div class="grade"></div>
+  <span class="tc tl">SCENE 01 · ABOUT</span><span class="tc tr">TC 00:00:41:12</span><span class="tc bl">ON TOP · 云层上方 · 日落之后</span><span class="tc br">FL 090</span>
+  <div class="ghost">01</div>
+  <div class="f1-copy">
+    <p class="mono"><i></i>CHAPTER 01 / ABOUT</p>
+    <h2>左座上的人。</h2>
+    <p class="lede">我是机长，飞 PC-12 NGX，跑短途支线。航段短，一天要起降好几次。小机场跑道短，备降场远，天气说变就变，很多决定要在地面上做完。</p>
+    <p class="stacc">不露脸，不写公司，只写飞行。</p>
+    <dl class="logrow"><div><dt>TYPE</dt><dd>PC-12 NGX</dd></div><div><dt>SEAT</dt><dd>左座</dd></div><div><dt>ROUTE</dt><dd>短途支线</dd></div><div><dt>WX</dt><dd>低云 · 侧风 · 结冰季</dd></div></dl>
+  </div>
+</section>
+
+<!-- 02 LOG: horizontal film strip, shown mid-scroll -->
+<section class="ch bars" id="f2">
+  <div class="bg"></div><div class="grade"></div>
+  <span class="tc tl">SCENE 02 · LOG</span><span class="tc tr">TC 00:02:16:03</span><span class="tc bl">横向滚动 · 05 篇</span><span class="tc br">在写 5 篇</span>
+  <div class="f2-head"><h2>飞行日志</h2><p>落地之后写。每篇只讲一件事，写完先对一遍手册。</p></div>
+  <div class="strip">
+    <article class="frame"><span class="num">01</span><div class="tags"><span>DRAFT</span><span>IMC</span></div><h3>低云进近：决断高度前的那两秒</h3><p>云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p><p class="eta">预计 8 分钟</p></article>
+    <article class="frame on"><span class="num">02</span><div class="tags"><span>DRAFT</span><span>PERF</span></div><h3>短跑道上的 PC-12：先算数，再上跑道</h3><p>起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p><p class="eta">预计 7 分钟</p></article>
+    <article class="frame"><span class="num">03</span><div class="tags"><span>DRAFT</span><span>WX</span></div><h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p>PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。</p><p class="eta">预计 9 分钟</p></article>
+    <article class="frame"><span class="num">04</span><div class="tags"><span>DRAFT</span><span>OPS</span></div><h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p>PT6 很少停车，可飞机上只有这一台。</p><p class="eta">预计 6 分钟</p></article>
+  </div>
+  <div class="f2-prog"><span class="mono">02 / 05</span><div class="bar"><i></i></div><span class="mono">这几篇还在写，写完一篇放一篇</span></div>
+</section>
+
+<!-- 03 TYPE: giant numbers over the outline -->
+<section class="ch bars" id="f3">
+  <span class="tc tl">SCENE 03 · TYPE</span><span class="tc tr">TC 00:03:02:20</span><span class="tc bl">机型手记 · PC-12 NGX</span><span class="tc br">数据来自 Pilatus 公开资料</span>
+  <div class="f3-outline"><svg viewBox="220 190 1680 640" aria-hidden="true">
+    <path d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
+    <path d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z"/>
+    <path d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z"/>
+  </svg></div>
+  <div class="f3-big"><p class="mono" style="margin-bottom:14px">CHAPTER 03 / ENG · PT6E-67XP</p><div class="val">1200<sup>SHP</sup></div><p>单台普惠加拿大涡桨发动机，起飞功率 1200 轴马力。电子发动机与螺旋桨控制，一根功率手柄。</p></div>
+  <div class="f3-list"><div class="on">1200 SHP<small>ENG</small></div><div>5 BLD<small>PROP</small></div><div>T-TAIL<small>TAIL</small></div><div>758 M<small>TO</small></div><div>661 M<small>LDG</small></div><div>UNPAVED<small>RWY</small></div></div>
+</section>
+
+<!-- 04 AI STORE with the assistant drawer open -->
+<section class="ch" id="f4">
+  <div class="f4-top"></div>
+  <div class="f4-head"><p class="mono" style="margin-bottom:12px">CHAPTER 04 / AI 超市</p><h2>AI 超市</h2><p>按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。</p></div>
+  <div class="tabs"><span class="on">对话与写作</span><span>图像与视频</span><span>学习与研究</span><span>效率与办公</span><span>航空工具</span></div>
+  <div class="store">
+    <div class="tool"><span class="mono2">DS</span><h3>DeepSeek</h3><p>免费的国产大模型，推理和写作都在行。</p><span class="badge">能直接访问</span><span class="open">打开 chat.deepseek.com</span></div>
+    <div class="tool"><span class="mono2">KM</span><h3>Kimi</h3><p>擅长读长文档，资料一多就找它。</p><span class="badge">能直接访问</span><span class="open">打开 kimi.com</span></div>
+    <div class="tool"><span class="mono2">CL</span><h3>Claude</h3><p>写长文、改稿子很细，语气比较自然。</p><span class="badge">需要国际网络</span><span class="open">打开 claude.ai</span></div>
+  </div>
+  <div class="fab">AI 助手 · INOP</div>
+  <aside class="drawer">
+    <div class="hd"><h3>AI 助手</h3><span class="lamp">INOP 接入中</span></div>
+    <p style="padding:8px 24px 0;font-size:15px">问飞行常识、PC-12，或者货架上哪样工具适合你。</p>
+    <div class="log"><div class="msg"><span class="pl">INOP</span>你好。助手还在接入中，接通以后可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。</div></div>
+    <div class="chips"><span>决断高度和决断高有什么区别？</span><span>PC-12 为什么用 T 型尾翼？</span></div>
+    <div class="inp"><div>输入你的问题</div><b>发送</b></div>
+  </aside>
+</section>
+
+<!-- 06 SUBSCRIBE: the runway, end credits -->
+<section class="ch bars" id="f5">
+  <div class="bg"></div><div class="grade"></div>
+  <span class="tc tl">SCENE 06 · SUBSCRIBE</span><span class="tc tr">TC 00:06:00:00</span><span class="tc bl">RWY 24 · MINIMUMS 200</span><span class="tc br">FIN</span>
+  <div class="card"><p class="mono" style="margin-bottom:10px">CHAPTER 06 / SUBSCRIBE</p><h2>订阅飞行日志</h2><p class="l">最低标准写在起飞前，日志写在落地后。</p><div class="in">name@example.com</div><div class="thr"><i></i><i></i><i></i><i></i><i></i></div><div class="btn">订阅飞行日志</div><p class="micro">只发飞行日志。不发广告，随时退订。</p></div>
+  <div class="credits"><b>云底之下</b>落地，关车，写日志。<br>本站的飞机影像和配图由 AI 生成，不对应任何真实航空器。</div>
+</section>
+
+</body>
+</html>
