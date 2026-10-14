@@ -324,161 +324,321 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .js .fade,.js .fade-l{opacity:0;transition:opacity 1.2s var(--ease-out);transition-delay:var(--d,0s)}
 .js .draw.in .fade,.js [data-io].in .fade-l{opacity:1}
 
-/* Glide-slope dividers */
-.gs-div{position:relative;width:var(--wrap);margin-inline:auto;height:96px}
-.gs-div svg{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.gs-div .ln{stroke:var(--line-strong);stroke-width:1}
-.gs-div .lbl{position:absolute;left:0;top:-6px;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
-.gs-div .thr{position:absolute;right:-4px;bottom:-5px;display:flex;gap:6px}
-.gs-div .thr i{width:7px;height:7px;border-radius:50%;background:var(--threshold);box-shadow:0 0 8px rgba(79,208,138,.55)}
+/* ============ THE CHART: everything after the hero is one enroute chart, flown as you scroll ============ */
+/* A night-printed enroute chart: navy paper, white and grey linework, one magenta route (the flight plan) that draws itself
+   down the page with the scroll while an ownship glyph rides its tip. Fixes, compass rose, airways and boundaries are printed
+   and always there; the flight adds the magenta line, its leg data and the active-fix ring. Avionics colors stay tiny:
+   magenta = the route and the active fix, cyan = the tuned frequency, green = lit threshold lights. The accent stays on the
+   call to action and focus. Only transform, opacity and clip-path move. */
+:root{
+  --route:#E25AD9;--route-soft:rgba(226,90,217,.2);--cyan:#5CD3E6;
+  --ink:rgba(236,233,241,.86);--ink-2:rgba(169,168,192,.8);--ink-3:rgba(94,110,162,.62);--ink-4:rgba(94,110,162,.32);
+  --halo:0 0 2px #0A1733,0 0 3px #0A1733,0 0 6px #0A1733;
+  --paper:rgba(10,23,51,.84);
+}
+.chart{position:relative;isolation:isolate;overflow:hidden;overflow:clip;--lane:30px;--inset:78px;--rail-x:-26px}
+.cw{position:relative;width:min(1320px,100% - 2*var(--gutter));margin-inline:auto}
+.sec{padding:200px 0 120px;scroll-margin-top:24px}
 
-/* ============ 01 ABOUT ============ */
-.about{padding-top:clamp(96px,14vh,170px)}
-.about-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:clamp(20px,3vw,48px);align-items:center;padding-right:var(--gutter)}
-.about-fig{grid-column:1 / span 7;margin:0}
-.about-art{position:relative;aspect-ratio:16/10;overflow:hidden;border:1px solid var(--line);border-left:0;border-radius:0 10px 10px 0;background:#132D61}
-/* the cruise still is 16:9 with the aircraft spanning frame x 12%-94%: 16:10 at 80% keeps prop disc to wingtip with even margins */
-.about-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:80% 50%}
-/* living element: the afterglow on the right horizon breathes */
-.about-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 34% 22% at 97% 39%,rgba(244,139,69,.26),rgba(244,139,69,.09) 50%,rgba(244,139,69,0) 100%);opacity:.75}
-.about.live .about-art::after{animation:breathe 7s var(--ease-io) -2.4s infinite alternate}
-@keyframes breathe{from{opacity:.45}to{opacity:1}}
-.about-fig figcaption{display:flex;align-items:center;gap:12px;margin:14px 0 0 var(--gutter);font:400 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
-.about-fig figcaption::before{content:"";width:40px;height:1px;background:var(--ember)}
-.about-text{grid-column:8 / span 5}
-.about-text h2{margin-bottom:.55em}
+/* paper: graticule every 10' (320px of latitude, 277px of longitude at 30°N), a minute tick every 32px, two fold creases */
+.chart-bg{position:absolute;inset:0;z-index:0;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='277' height='320'%3E%3Cg fill='none' stroke='%235E6EA2'%3E%3Cpath d='M.5 0V320M0 .5H277' stroke-opacity='.2'/%3E%3Cpath d='M.5 32h4M.5 64h4M.5 96h4M.5 128h4M.5 160h8M.5 192h4M.5 224h4M.5 256h4M.5 288h4M28.2 .5v4M55.9 .5v4M83.6 .5v4M111.3 .5v4M139 .5v8M166.7 .5v4M194.4 .5v4M222.1 .5v4M249.8 .5v4' stroke-opacity='.42'/%3E%3C/g%3E%3C/svg%3E") calc(50% - 138.5px) 0/277px 320px}
+.chart-bg::before{content:"";position:absolute;inset:0;background:
+  linear-gradient(90deg,transparent calc(33.333% - 1px),rgba(236,233,241,.035) calc(33.333% - 1px) 33.333%,rgba(3,8,20,.4) 33.333% calc(33.333% + 1px),transparent calc(33.333% + 1px) calc(66.666% - 1px),rgba(236,233,241,.035) calc(66.666% - 1px) 66.666%,rgba(3,8,20,.4) 66.666% calc(66.666% + 1px),transparent calc(66.666% + 1px)),
+  repeating-linear-gradient(180deg,transparent 0 1918px,rgba(236,233,241,.03) 1918px 1919px,rgba(3,8,20,.35) 1919px 1920px)}
+/* neatlines: alternating minute bars down both sheet edges, like a printed chart border */
+.neat{position:absolute;top:0;bottom:0;width:7px;border-inline:1px solid var(--ink-4);background:repeating-linear-gradient(180deg,rgba(169,168,192,.26) 0 32px,transparent 32px 64px)}
+.neat-l{left:12px}.neat-r{right:12px}
+.bg-svg{position:absolute;left:0;top:0;overflow:visible}
+.bg-svg .iso{fill:none;stroke:rgba(169,168,192,.2);stroke-width:1;stroke-dasharray:14 9}
+.bg-svg .awy2{fill:none;stroke:rgba(169,168,192,.16);stroke-width:1}
+.bg-svg .tma-h{fill:none;stroke:rgba(94,110,162,.38);stroke-width:7;stroke-dasharray:1.5 5}
+.bg-svg .tma{fill:none;stroke:rgba(94,110,162,.45);stroke-width:1}
+.bg-lbl{position:absolute;left:0;top:0;margin:0;white-space:nowrap;font:400 10px/1 var(--font-mono);letter-spacing:.08em;color:rgba(169,168,192,.55);text-shadow:var(--halo)}
+.bg-lbl.box{padding:3px 5px;border:1px solid rgba(169,168,192,.3);border-radius:8px;background:var(--canvas)}
+.bg-lbl.lat{transform:translate(-100%,-50%)}
+.bg-lbl.lon{transform:translate(4px,0)}
+.mora{position:absolute;left:0;top:0;margin:0;font:600 64px/1 var(--font-display);letter-spacing:-.01em;color:rgba(94,110,162,.17);transform:translate(-50%,-50%)}
+.mora sup{font-size:.48em;vertical-align:.95em;margin-left:.04em}
+
+/* the printed airway and the flown route */
+.airway-svg,.route-clip{position:absolute;left:0;top:0;z-index:1;pointer-events:none}
+.airway-svg{overflow:visible}
+.awy-ln{fill:none;stroke:rgba(236,233,241,.3);stroke-width:1.25}
+.route-clip{width:100%;height:100%;overflow:hidden;will-change:transform}
+.route-inner{position:absolute;inset:0;will-change:transform}
+.route-svg{position:absolute;left:0;top:0;overflow:visible}
+.rt-glow{fill:none;stroke:var(--route-soft);stroke-width:12;stroke-linecap:round;stroke-linejoin:round}
+.rt-ln{fill:none;stroke:var(--route);stroke-width:3;stroke-linecap:round;stroke-linejoin:round}
+
+/* fixes (printed): RNAV waypoint star, VOR/DME, open reporting triangle, FAF cross. Anchors are 0x0 at the fix point */
+.fix{position:absolute;width:0;height:0;z-index:3;pointer-events:none}
+.fix svg,.dep svg,.ownship svg,.pglyph svg,.faf-x svg{max-width:none}
+.chart>.sec,.ch-head{position:relative;z-index:2}
+.fx{position:absolute;left:-13px;top:-13px;width:26px;height:26px;overflow:visible}
+.fx .f0{fill:var(--canvas);stroke:var(--ink);stroke-width:1.6;stroke-linejoin:round}
+.fx .f1{fill:var(--text-primary);opacity:0;transition:opacity .6s var(--ease-out)}
+.fx .f2{fill:var(--route);opacity:0;transition:opacity .6s var(--ease-out)}
+.fx .ring{fill:none;stroke:var(--route);stroke-width:1.5;opacity:0;transform:scale(.6);transform-origin:0 0;transform-box:view-box;transition:opacity .6s var(--ease-out),transform .6s var(--ease-out)}
+.fix.past .f1{opacity:1}
+.fix.act .f2{opacity:1}
+.fix.act .ring{opacity:1;transform:none}
+.fx-tag{position:absolute;left:18px;top:-11px;display:grid;justify-items:start;gap:3px;margin:0;white-space:nowrap;font:700 12px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-primary);text-shadow:var(--halo)}
+.tag-l .fx-tag{left:auto;right:18px;justify-items:end}
+.fx-tag b{position:relative;padding:4px 6px;border:1px solid var(--ink-3);border-radius:2px;background:var(--canvas);text-shadow:none}
+.fx-tag b::after{content:"";position:absolute;inset:-1px;border:1px solid var(--route);border-radius:inherit;opacity:0;transition:opacity .6s var(--ease-out)}
+.fix.act .fx-tag b::after{opacity:1}
+.fx-co{font:400 10px/1.2 var(--font-mono);letter-spacing:.04em;color:var(--text-secondary);font-style:normal}
+.bend{position:absolute;width:0;height:0}
+
+/* leg data the flight plots along each crossing: course, airway box, distance, MEA and MOCA */
+.leg-lbls{position:absolute;inset:0;z-index:3;pointer-events:none}
+.leg-lbl{position:absolute;left:0;top:0;display:grid;grid-template-columns:auto auto auto;align-items:center;column-gap:10px;row-gap:5px;white-space:nowrap;font:400 11px/1 var(--font-mono);letter-spacing:.08em;color:var(--ink);text-shadow:var(--halo);opacity:0;transition:opacity .9s var(--ease-out)}
+.leg-lbl.on{opacity:1}
+.leg-lbl .awy{grid-column:2;grid-row:2;padding:4px 8px;border:1.5px solid var(--ink);border-radius:10px;background:var(--canvas);font-weight:700;font-size:12px;color:var(--text-primary);text-shadow:none}
+.leg-lbl .crs{grid-column:1;grid-row:1;color:var(--text-primary)}
+.leg-lbl .dis{grid-column:3;grid-row:1;justify-self:end;color:var(--text-primary)}
+.leg-lbl .mea{grid-column:1;grid-row:3}
+.leg-lbl .moca{grid-column:3;grid-row:3;justify-self:end;color:var(--text-secondary)}
+.leg-lbl.side{display:flex;gap:10px;align-items:center}
+.leg-lbl.side .awy{padding:3px 7px}
+
+/* ownship: a top-view glyph at the tip of the route */
+.ownship{position:absolute;left:-26px;top:-26px;width:52px;height:52px;z-index:4;pointer-events:none;will-change:transform}
+.ownship svg{width:100%;height:100%;overflow:visible}
+.ownship .os{fill:var(--text-primary);stroke:var(--canvas);stroke-width:2.2;paint-order:stroke;stroke-linejoin:round}
+.ownship .halo{fill:rgba(10,23,51,.5)}
+.ownship .vec{fill:none;stroke:var(--text-primary);stroke-width:1.5;stroke-dasharray:3 5;stroke-linecap:round;opacity:.75}
+.ownship.home .vec{opacity:0}
+
+/* the active-leg readout: a small avionics line while the chart is being flown */
+.hud{position:fixed;left:var(--gutter);bottom:18px;z-index:55;display:flex;align-items:baseline;gap:14px;margin:0;padding:9px 13px;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary);background:rgba(10,23,51,.8);border:1px solid rgba(94,110,162,.45);border-radius:6px;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);opacity:0;transform:translateY(8px);transition:opacity .45s var(--ease-out),transform .45s var(--ease-out);pointer-events:none}
+.hud.on{opacity:1;transform:none}
+.hud b{font-weight:700;color:var(--route);letter-spacing:.12em}
+.hud i{font-style:normal;color:var(--text-primary)}
+.hud .to{display:inline-block;width:9px;height:9px;border-top:2px solid var(--route);border-right:2px solid var(--route);transform:rotate(45deg) translate(-1px,1px)}
+
+/* chart-wide helpers */
+.halo{text-shadow:var(--halo)}
+.to{display:inline-block;width:6px;height:6px;margin:0 .45em .12em .3em;border-top:1.5px solid currentColor;border-right:1.5px solid currentColor;transform:rotate(45deg)}
+.js .plot{opacity:0;transition:opacity .9s var(--ease-out)}
+.js .plot.on{opacity:1}
+
+/* ============ CHART HEAD: the title block ============ */
+.ch-head{padding:104px 0 0}
+.chh{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,3fr);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:4px;background:var(--paper)}
+.js .ch-head .chh{clip-path:inset(0 50% 0 50%);transition:clip-path 1.3s var(--ease-io)}
+.js .ch-head.in .chh{clip-path:inset(-8px -8px -8px -8px)}
+.chh-a{padding:18px 22px 20px;border-right:1px solid var(--line)}
+.chh-k{margin:0;font:400 11px/1.4 var(--font-mono);letter-spacing:.16em;color:var(--text-secondary)}
+.chh-t{margin:8px 0 0;font:600 30px/1.2 var(--font-head);letter-spacing:.1em}
+.chh-go{margin:8px 0 0;font-size:14px;line-height:1.6;color:var(--text-secondary)}
+.chh-cells{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr) minmax(0,1.1fr);margin:0}
+.chh-cells>div{padding:18px 18px 20px;border-right:1px solid var(--line)}
+.chh-cells>div:last-child{border-right:0}
+.chh-cells dt{font:400 11px/1.3 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
+.chh-cells dd{margin:8px 0 0;font:700 13px/1.6 var(--font-mono);letter-spacing:.08em}
+.chh-cells dd.cn{font:600 15px/1.6 var(--font-head);letter-spacing:.04em}
+.scale{display:block;width:170px;height:26px;margin-top:6px;overflow:visible}
+.scale rect{fill:none;stroke:var(--ink-2);stroke-width:1}
+.scale .on{fill:var(--ink-2)}
+.scale text{fill:var(--text-secondary);font:400 10px var(--font-mono)}
+.dep{position:absolute;left:50%;bottom:-62px;width:0;height:0}
+.dep svg{position:absolute;left:-11px;top:-11px;width:22px;height:22px;overflow:visible}
+.dep circle{fill:var(--canvas);stroke:var(--ink);stroke-width:1.5}
+.dep path{stroke:var(--ink);stroke-width:2}
+.dep .fx-tag{top:-6px;font-weight:400;letter-spacing:.1em;color:var(--text-secondary)}
+
+/* ============ 01 PILOT: the VOR and the person in the left seat ============ */
+.about-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));column-gap:clamp(20px,3vw,48px);row-gap:64px;align-items:start}
+.about-nav{grid-column:1 / span 5;grid-row:1 / span 2;position:relative;align-self:stretch}
+.rose-wrap{position:relative;width:min(100%,460px);aspect-ratio:1;margin:-30px auto 0}
+.rose{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.js .about .rose{opacity:0;transform:rotate(-34deg) scale(.94);transition:opacity 1.4s var(--ease-out),transform 2s var(--ease-out)}
+.js .about.in .rose{opacity:1;transform:none}
+.rose .rc{fill:none;stroke:var(--ink-2);stroke-width:1}
+.rose .rc2{fill:none;stroke:var(--ink-4);stroke-width:1;stroke-dasharray:2 5}
+.rose .tk{stroke:var(--ink-2);stroke-width:1}
+.rose .tk.mj{stroke:var(--ink);stroke-width:1.4}
+.rose text{fill:var(--text-primary);font:400 12px var(--font-mono);text-anchor:middle;dominant-baseline:central}
+.rose .mn{fill:var(--ink)}
+.rose .rad{stroke:var(--ink-3);stroke-width:1;stroke-dasharray:4 6}
+.rose .radl{fill:var(--text-secondary);font-size:10px}
+.rose-wrap .fix{left:50%;top:50%}
+.navbox{position:absolute;left:calc(50% + 22px);top:calc(50% + 20px);margin:0;padding:8px 10px 9px;display:grid;gap:5px;font:400 11px/1.2 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary);background:var(--canvas);border:1px solid var(--ink-2);border-radius:3px;white-space:nowrap}
+.navbox b{font:700 13px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-primary)}
+.navbox .fq{color:var(--text-primary)}
+.morse{display:inline-flex;align-items:center;gap:3px;margin-left:6px;vertical-align:middle}
+.morse i{display:block;height:2px;background:var(--ink-2)}
+.morse .dit{width:3px}.morse .dah{width:9px}.morse .gap{width:5px;background:none}
+.about-nav .bend{left:50%;bottom:-50px}
+.vor{position:absolute;left:-12px;top:-12px;width:24px;height:24px;overflow:visible}
+.vor .sq{fill:var(--canvas);stroke:var(--ink);stroke-width:1.5}
+.vor .hx{fill:none;stroke:var(--ink);stroke-width:1.5}
+.vor .dot{fill:var(--text-primary)}
+.vor .ring{fill:none;stroke:var(--route);stroke-width:1.5;opacity:0;transition:opacity .6s var(--ease-out)}
+.fix.act .vor .ring{opacity:1}
+.about-text{grid-column:7 / span 6;grid-row:1}
+.about-text .fixline{margin:0 0 10px;font:400 11px/1.4 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
+.about-text h2{margin-bottom:.55em;text-shadow:var(--halo)}
 .about-text p{font-size:17px}
 .about-text .staccato{font:600 19px/1.6 var(--font-head);letter-spacing:.04em;margin-top:1.4em}
-.logbook{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1.6fr);margin:26px 0 0;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.logbook{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.8fr) minmax(0,1fr) minmax(0,1.6fr);margin:26px 0 0;border:1px solid var(--line-strong);border-radius:3px;background:var(--paper);overflow:hidden}
 .logbook div{padding:12px 14px;border-right:1px solid var(--line);margin-right:-1px}
 .logbook dt{font:400 11px/1.4 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
 .logbook dd{margin:4px 0 0;font:600 15px/1.5 var(--font-head)}
 .logbook dd .lat{font-family:var(--font-body);font-weight:400}
+.about-fig{grid-column:6 / span 7;grid-row:2;margin:0;position:relative}
+.about-art{position:relative;aspect-ratio:16/9;overflow:hidden;border:1px solid var(--line-strong);background:#132D61}
+.about-art img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:60% 50%}
+.about-art::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse 34% 22% at 97% 39%,rgba(244,139,69,.26),rgba(244,139,69,.09) 50%,rgba(244,139,69,0) 100%);opacity:.75}
+.about.live .about-art::after{animation:breathe 7s var(--ease-io) -2.4s infinite alternate}
+@keyframes breathe{from{opacity:.45}to{opacity:1}}
+.inset-tag{position:absolute;left:-1px;top:-1px;margin:0;padding:5px 9px;font:700 11px/1 var(--font-mono);letter-spacing:.14em;color:var(--canvas);background:var(--text-primary)}
+.about-fig figcaption{display:flex;align-items:center;gap:12px;margin:12px 0 0;font:400 12px/1.4 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.about-fig figcaption::before{content:"";width:40px;height:1px;background:var(--ember)}
+.js .about-fig{clip-path:inset(0 100% 0 0);transition:clip-path 1.4s var(--ease-io) .2s}
+.js .about.in .about-fig{clip-path:inset(-2px)}
 
-/* ============ 02 LOG ============ */
-.plate-head{display:grid;grid-template-columns:auto 1fr auto;align-items:baseline;border:1px solid var(--line-strong);border-radius:8px}
-.plate-head>*{padding:16px 20px;margin:0}
-.plate-head>*+*{border-left:1px solid var(--line)}
-.plate-head .kicker{margin:0;color:var(--text-secondary)}
-.plate-head h2{font-size:clamp(26px,2.6vw,38px)}
-.log .lede{margin:26px 0 34px}
-.fly{position:relative;border:1px solid var(--line-strong);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse 80% 120% at 85% 110%,rgba(61,68,107,.55),rgba(61,68,107,0) 60%),linear-gradient(180deg,#0F2152,#0C1A3E)}
-.fly-plate{position:relative;aspect-ratio:1000/320}
-/* backdrop: the breakout still (rear three-quarter under the cloud base), cropped to keep the whole aircraft
-   (frame y 17%-60%) and dimmed to navy so the drawn plate and its 12px labels keep 4.5:1 */
-.fly-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%}
-.fly-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(10,23,51,0) 36%,rgba(10,23,51,.5) 60%,rgba(10,23,51,.56) 100%),linear-gradient(180deg,rgba(10,23,51,.80) 0%,rgba(10,23,51,.70) 55%,rgba(10,23,51,.86) 100%)}   /* deeper over the right half, where the photographed aircraft sits under the glide slope, the lamps and the deviation scale: it reads as backdrop, not a second subject */
-.plate{position:absolute;inset:0;width:100%;height:100%}
-.plate .ln{stroke:var(--line-strong);stroke-width:1.25}
-.plate .gs{stroke:var(--text-secondary);stroke-width:1.5}
-.plate .rwy{stroke:var(--text-secondary);stroke-width:5}
-.plate .da{fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:6 6;vector-effect:non-scaling-stroke}
-.plate .post{stroke:var(--line-strong);stroke-width:1;vector-effect:non-scaling-stroke}
-.plate .lamp{fill:var(--line-strong);transition:fill .5s var(--ease-out)}
-.plate .edge{fill:var(--line-strong);transition:fill .5s var(--ease-out)}
-.plate .thr{stroke:var(--line-strong);stroke-width:4;transition:stroke .5s var(--ease-out)}
-.plate .dev circle{fill:none;stroke:var(--text-secondary);stroke-width:1;vector-effect:non-scaling-stroke}
-.plate .dev .dia{fill:var(--text-secondary)}
-.fly.live:not(.touched) .plate .dev .dia{animation:breathe-d 5s var(--ease-io) -1.2s infinite alternate}
+/* ============ 02 LOGBK: the drafts, each one a leg of the airway ============ */
+.log-grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;column-gap:180px;align-items:start}
+.log-route{grid-column:1;grid-row:1;position:relative;min-width:0}
+.log-intro{grid-column:2;grid-row:1;position:sticky;top:104px}
+.plate-head{display:grid;grid-template-columns:auto 1fr;border:1px solid var(--line-strong);border-radius:3px;background:var(--paper)}
+.plate-head>*{padding:14px 16px;margin:0}
+.plate-head .kicker{margin:0}
+.plate-head h2{grid-column:1 / -1;border-top:1px solid var(--line);font-size:clamp(28px,2.6vw,38px)}
+.plate-head>.kicker:nth-child(3){border-left:1px solid var(--line);text-align:right;grid-row:1;grid-column:2}
+.log .lede{margin:24px 0 18px;text-shadow:var(--halo)}
+.list-end{margin:0 0 14px;color:var(--text-secondary);text-shadow:var(--halo)}
+.hold-fig{position:relative;height:170px;margin-bottom:6px}
+.hold-fig .fix{right:-66px;top:58px}
+.hold-fig .fx-tag{left:auto;right:18px;justify-items:end;top:-40px}
+.racetrack{position:absolute;right:-66px;top:12px;width:330px;height:92px;overflow:visible}
+.racetrack .rk{fill:none;stroke:var(--ink-2);stroke-width:1.4}
+.racetrack .ar{fill:var(--ink-2)}
+.racetrack text{fill:var(--text-secondary);font:400 11px var(--font-mono);letter-spacing:.08em}
+.log.live .racetrack .ar{animation:breathe-d 5s var(--ease-io) -1.2s infinite alternate}
 @keyframes breathe-d{from{opacity:.35}to{opacity:1}}
-.plate .glyph{fill:var(--accent)}
-.fly.done .plate .lamp{fill:var(--text-primary)}
-.fly.done .plate .edge{fill:var(--edge-light)}
-.fly.done .plate .thr{stroke:var(--threshold)}
-.fly.done .plate .lamp:nth-of-type(1){transition-delay:.15s}.fly.done .plate .lamp:nth-of-type(2){transition-delay:.21s}.fly.done .plate .lamp:nth-of-type(3){transition-delay:.27s}.fly.done .plate .lamp:nth-of-type(4){transition-delay:.33s}.fly.done .plate .lamp:nth-of-type(5){transition-delay:.39s}
-.fly.done .plate .thr{transition-delay:.5s}
-.fly.done .plate .edge{transition-delay:.62s}
-.plate-lbl{position:absolute;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap;pointer-events:none}
-/* plate coordinates: viewBox 1000x320 maps 1:1 to the box, so x% = x/10 and y% = y/3.2 (GS line (150,70)-(760,280), DA y 252, ground y 280) */
-.lbl-fap{left:15%;top:6%;transform:translateX(-50%)}
-.lbl-gs{left:41%;top:41%;transform:rotate(19deg)}
-.lbl-da{left:4%;top:71%}
-.lbl-rwy{left:86%;top:92%;transform:translateX(-50%)}
-.mins-tag{position:absolute;left:68%;top:56%;margin:0;padding:3px 6px;font:700 11px/1 var(--font-mono);letter-spacing:.06em;color:var(--signal);background:var(--canvas);border:1px solid var(--signal);border-radius:2px;opacity:0;transition:opacity .3s var(--ease-out)}
-.fly.done .mins-tag{opacity:1;animation:blink2 .9s steps(1) 1}
-.fly-ctl{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px 40px;align-items:end;padding:24px clamp(18px,2.4vw,32px) 28px;border-top:1px solid var(--line)}
-.fly-ctl .kicker{margin-bottom:8px}
-.fly-ctl h3{font-size:clamp(22px,2vw,28px);margin-bottom:6px}
-.fly-ctl .ins{margin:0;color:var(--text-secondary);font-size:16px}
-.fly-act{display:grid;gap:10px;justify-items:start}
-.hold{min-width:180px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.hold-track{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent-muted)}
-.hold-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-.fly-status{margin:0;font-size:15px;color:var(--text-primary);min-height:1.85em}
-.fly-read{margin:0;font:700 13px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
-
-.strips{list-style:none;margin:40px 0 0;padding:0;display:grid;gap:12px}
-.strip{position:relative;display:grid;grid-template-columns:8px 150px minmax(0,1fr) 120px;align-items:stretch;border:1px solid var(--line);border-radius:6px;background:linear-gradient(90deg,rgba(18,36,82,.55),rgba(18,36,82,.25));transition:border-color .35s var(--ease-out),background-color .35s var(--ease-out)}
-.strip:hover{border-color:var(--line-strong)}
-.strip-bar{position:relative;background:var(--line);border-radius:5px 0 0 5px}
-.strip-bar::after{content:"";position:absolute;inset:0;border-radius:inherit;background:var(--text-primary);box-shadow:0 0 14px rgba(236,233,241,.55);opacity:0;transition:opacity .45s var(--ease-out)}
-.log.landed .strip-bar::after{opacity:1;transition-delay:calc(.75s + var(--i,0)*90ms)}
-.strip-meta{display:grid;align-content:start;gap:10px;padding:18px 16px;border-right:1px solid var(--line)}
-.strip-meta p{margin:0}
+.log-exit{right:-66px;bottom:-60px}
+.hold-lbl{position:absolute;right:0;top:112px;text-align:right;margin:0;font:400 11px/1.5 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.hold-lbl b{color:var(--text-primary);font-weight:700}
+.legs{list-style:none;margin:0;padding:0;display:grid;gap:30px}
+.legs li:nth-child(even) .post{margin-right:64px}
+.post{position:relative;border:1px solid var(--line);border-radius:3px;background:rgba(12,27,64,.88);transition:transform .45s var(--ease-out)}
+.post::before{content:"";position:absolute;inset:-1px;border:1px solid var(--line-strong);border-radius:inherit;opacity:0;transition:opacity .35s var(--ease-out);pointer-events:none}
+.post:hover::before{opacity:1}
+.post:hover{transform:translateX(-3px)}
+.post .rp{right:-66px;top:62px}
+.post .rp .fx-tag{top:-8px}
+.leg-row{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px;padding:11px 18px 10px;border-bottom:1px solid var(--line);font:400 11px/1.4 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
+.leg-row .ln{color:var(--text-primary);font-weight:700}
+.leg-row .lv{color:var(--text-primary)}
+.leg-row .strip-time{margin:0 0 0 auto;font:400 13px/1.4 var(--font-mono);letter-spacing:.04em;color:var(--text-primary);white-space:nowrap}
+.leg-row .strip-time .ete{font-size:11px;letter-spacing:.1em;color:var(--text-secondary);margin-right:.5em}
+.post .strip-meta{display:flex;align-items:center;gap:10px;padding:16px 20px 0}
+.post .strip-meta p{margin:0}
 .strip-date{font:400 13px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary)}
-.strip-tag{justify-self:start;padding:4px 7px;font:700 11px/1 var(--font-mono);letter-spacing:.1em;border:1px solid var(--line-strong);border-radius:2px}
-.strip-main{padding:16px 22px 18px}
-.strip-main h3{font-size:clamp(18px,1.5vw,21px);line-height:1.45;margin-bottom:6px}
-.strip-main p{margin:0;font-size:15.5px;line-height:1.8;color:var(--text-secondary);max-inline-size:46ic}
-.strip-time{display:flex;align-items:flex-start;justify-content:flex-end;margin:0;padding:18px 16px;font:400 13px/1 var(--font-mono);color:var(--text-secondary);border-left:1px solid var(--line);white-space:nowrap}
-.list-end{margin:26px 0 8px;color:var(--text-secondary)}
+.strip-tag{padding:4px 7px;font:700 11px/1 var(--font-mono);letter-spacing:.1em;border:1px solid var(--line-strong);border-radius:2px}
+.post h3{padding:10px 20px 0;font-size:clamp(18px,1.5vw,21px);line-height:1.45}
+.post .ex{margin:0;padding:6px 20px 20px;font-size:15.5px;line-height:1.8;color:var(--text-secondary);max-inline-size:46ic}
+.js .legs.in .rv,.js .legs .rv{transform:translateX(-26px)}
+.js .legs.in .rv{transform:none}
 
-/* ============ 03 TYPE ============ */
-.type .wrap{text-align:center}
-.type .wrap>[data-io]>p{margin-inline:auto}
-.icao{display:inline-flex;flex-wrap:wrap;justify-content:center;margin:0 auto;padding:0;list-style:none;border:1px solid var(--line-strong);border-radius:6px;overflow:hidden}
-.icao li{padding:10px 16px;font:400 12px/1.2 var(--font-mono);letter-spacing:.1em;border-right:1px solid var(--line);margin-right:-1px;white-space:nowrap}
-.icao-gloss{margin:12px auto 0;font-size:14px;color:var(--text-secondary);max-inline-size:none}
-.type .kicker{margin-top:56px}
+/* ============ 03 PC12X: the legend box ============ */
+.type .fix.lane{left:calc(100% - var(--lane));top:-70px}
+.type .bend{left:calc(100% - var(--lane));bottom:-50px}
+.legend{position:relative;margin-right:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
+.js .legend{clip-path:inset(0 0 100% 0);transition:clip-path 1.5s var(--ease-io)}
+.js .type .in .legend,.js .legend-wrap.in .legend{clip-path:inset(-8px)}
+.lg-tab{position:absolute;left:-6px;top:-34px;margin:0;padding:6px 10px;font:700 11px/1 var(--font-mono);letter-spacing:.16em;background:var(--text-primary);color:var(--canvas)}
+.icao{display:flex;flex-wrap:wrap;margin:0;padding:0;list-style:none;border-bottom:1px solid var(--line-strong);background:rgba(18,36,82,.6)}
+.icao li{padding:12px 16px;font:400 12px/1.2 var(--font-mono);letter-spacing:.1em;border-right:1px solid var(--line);white-space:nowrap}
+.icao-gloss{margin:0;padding:10px 28px 0;font-size:14px;color:var(--text-secondary);max-inline-size:none}
+.lg-body{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:24px 48px;padding:30px 28px 0;align-items:center}
+.type .kicker{margin:0 0 12px}
 .type h2{margin-bottom:14px}
-.type .lede{margin-inline:auto}
-.outline{margin:40px auto 0;max-width:1100px}
+.callouts{display:grid;gap:12px;margin:26px 0 0;padding:20px 0 0;list-style:none;border-top:1px solid var(--line)}
+.callouts li{display:flex;align-items:center;gap:12px;font:600 15px/1.4 var(--font-head)}
+.callouts svg{flex:none;width:24px;height:24px}
+.callouts circle{fill:none;stroke:var(--line-strong);stroke-width:1.5}
+.callouts text{fill:var(--text-primary);font:400 13px var(--font-mono);text-anchor:middle;dominant-baseline:central}
+.callouts .lat{font-family:var(--font-body);font-weight:400}
+.callouts .lk{margin-left:auto;font:400 11px/1 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
+.outline{margin:0}
 .outline svg{width:100%;height:auto;overflow:visible}
-.outline .o{stroke:var(--text-secondary);stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round}
+.js .outline svg{clip-path:inset(-4% 100% -4% 0);transition:clip-path 1.6s var(--ease-io) .3s}
+.js .outline.in svg{clip-path:inset(-4% -4% -4% -4%)}
+.outline .o{fill:none;stroke:var(--text-secondary);stroke-width:1.25;stroke-linejoin:round;stroke-linecap:round;vector-effect:non-scaling-stroke}
 .outline .o.dim{stroke:var(--line-strong)}
-.outline .lead{stroke:var(--line-strong);stroke-width:1}
+.outline .lead{fill:none;stroke:var(--line-strong);stroke-width:1;vector-effect:non-scaling-stroke}
 .outline .mk circle{fill:var(--canvas);stroke:var(--line-strong);stroke-width:1.5;vector-effect:non-scaling-stroke}
 .outline .mk text{fill:var(--text-primary);font:400 20px var(--font-mono);text-anchor:middle;dominant-baseline:central}
 .ghost-blades path{fill:rgba(169,168,192,.07);stroke:rgba(169,168,192,.24);stroke-width:1;vector-effect:non-scaling-stroke}
 .type.live .ghost-rot{animation:prop 12s linear -3s infinite}
 @keyframes prop{to{transform:rotate(360deg)}}
-.callouts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 28px;margin:22px 0 0;padding:0;list-style:none}
-.callouts li{display:flex;align-items:center;gap:10px;font:600 15px/1.4 var(--font-head)}
-.callouts svg{flex:none;width:24px;height:24px}
-.callouts circle{fill:none;stroke:var(--line-strong);stroke-width:1.5}
-.callouts text{fill:var(--text-primary);font:400 13px var(--font-mono);text-anchor:middle;dominant-baseline:central}
-.callouts .lat{font-family:var(--font-body);font-weight:400}
-.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:56px 0 0;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden;text-align:left}
-.facts>div{padding:24px clamp(18px,2vw,28px) 26px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -1px -1px 0}
-.facts dt{font:400 12px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
-.facts .val{display:block;margin:12px 0 10px;font:600 clamp(36px,4vw,60px)/1 var(--font-display);letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.facts{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:34px 28px 0;border:1px solid var(--line-strong);text-align:left}
+.facts>div{position:relative;padding:20px clamp(16px,1.8vw,24px) 22px 64px;border-right:1px solid var(--line);border-bottom:1px solid var(--line);margin:0 -1px -1px 0}
+.facts dt{position:absolute;left:14px;top:22px;width:38px;padding:5px 0;font:700 10px/1 var(--font-mono);letter-spacing:.08em;text-align:center;color:var(--text-primary);border:1px solid var(--ink-2);border-radius:2px}
+.facts .val{display:block;margin:0 0 10px;font:600 clamp(32px,3.2vw,50px)/1 var(--font-display);letter-spacing:.01em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
 .facts dd{margin:0}
 .facts .line{display:block;font-size:15px;line-height:1.8;color:var(--text-secondary)}
-.type .fnote{margin:22px auto 0;font-size:13.5px;color:var(--text-secondary);max-inline-size:52ic}
+.type .fnote{margin:0;padding:18px 28px 0;font-size:13.5px;color:var(--text-secondary);max-inline-size:none}
+.type .fnote .src{font:700 11px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-primary);margin-right:.6em}
 
-/* ============ 04 AI ============ */
-.ai{padding-top:0}
-.ai-banner{position:relative;height:max(260px,28.57vw);max-height:520px;overflow:hidden;display:flex;align-items:flex-start;border-block:1px solid var(--line);background:linear-gradient(180deg,#0A1733 0%,#0E1D44 48%,#14275A 100%)}
-/* banner still: runway approach lights at dusk, no aircraft. Cropped to keep the green threshold bar and the approach-light bars
-   (source y 30%-62%) in view; the navy dim is deepest at the upper left, where the kicker and H2 sit. */
+/* ============ 04 AISHP: the communications panel ============ */
+.ai .fix.lane{left:var(--lane);top:-70px}
+.ai .bend{left:var(--lane);bottom:-50px}
+.comm{position:relative;margin-left:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
+.comm-head{position:relative;overflow:hidden;min-height:max(250px,19vw);display:flex;flex-direction:column;justify-content:flex-end;padding:28px 30px;border-bottom:1px solid var(--line-strong);background:linear-gradient(180deg,#0A1733 0%,#0E1D44 48%,#14275A 100%)}
 .ai-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 35%}
-.ai-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,rgba(10,23,51,.86) 0%,rgba(10,23,51,.66) 34%,rgba(10,23,51,.18) 62%,rgba(10,23,51,.30) 100%),linear-gradient(180deg,rgba(10,23,51,.35) 0%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 75%,rgba(10,23,51,.55) 100%)}
-.ai-banner .wrap{position:relative;padding-top:clamp(40px,6vw,76px);text-shadow:var(--tshadow)}
-.ai-banner h2{font-size:clamp(34px,4vw,56px)}
+.ai-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(100deg,rgba(10,23,51,.9) 0%,rgba(10,23,51,.7) 34%,rgba(10,23,51,.2) 62%,rgba(10,23,51,.3) 100%),linear-gradient(180deg,rgba(10,23,51,.3) 0%,rgba(10,23,51,0) 40%,rgba(10,23,51,0) 60%,rgba(10,23,51,.6) 100%)}
+.comm-head .kicker,.comm-head h2{position:relative;text-shadow:var(--tshadow)}
+.comm-head h2{font-size:clamp(34px,4vw,56px)}
+.comm-tag{position:absolute;left:-1px;top:-1px;z-index:1;margin:0;padding:6px 10px;font:700 11px/1 var(--font-mono);letter-spacing:.16em;background:var(--text-primary);color:var(--canvas)}
 .drz{position:absolute;inset:0;pointer-events:none}
 .drz i{position:absolute;top:0;bottom:0;left:var(--x);width:1px;background:linear-gradient(180deg,rgba(169,168,192,0),rgba(169,168,192,1)) 0 0/1px 64px no-repeat;opacity:var(--o,.14);transform:translateY(-100%)}
 .ai.live .drz i{animation:fall var(--t,7s) linear var(--dl,-2s) infinite}
 @keyframes fall{from{transform:translateY(-12%) rotate(8deg)}to{transform:translateY(100%) rotate(8deg)}}
-.ai .lede{margin:34px 0 40px}
-.ai-grid{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:clamp(24px,3vw,48px);align-items:start}
-.shelf{margin:0 0 40px}
-.aisle{display:flex;align-items:stretch;margin-bottom:10px;border:1px solid var(--line-strong);border-radius:4px;width:max-content;max-width:100%;overflow:hidden}
+.comm>.lede{margin:0;padding:22px 30px;border-bottom:1px solid var(--line);max-inline-size:none}
+.comm-grid{display:grid;grid-template-columns:minmax(0,1fr) 400px;align-items:stretch}
+.radio{display:flex;flex-direction:column;gap:18px;padding:24px 28px 28px;border-right:1px solid var(--line);min-width:0}
+.radio-head{display:flex;align-items:center;gap:16px;padding:12px 16px;border:1px solid var(--line-strong);border-radius:6px;background:#071026}
+.rh-l{font:700 11px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
+.rh-f{display:grid;gap:5px;min-width:0}
+.rh-f i{font:400 10px/1 var(--font-mono);font-style:normal;letter-spacing:.14em;color:var(--text-secondary)}
+.rh-f b{display:block;font:700 26px/1 var(--font-mono);letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.rh-f .nm{font:400 12px/1.2 var(--font-head);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rh-sby b{font-size:18px;color:var(--cyan)}
+.rh-act b.flip{animation:flip .5s var(--ease-out)}
+@keyframes flip{from{opacity:0;transform:translateY(.45em)}to{opacity:1;transform:none}}
+.rh-swap{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:40px;padding:0;background:transparent;border:1px solid var(--line-strong);border-radius:6px;cursor:pointer;color:var(--text-primary);transition:transform .35s var(--ease-out)}
+.rh-swap svg{width:20px;height:20px}
+.rh-swap:hover{transform:translateY(-1px)}
+.rh-swap:active{transform:translateY(1px)}
+.tune{display:flex;gap:8px;margin:0;padding:2px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.tune::-webkit-scrollbar{display:none}
+.tab{position:relative;flex:1 0 128px;scroll-snap-align:start;display:grid;justify-items:start;gap:5px;padding:10px 12px 11px;text-align:left;background:rgba(10,23,51,.5);border:1px solid var(--line-strong);border-radius:6px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.tab::after{content:"";position:absolute;inset:-1px;border:1.5px solid var(--cyan);border-radius:inherit;opacity:0;transition:opacity .35s var(--ease-out);pointer-events:none}
+.tab[aria-selected="true"]::after{opacity:1}
+.tab .tc{font:700 11px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.tab .tf{font:700 17px/1 var(--font-mono);letter-spacing:.02em;color:var(--text-primary)}
+.tab[aria-selected="true"] .tf{color:var(--cyan)}
+.tab .tn{font:400 13px/1.3 var(--font-head);color:var(--text-secondary);white-space:nowrap}
+.tab[aria-selected="true"] .tn{color:var(--text-primary)}
+.shelf.tuned .shelf-in{animation:tune-in .55s var(--ease-out)}
+@keyframes tune-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.aisle{display:flex;align-items:stretch;margin-bottom:10px;border:1px solid var(--line-strong);border-radius:3px;width:max-content;max-width:100%;overflow:hidden}
 .aisle b{display:flex;align-items:center;padding:6px 10px;font:700 13px/1 var(--font-mono);letter-spacing:.08em;background:var(--text-primary);color:var(--canvas)}
 .aisle h3{display:flex;align-items:center;padding:6px 14px;font-size:17px;line-height:1.4}
+.aisle .af{display:flex;align-items:center;padding:6px 12px;border-left:1px solid var(--line);font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--cyan)}
 .shelf-blurb{margin:0 0 16px;font-size:15px;color:var(--text-secondary)}
-.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
-.card{display:flex;flex-direction:column;gap:8px;padding:16px 16px 14px;border:1px solid var(--line);border-radius:8px;background:rgba(18,36,82,.5);transition:border-color .35s var(--ease-out),transform .35s var(--ease-out)}
-.card:hover{border-color:var(--line-strong);transform:translateY(-2px)}
+.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.card{position:relative;display:flex;flex-direction:column;gap:8px;padding:30px 16px 14px;border:1px solid var(--line);border-radius:3px;background:rgba(18,36,82,.5);transition:transform .35s var(--ease-out)}
+.card::before{content:"";position:absolute;inset:-1px;border:1px solid var(--line-strong);border-radius:inherit;opacity:0;transition:opacity .35s var(--ease-out);pointer-events:none}
+.card:hover::before{opacity:1}
+.card:hover{transform:translateY(-2px)}
+.card .ix{position:absolute;left:16px;top:11px;font:400 10px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
 .card h4{font-size:17px;line-height:1.4}
 .card .desc{margin:0;font-size:14.5px;line-height:1.75;color:var(--text-primary)}
 .badge{align-self:flex-start;padding:3px 8px;font:400 12px/1.4 var(--font-head);color:var(--text-secondary);border:1px solid var(--line-strong);border-radius:999px}
@@ -486,9 +646,12 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .card .open{margin-top:auto;padding-top:4px;display:inline-flex;align-items:baseline;gap:8px;font:600 14px/1.6 var(--font-head);text-decoration:none;color:var(--text-primary)}
 .card .open .dom{font:400 12px/1 var(--font-mono);letter-spacing:0;color:var(--text-secondary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px;transition:color .3s var(--ease-out)}
 .card .open:hover .dom{color:var(--text-primary)}
-.shelf-note{font-size:14px;color:var(--text-secondary);margin-top:-8px}
+.shelf-note{font-size:14px;color:var(--text-secondary);margin:16px 0 0}
 
-.chat{position:sticky;top:84px;display:flex;flex-direction:column;border:1px solid var(--line-strong);border-radius:10px;background:var(--panel);overflow:hidden}
+.chat{position:sticky;top:84px;align-self:start;display:flex;flex-direction:column;background:transparent}
+.twr{display:flex;align-items:center;gap:10px;margin:0;padding:12px 20px;border-bottom:1px solid var(--line);font:400 11px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
+.twr b{font-weight:700;color:var(--text-primary)}
+.twr .twf{margin-left:auto;font:700 15px/1 var(--font-mono);letter-spacing:.04em;color:var(--text-primary)}
 .chat-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding:18px 20px 0}
 .chat-head h3{font-size:21px}
 .lamp{display:inline-flex;align-items:center;gap:8px;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
@@ -501,65 +664,185 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .ai.live .lamp[data-state="inop"] .lamp-dot,.ai.live .lamp[data-state="stby"] .lamp-dot{animation:breathe-d 4s var(--ease-io) -1s infinite alternate}
 .chat-lede{margin:8px 20px 0;font-size:15px}
 .chat-caution{margin:8px 20px 0;font-size:13.5px;line-height:1.7;color:var(--text-secondary)}
-.chat-log{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;padding:16px 20px;min-height:180px;max-height:340px;overflow-y:auto;border-block:1px solid var(--line);background:rgba(10,23,51,.45)}
+.chat-log{display:flex;flex-direction:column;gap:10px;margin:16px 0 0;padding:16px 20px;min-height:180px;max-height:340px;overflow-y:auto;border-block:1px solid var(--line);background:rgba(7,16,38,.6)}
 .msg{max-width:88%;padding:10px 13px;border-radius:10px;font-size:15px;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere}
 .msg p{margin:0;max-inline-size:none}
 .msg.assistant{align-self:flex-start;background:rgba(18,36,82,.95);border:1px solid var(--line)}
 .msg.user{align-self:flex-end;background:rgba(94,110,162,.28);border:1px solid var(--line-strong)}
 .placard{display:inline-block;margin:0 8px 4px 0;padding:2px 6px;font:700 11px/1.2 var(--font-mono);letter-spacing:.1em;color:var(--signal);border:1px solid var(--signal);border-radius:2px;vertical-align:1px}
 .chips{display:flex;flex-wrap:wrap;gap:8px;padding:14px 20px 0}
-.chips button{padding:7px 12px;font:400 13.5px/1.4 var(--font-head);text-align:left;background:transparent;border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;transition:border-color .3s var(--ease-out),background-color .3s var(--ease-out)}
-.chips button:hover{border-color:var(--text-primary);background:rgba(94,110,162,.15)}
+.chips button{padding:7px 12px;font:400 13.5px/1.4 var(--font-head);text-align:left;background:transparent;border:1px solid var(--line-strong);border-radius:999px;cursor:pointer;transition:transform .3s var(--ease-out)}
+.chips button:hover{transform:translateY(-1px)}
 .chat-form{display:flex;gap:10px;align-items:flex-end;padding:14px 20px 0}
-.chat-form textarea{flex:1;min-height:48px;max-height:140px;padding:12px 13px;font-size:15px;line-height:1.5;resize:vertical;background:rgba(10,23,51,.6);border:1px solid var(--line-strong);border-radius:8px;transition:border-color .3s var(--ease-out)}
+.chat-form textarea{flex:1;min-height:48px;max-height:140px;padding:12px 13px;font-size:15px;line-height:1.5;resize:vertical;background:rgba(7,16,38,.7);border:1px solid var(--line-strong);border-radius:8px}
 .chat-form textarea::placeholder,.sub-form input::placeholder{color:var(--text-secondary);opacity:1}
 .chat-form textarea:focus-visible,.sub-form input:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-color:var(--text-primary)}
 .chat-form .btn{flex:none}
 .chat-form .btn[aria-disabled="true"],.chips button[aria-disabled="true"]{opacity:.65;cursor:progress}
-.chips button[aria-disabled="true"]:hover{border-color:var(--line-strong);background:transparent}
+.chips button[aria-disabled="true"]:hover{transform:none}
 .chat-limit{margin:8px 20px 0;font-size:12.5px;line-height:1.6;color:var(--text-secondary);max-inline-size:none}
-.chat-limit:empty{margin:0}   /* stays in the accessibility tree so the live region announces when it fills */
-.chat-privacy{margin:10px 20px 18px;font-size:12.5px;line-height:1.7;color:var(--text-secondary)}
+.chat-limit:empty{margin:0}
+.chat-privacy{margin:10px 20px 20px;font-size:12.5px;line-height:1.7;color:var(--text-secondary)}
 
-/* ============ 05 FAQ ============ */
-.checklist{position:relative;max-width:760px;margin:0 auto;border:1px solid var(--line-strong);border-radius:10px;background:rgba(18,36,82,.45);overflow:hidden}
-.cl-head{margin:0;padding:12px 24px;font:700 12px/1.4 var(--font-mono);letter-spacing:.14em;background:var(--text-primary);color:var(--canvas);max-inline-size:none}
-.cl-body{padding:28px clamp(18px,3vw,36px) 10px}
+/* ============ 05 CHKLT: notes and NOTAM ============ */
+.faq .fix.lane{left:calc(100% - var(--lane));top:-70px}
+.faq-grid{display:grid;grid-template-columns:minmax(0,780px) minmax(0,1fr);column-gap:48px;margin-right:var(--inset);align-items:start}
+.checklist{position:relative;grid-column:1;border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper);overflow:hidden}
+.cl-bar{display:flex;justify-content:space-between;gap:16px;background:var(--text-primary);color:var(--canvas)}
+.cl-head,.cl-id{margin:0;padding:12px 22px;font:700 12px/1.4 var(--font-mono);letter-spacing:.14em;max-inline-size:none}
+.cl-id{font-weight:400}
+.cl-body{padding:26px clamp(18px,3vw,34px) 12px}
+.cl-body .kicker{margin-bottom:12px}
 .cl-body h2{margin-bottom:12px}
-.cl-rows{margin:20px 0 0}
-.cl-row{padding:18px 0 16px;border-top:1px solid var(--line)}
-.cl-row dt{display:flex;align-items:baseline;gap:12px;font:600 18px/1.5 var(--font-head)}
+.cl-rows{margin:18px 0 0}
+.cl-row{padding:16px 0 14px;border-top:1px solid var(--line)}
+.js .cl-row{clip-path:inset(0 100% 0 0);transition:clip-path 1s var(--ease-io);transition-delay:calc(.3s + var(--i,0)*.16s)}
+.js .faq.in .cl-row{clip-path:inset(0 -2px 0 0)}
+.cl-row dt{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 12px;font:600 18px/1.5 var(--font-head)}
+.cl-row .nid{flex-basis:100%;font:400 11px/1.4 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
 .cl-row .lead{flex:1;min-width:24px;border-bottom:2px dotted var(--line-strong);transform:translateY(-4px)}
 .cl-row .r{font:700 15px/1.5 var(--font-head);letter-spacing:.04em;white-space:nowrap}
 .cl-row dd{margin:8px 0 0;font-size:15.5px;line-height:1.85;color:var(--text-secondary)}
 .cl-row dd p{margin:0;max-inline-size:none}
+.cl-row .e{font:400 11px/1 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary);margin-right:.7em}
 .scan{position:absolute;left:0;right:0;top:0;height:100%;pointer-events:none;transform:translateY(-100%)}
 .scan::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2px;background:linear-gradient(90deg,rgba(169,168,192,0),rgba(169,168,192,.35),rgba(169,168,192,0))}
 .faq.live .scan{animation:scan 10s var(--ease-io) -3s infinite}
 @keyframes scan{0%{transform:translateY(-100%)}60%,100%{transform:translateY(0)}}
-.faq .after{text-align:center;margin:30px auto 0}
+.msa{grid-column:2;position:relative;margin:24px 0 0;justify-self:center;width:min(100%,320px)}
+.msa svg{width:100%;height:auto;overflow:visible}
+.msa .c{fill:var(--paper);stroke:var(--ink-2);stroke-width:1.2}
+.msa .s{stroke:var(--ink-2);stroke-width:1.2}
+.msa text{fill:var(--text-primary);font:600 26px var(--font-display);text-anchor:middle;dominant-baseline:central}
+.msa .sm{fill:var(--text-secondary);font:400 11px var(--font-mono);letter-spacing:.08em}
+.msa .ar{fill:var(--ink-2)}
+.js .msa{opacity:0;transform:rotate(-24deg) scale(.95);transition:opacity 1.2s var(--ease-out) .4s,transform 1.8s var(--ease-out) .4s}
+.js .faq.in .msa{opacity:1;transform:none}
+.faq .after{grid-column:1;margin:30px 0 0}
 
-/* ============ 06 SUBSCRIBE ============ */
-.subscribe{overflow:hidden;padding:clamp(80px,12vh,140px) 0 0}
-/* the ending frame keeps only its cloud base and a faint aircraft around the card; its own runway and lights (lower half)
-   are dimmed out so the page lands on one runway, the drawn one */
-.sub-bg{position:absolute;inset:0;background:linear-gradient(180deg,rgba(10,23,51,1) 0%,rgba(10,23,51,.86) 24%,rgba(10,23,51,.9) 42%,rgba(10,23,51,.97) 58%,rgba(10,23,51,.99) 100%),url(assets/hero-end.webp) 50% 40%/cover no-repeat}
-.sub-stage{position:relative;width:min(520px,100%);margin:0 auto;padding-bottom:var(--rwh,440px)}
-.runway{position:absolute;left:50%;top:calc(100% - var(--rwh,440px));width:1600px;height:var(--rwh,440px);max-width:none;transform:translateX(-50%);pointer-events:none}
-.runway .ln{stroke:var(--line-strong);stroke-width:1}
-.runway .cl{fill:none;stroke:var(--line-strong);stroke-width:1.5;stroke-dasharray:12 14;vector-effect:non-scaling-stroke}
-.runway .edge{fill:var(--edge-light);opacity:.8}
-.runway .thl{fill:var(--threshold);opacity:.85}
-.runway .bar{fill:var(--text-primary);opacity:.6}
-.runway .rab{fill:#fff;opacity:0}
-.subscribe.live .runway .rab{animation:rabbit 5s linear infinite;animation-delay:calc(var(--r)*90ms - 2s)}
+/* ============ APPROACH: the plate, and the one thing you fly by hand ============ */
+.apch{padding-bottom:120px}
+.apch .bend{left:calc(100% - var(--lane));bottom:-50px}
+.fly{position:relative;margin-right:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
+.brief{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0;border-bottom:1px solid var(--line-strong)}
+.brief>div{padding:10px 14px 11px;border-right:1px solid var(--line)}
+.brief>div:last-child{border-right:0}
+.brief dt{font:400 10px/1.3 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
+.brief dd{margin:5px 0 0;font:700 14px/1.2 var(--font-mono);letter-spacing:.06em;color:var(--text-primary);white-space:nowrap}
+.brief .ttl dd{font:600 17px/1.2 var(--font-head);letter-spacing:.06em}
+.fly-plate{position:relative;aspect-ratio:1000/320;overflow:hidden;background:radial-gradient(ellipse 80% 120% at 85% 110%,rgba(61,68,107,.55),rgba(61,68,107,0) 60%),linear-gradient(180deg,#0F2152,#0C1A3E)}
+.fly-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%}
+.fly-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(10,23,51,0) 36%,rgba(10,23,51,.5) 60%,rgba(10,23,51,.56) 100%),linear-gradient(180deg,rgba(10,23,51,.82) 0%,rgba(10,23,51,.72) 55%,rgba(10,23,51,.88) 100%)}
+.plate{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
+.plate .ln{fill:none;stroke:var(--line-strong);stroke-width:1.25;vector-effect:non-scaling-stroke}
+.plate .gs{stroke:var(--text-secondary);stroke-width:1.5}
+.plate .rwy{stroke:var(--text-secondary);stroke-width:5}
+.plate .da{fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:6 6;vector-effect:non-scaling-stroke}
+.plate .ma{fill:none;stroke:var(--ink-2);stroke-width:1.2;stroke-dasharray:7 6;vector-effect:non-scaling-stroke}
+.js .plate{clip-path:inset(0 100% 0 0);transition:clip-path 1.8s var(--ease-io)}
+.js .fly.in .plate{clip-path:inset(-2px)}
+.pl{position:absolute;left:calc(var(--x)*1%);top:calc(var(--y)*1%)}
+.alb,.edg{width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:var(--line-strong)}
+.edg{width:5px;height:5px;margin:-2.5px 0 0 -2.5px}
+.alb::after,.edg::after,.thb::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity .5s var(--ease-out)}
+.alb::after{background:var(--text-primary);box-shadow:0 0 10px rgba(236,233,241,.7)}
+.edg::after{background:var(--edge-light);box-shadow:0 0 8px rgba(242,201,138,.7)}
+.thb{width:4px;height:8%;margin:0 0 0 -2px;transform:translateY(-50%);background:var(--line-strong);border-radius:2px}
+.thb::after{background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.7)}
+.fly.done .alb::after,.fly.done .edg::after,.fly.done .thb::after{opacity:1}
+.fly.done .alb:nth-of-type(2)::after{transition-delay:.06s}.fly.done .alb:nth-of-type(3)::after{transition-delay:.12s}.fly.done .alb:nth-of-type(4)::after{transition-delay:.18s}.fly.done .alb:nth-of-type(5)::after{transition-delay:.24s}
+.fly.done .thb::after{transition-delay:.4s}
+.fly.done .edg::after{transition-delay:.55s}
+.faf-x{width:18px;height:18px;margin:-9px 0 0 -9px}
+.faf-x svg{width:100%;height:100%;overflow:visible}
+.faf-x path{fill:var(--canvas);stroke:var(--ink);stroke-width:1.4}
+.dev{position:absolute;right:2.6%;top:9%;display:grid;gap:6px;justify-items:center}
+.dev i{width:8px;height:8px;border:1px solid var(--text-secondary);border-radius:50%}
+.dev .dia{width:11px;height:11px;border:0;border-radius:1px;background:var(--text-secondary);transform:rotate(45deg);margin:1px 0}
+.fly.live:not(.touched) .dev .dia{animation:breathe-d 5s var(--ease-io) -1.2s infinite alternate}
+.pglyph{position:absolute;left:-12px;top:-12px;width:24px;height:24px;will-change:transform}
+.pglyph svg{width:100%;height:100%;overflow:visible}
+.pglyph path{fill:var(--accent)}
+.plate-lbl{position:absolute;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(6,14,32,.9)}
+.lbl-fap{left:15%;top:6%;transform:translateX(-50%)}
+.lbl-gs{left:39%;top:42%;transform-origin:0 50%;transform:rotate(var(--gsa,19deg)) translateY(-150%)}
+.lbl-da{left:3%;top:73%}
+.lbl-rwy{left:86%;top:92%;transform:translateX(-50%)}
+.lbl-dme{left:15%;top:92%;transform:translateX(-50%)}
+.lbl-thr{left:76%;top:92%;transform:translateX(-50%)}
+.lbl-ma{left:81%;top:30%}
+.mins-tag{position:absolute;left:68%;top:56%;margin:0;padding:3px 6px;font:700 11px/1 var(--font-mono);letter-spacing:.06em;color:var(--signal);background:var(--canvas);border:1px solid var(--signal);border-radius:2px;opacity:0;transition:opacity .3s var(--ease-out)}
+.fly.done .mins-tag{opacity:1;animation:blink2 .9s steps(1) 1}
+.fly-ctl{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px 40px;align-items:end;padding:24px clamp(18px,2.4vw,32px) 26px;border-top:1px solid var(--line-strong)}
+.fly-ctl .kicker{margin-bottom:8px}
+.fly-ctl h2{font-size:clamp(24px,2.2vw,32px);margin-bottom:6px}
+.fly-ctl .ins{margin:0;color:var(--text-secondary);font-size:16px}
+.fly-act{display:grid;gap:10px;justify-items:start}
+.hold{min-width:180px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.hold-track{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent-muted)}
+.hold-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
+.fly-status{margin:0;font-size:15px;color:var(--text-primary);min-height:1.85em}
+.fly-read{margin:0;font:700 13px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.mins-strip{display:grid;grid-template-columns:auto minmax(0,1fr);margin:0;border-top:1px solid var(--line-strong);font:400 11px/1.5 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
+.mins-strip>p{margin:0;padding:11px 16px;max-inline-size:none}
+.mins-strip>p+p{border-left:1px solid var(--line)}
+.mins-strip b{color:var(--text-primary);font-weight:700}
+
+/* ============ 06 RW24 / 06: the runway the chart lands on ============ */
+.subscribe{padding:0 0 150px;scroll-margin-top:-380px}
+.rwy-zone{position:relative;width:min(620px,100% - 32px);margin:0 auto;padding-top:560px}
+.rwy-zone .faf{left:50%;top:200px}
+.rwy-zone .faf .fx-tag{top:-14px}
+.loc{position:absolute;left:50%;top:96px;width:76px;height:300px;margin-left:-38px;overflow:visible}
+.loc path{fill:none;stroke:var(--ink-3);stroke-width:1.2}
+.loc .lf{fill:rgba(94,110,162,.12)}
+.loc-lbl{position:absolute;left:calc(50% + 48px);top:250px;margin:0;display:grid;gap:4px;font:400 11px/1.2 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary);text-shadow:var(--halo)}
+.loc-lbl b{color:var(--text-primary);font-weight:700}
+.als{position:absolute;left:0;right:0;top:420px;height:118px}
+.als-row{position:absolute;left:50%;display:flex;gap:9px;transform:translateX(-50%)}
+.als-row i{width:6px;height:6px;border-radius:50%;background:rgba(236,233,241,.42)}
+.als-row .rab{position:absolute;left:50%;top:-3px;width:12px;height:12px;margin-left:-6px;background:#fff;box-shadow:0 0 14px #fff;opacity:0}
+.subscribe.live .als-row .rab{animation:rabbit 5s linear infinite;animation-delay:calc(var(--r)*90ms - 2s)}
 @keyframes rabbit{0%{opacity:0}1%{opacity:1}3.5%{opacity:0}100%{opacity:0}}
-.sub-card{position:relative;width:min(520px,100%);margin:0 auto;padding:clamp(26px,3vw,40px);border:1px solid var(--line-strong);border-radius:12px;background:rgba(18,36,82,.88);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);text-align:center;box-shadow:0 30px 80px rgba(6,14,32,.55)}
+.subscribe.landed .als-row i{background:var(--text-primary);box-shadow:0 0 8px rgba(236,233,241,.6)}
+.rwy{position:relative;border-inline:2px solid rgba(236,233,241,.5);padding:0 30px}
+.rwy-thr{position:relative;height:250px}
+.lights{position:absolute;left:-2px;right:-2px;display:flex;justify-content:space-between}
+.lights i{position:relative;width:6px;height:6px;border-radius:50%;background:rgba(79,208,138,.35)}
+.lights i::after{content:"";position:absolute;inset:0;border-radius:50%;opacity:0;transition:opacity .6s var(--ease-out);transition-delay:calc(var(--i,0)*30ms)}
+.lights.g{top:-4px}
+.lights.g i::after{background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.8)}
+.lights.r{bottom:-4px}
+.lights.r i{background:rgba(234,76,34,.35)}
+.lights.r i::after{background:#E8553A;box-shadow:0 0 10px rgba(232,85,58,.8)}
+.subscribe.landed .lights i::after{opacity:1}
+.keys{position:absolute;left:0;right:0;display:flex;justify-content:space-between;padding:0 4px}
+.keys span{display:flex;gap:9px}
+.keys i{width:9px;height:56px;background:rgba(236,233,241,.42)}
+.rwy-thr .keys{top:18px}
+.rwy-no{position:absolute;left:50%;margin:0;font:600 58px/1 var(--font-display);letter-spacing:.06em;color:rgba(236,233,241,.62);transform:translateX(-50%)}
+.rwy-thr .rwy-no{top:92px;transform:translateX(-50%) rotate(180deg)}
+.tdz{position:absolute;left:0;right:0;top:184px;display:flex;justify-content:space-between;padding:0 30px}
+.tdz span{display:flex;gap:7px}
+.tdz i{width:6px;height:40px;background:rgba(236,233,241,.32)}
+.rwy-zone .td{left:50%;top:-12px}
+.rwy .td{top:236px}
+.rwy-cl{position:absolute;left:50%;top:250px;bottom:250px;width:3px;margin-left:-1.5px;background:repeating-linear-gradient(180deg,rgba(236,233,241,.36) 0 30px,transparent 30px 52px)}
+.edges{position:absolute;top:0;bottom:0;display:flex;flex-direction:column;justify-content:space-between;padding:24px 0}
+.edges.l{left:-6px}.edges.r{right:-6px}
+.edges i{position:relative;width:8px;height:8px;border-radius:50%;background:rgba(242,201,138,.3)}
+.edges i::after{content:"";position:absolute;inset:1px;border-radius:50%;background:var(--edge-light);box-shadow:0 0 9px rgba(242,201,138,.75);opacity:0;transition:opacity .5s var(--ease-out);transition-delay:calc(.3s + var(--i,0)*45ms)}
+.subscribe.landed .edges i::after{opacity:1}
+.rwy-end{position:relative;height:250px}
+.rwy-end .keys{bottom:18px}
+.rwy-end .rwy-no{bottom:92px}
+.sub-card{position:relative;z-index:1;width:min(520px,100%);margin:0 auto;padding:clamp(24px,3vw,38px);border:1px solid var(--line-strong);border-radius:6px;background:rgba(18,36,82,.94);text-align:center;box-shadow:0 30px 80px rgba(6,14,32,.55)}
+.sub-card .kicker{margin-bottom:10px}
 .sub-card .lede{margin:14px auto 6px;font:600 18px/1.7 var(--font-head);text-wrap:balance}
 .sub-card .sub2{margin:0 auto 22px;color:var(--text-secondary);font-size:15.5px}
 .sub-form{display:grid;gap:10px;text-align:left}
 .sub-form label{font:600 14px/1.4 var(--font-head)}
-.sub-form input{width:100%;min-height:50px;padding:0 14px;font:400 16px/1 var(--font-body);background:rgba(10,23,51,.7);border:1px solid var(--line-strong);border-radius:8px;transition:border-color .3s var(--ease-out)}
+.sub-form input{width:100%;min-height:50px;padding:0 14px;font:400 16px/1 var(--font-body);background:rgba(10,23,51,.7);border:1px solid var(--line-strong);border-radius:8px}
 .sub-form input[aria-invalid="true"]{border-color:var(--signal)}
 .sub-err{min-height:1.6em;margin:0;font-size:14px;line-height:1.6;color:var(--signal)}
 .thr5{display:flex;justify-content:center;gap:9px;margin:2px 0 4px}
@@ -569,9 +852,12 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .sub-done{text-align:left;padding:16px 18px;border:1px solid var(--line-strong);border-radius:8px;background:rgba(10,23,51,.6)}
 .sub-done p{margin:0;font-size:15.5px;line-height:1.85;max-inline-size:none}
 .sub-done:focus{outline:none}
+.js .rwy{clip-path:inset(0 0 100% 0);transition:clip-path 1.6s var(--ease-io)}
+.js .subscribe.in .rwy{clip-path:inset(-12px -16px -12px -16px)}
 
-/* ============ FOOTER ============ */
-.foot{position:relative;padding:56px 0 calc(40px + env(safe-area-inset-bottom));border-top:1px solid var(--line);background:rgba(10,23,51,.6)}
+/* ============ FOOTER: the chart's bottom margin ============ */
+.foot{position:relative;padding:44px 0 calc(40px + env(safe-area-inset-bottom));border-top:1px solid var(--line-strong);background:rgba(7,16,38,.72)}
+.foot::before{content:"";position:absolute;left:0;right:0;top:4px;border-top:1px solid var(--ink-4)}
 .foot-grid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:18px 40px;align-items:baseline}
 .foot-mark{display:flex;align-items:baseline;gap:12px;margin:0}
 .foot-mark .brand-name{font-size:22px}
@@ -580,74 +866,188 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .foot-links{display:flex;flex-wrap:wrap;gap:8px 22px;margin:0;padding:0;list-style:none}
 .foot-links a{font:400 15px/1.8 var(--font-head);color:var(--text-secondary);text-decoration:none;transition:color .3s var(--ease-out)}
 .foot-links a:hover{color:var(--text-primary)}
-.foot-notes{grid-column:1 / -1;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+.foot-notes{grid-column:1 / -1;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 40px;align-items:end;margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
 .foot-notes .brand-name{font:inherit;letter-spacing:.04em}
-.foot-notes p{margin:0 0 6px;font-size:13px;line-height:1.8;color:var(--text-secondary);max-inline-size:none}
-
-/* hero diagnostics panel (hidden; five taps on the wordmark) */
-.diag{position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-height:70vh;overflow:auto;margin:0;padding:12px 14px;font:400 11px/1.55 var(--font-mono);color:var(--text-primary);background:rgba(10,23,51,.96);border:1px solid var(--line-strong);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+.foot-notes p{margin:0;font-size:13px;line-height:1.8;color:var(--text-secondary);max-inline-size:none}
+.foot-chart{grid-column:2;grid-row:1 / span 3;align-self:end;margin:0;font:400 11px/1.6 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary);text-align:right}
 
 /* ============ RESPONSIVE ============ */
-@media (max-width:1024px){
-  .about-grid{grid-template-columns:1fr;padding-right:0;row-gap:36px}
-  .about-fig{grid-column:1;margin-right:var(--gutter)}
-  .about-text{grid-column:1;width:var(--wrap);margin-inline:auto}
+@media (max-width:1180px){
+  .comm-grid{grid-template-columns:1fr}
+  .radio{border-right:0}
+  .chat{position:relative;top:auto;border-top:1px solid var(--line-strong)}
+  .log-grid{grid-template-columns:minmax(0,1fr) 270px;column-gap:170px}
+  .faq-grid{grid-template-columns:minmax(0,1fr) 240px;column-gap:32px}
+  .brief{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .brief>div:nth-child(3){border-right:0}
+  .brief>div:nth-child(-n+3){border-bottom:1px solid var(--line)}
+}
+/* phones and narrow tablets: the route runs down the left edge (x = 20px), every section stacks to its right */
+@media (max-width:900px){
+  .chart{--rail-x:-26px}
+  .cw{width:auto;margin:0 16px 0 46px}
+  .sec{padding:100px 0 44px}
+  .neat-l{display:none}
+  .neat-r{right:4px;width:5px}
+  .bg-lbl.lat,.bg-lbl.lon{display:none}
+  .mora{font-size:48px}
+  .hud{left:auto;right:12px;top:72px;bottom:auto;gap:10px;padding:7px 10px;font-size:11px}
+  .hud .dtk{display:none}
+
+  .ch-head{padding-top:72px}
+  .chh{grid-template-columns:1fr}
+  .chh-a{border-right:0;border-bottom:1px solid var(--line)}
+  .chh-t{font-size:24px}
+  .chh-cells{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .chh-cells>div{border-bottom:1px solid var(--line)}
+  .chh-cells>div:nth-child(2n){border-right:0}
+  .chh-cells>div:nth-child(n+3){border-bottom:0}
+  .chh-cells>div{padding:12px 14px 14px}
+  .scale{width:140px}
+  .dep{left:var(--rail-x);bottom:-48px}
+
+  .about-grid{display:block}
+  .about-nav{height:300px;margin:-40px 0 0}
+  .rose-wrap{position:absolute;width:320px;margin:0;left:calc(var(--rail-x) - 160px);top:-30px}
+  .navbox{left:calc(50% + 22px);top:calc(50% + 20px)}
+  .about-nav .bend,.log-exit{display:none}
+  .about-fig{margin-top:44px}
   .logbook{grid-template-columns:repeat(2,minmax(0,1fr))}
   .logbook div{border-bottom:1px solid var(--line);margin-bottom:-1px}
-  .ai-grid{grid-template-columns:1fr}
-  .chat{position:relative;top:auto}
-  .facts{grid-template-columns:repeat(2,minmax(0,1fr))}
-}
-@media (max-width:720px){
-  body{font-size:16px}
-  .about-fig{margin-right:0}
-  .about-art{border-radius:0;border-inline:0}
-  .plate-head{grid-template-columns:1fr auto}
-  .plate-head h2{grid-column:1 / -1;grid-row:2;border-left:0;border-top:1px solid var(--line)}
-  .plate-head>.kicker:last-child{border-left:1px solid var(--line)}
-  .fly-ctl{grid-template-columns:1fr}
-  .plate-lbl{font-size:10px;letter-spacing:.02em}
-  /* the plate is only 105-220px tall here: GS 3.0° rides parallel to and above its line, DA 200 above the dashed DA line,
-     RWY 24 above the edge-light row instead of under the plate's bottom edge */
-  .lbl-gs{left:30%;top:calc(42% - 18px)}
-  .lbl-da{top:calc(79% - 15px)}
-  .lbl-rwy{top:calc(84% - 14px)}
-  .mins-tag{font-size:10px;padding:2px 4px}
-  .strip{grid-template-columns:6px minmax(0,1fr)}
-  .strip-meta{grid-column:2;grid-row:1;display:flex;align-items:center;gap:12px;padding:14px 16px 0;border-right:0}
-  .strip-main{grid-column:2;grid-row:2;padding:10px 16px 6px}
-  .strip-time{grid-column:2;grid-row:3;justify-content:flex-start;padding:4px 16px 16px;border-left:0}
-  .strip-bar{grid-row:1 / span 3}
-  .icao{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));width:100%}
-  .icao li{padding:10px 8px;font-size:11px;border-bottom:1px solid var(--line);margin-bottom:-1px;white-space:normal}
-  .facts{grid-template-columns:1fr}
-  .ai-banner{height:auto;min-height:230px}
+
+  .log-grid{display:flex;flex-direction:column}
+  .log-route{display:contents}
+  .hold-fig{order:1}
+  .log-intro{order:2}
+  .legs{order:3}
+  .log-intro{position:relative;top:auto;margin-bottom:28px}
+  .hold-fig{height:150px}
+  .hold-fig .fix{right:auto;left:var(--rail-x);top:40px}
+  .hold-fig .fx-tag{left:18px;right:auto;justify-items:start;top:-11px}
+  .racetrack{right:auto;left:var(--rail-x);top:-6px;width:290px;transform:scaleX(-1);transform-origin:0 0;margin-left:0}
+  .racetrack text{display:none}
+  .hold-lbl{left:6px;right:auto;top:100px;text-align:left}
+  .legs{gap:22px}
+  .legs li:nth-child(even) .post{margin-right:0}
+  .post .rp{right:auto;left:var(--rail-x);top:62px}
+  .post .rp .fx-tag{display:none}
+  .post:hover{transform:none}
+  .leg-row{padding:10px 14px 9px;gap:4px 14px}
+  .leg-row .strip-time{margin-left:0;flex-basis:100%}
+  .post .strip-meta{padding:14px 16px 0}
+  .post h3{padding:8px 16px 0}
+  .post .ex{padding:6px 16px 18px;font-size:15px}
+  .js .legs .rv{transform:translateX(18px)}
+
+  .type .fix.lane,.ai .fix.lane,.faq .fix.lane{left:var(--rail-x);top:-50px}
+  .type .bend,.ai .bend{display:none}
+  .apch .bend{left:var(--rail-x);bottom:-30px}
+  .legend,.comm,.fly{margin:0}
+  .faq-grid{display:block;margin:0}
+  .lg-tab{left:0;top:-30px}
+  .icao{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .icao li{padding:10px 10px;font-size:11px;border-bottom:1px solid var(--line);white-space:normal}
+  .icao-gloss{padding:10px 16px 0}
+  .lg-body{grid-template-columns:1fr;padding:24px 16px 0}
+  .lg-body .outline{order:2}
+  .facts{grid-template-columns:1fr;margin:28px 16px 0}
+  .type .fnote{padding:16px 16px 0}
+
+  .comm-head{min-height:220px;padding:22px 16px}
+  .comm>.lede{padding:18px 16px}
+  .radio{padding:18px 14px 0;gap:14px}
+  .radio-head{gap:10px;padding:10px 12px}
+  .rh-l{display:none}
+  .rh-f b{font-size:22px}
+  .rh-sby b{font-size:15px}
+  .rh-f .nm{max-width:9em}
+  /* the frequency bar is the thumb bar: after the list, sticky to the bottom of the screen while the shelf is in view */
+  .shelves{order:2}
+  .tune{order:3;position:sticky;bottom:0;z-index:6;margin:0 -14px;padding:10px 14px max(10px,env(safe-area-inset-bottom));background:rgba(7,16,38,.95);border-top:1px solid var(--line-strong);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);scroll-padding-inline:14px}
+  .tab{flex:0 0 118px;padding:9px 10px 10px}
+  .tab .tf{font-size:15px}
   .cards{grid-template-columns:1fr}
   .chat-log{max-height:300px}
-  .chat-form textarea{font-size:16px}   /* under 16px, iOS Safari zooms the page on focus */
+  .chat-form textarea{font-size:16px}
   .chat-form{flex-direction:column;align-items:stretch}
+
+  .checklist{outline-offset:4px}
+  .cl-bar{flex-direction:column;gap:0}
+  .cl-head{padding-bottom:2px}
+  .cl-id{padding-top:0}
+  .msa{display:none}
+
+  .apch{padding-bottom:40px}
+  .brief{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .brief>div{border-bottom:1px solid var(--line)}
+  .brief>div:nth-child(2n){border-right:0}
+  .brief>div:nth-child(3){border-right:1px solid var(--line)}
+  .fly-plate{aspect-ratio:1000/560}
+  .fly-ctl{grid-template-columns:1fr}
+  .plate-lbl{font-size:10px;letter-spacing:.02em}
+  .lbl-da{top:calc(78.75% - 16px)}
+  .lbl-ma{display:none}
+  .mins-tag{font-size:10px;padding:2px 4px;left:62%;top:50%}
+  .mins-strip{grid-template-columns:1fr}
+  .mins-strip>p+p{border-left:0;border-top:1px solid var(--line)}
+
+  .subscribe .cw,.rwy-zone{margin-inline:auto}
+  .subscribe{padding-bottom:110px;scroll-margin-top:-300px}
+  .rwy-zone{width:calc(100% - 24px);padding-top:440px}
+  .rwy-zone .faf{top:150px}
+  .loc{top:60px;height:250px}
+  .loc-lbl{top:196px}
+  .als{top:330px;height:96px}
+  .als-row{gap:7px}
+  .rwy{padding:0 12px}
+  .rwy-thr,.rwy-end{height:200px}
+  .rwy-thr .rwy-no{top:84px;font-size:46px}
+  .rwy-end .rwy-no{bottom:84px;font-size:46px}
+  .keys i{width:7px;height:46px}
+  .keys span{gap:6px}
+  .tdz{top:150px;padding:0 18px}
+  .tdz i{height:32px}
+  .rwy .td{top:190px}
+  .rwy-cl{top:200px;bottom:200px}
+  .sub-card{padding:24px 18px}
+
   .foot-grid{grid-template-columns:1fr}
-  .gs-div{height:72px}
-  .subscribe{--rwh:330px}
-  .runway{width:1200px}
+  .foot-notes{grid-template-columns:1fr}
+  .foot-chart{grid-column:1;grid-row:auto;text-align:left;margin-top:8px}
+}
+@media (max-width:380px){
+  .chh-cells{grid-template-columns:1fr}
+  .chh-cells>div{border-right:0!important;border-bottom:1px solid var(--line)!important}
+  .chh-cells>div:last-child{border-bottom:0!important}
+  .logbook{grid-template-columns:1fr}
+  .tab{flex-basis:108px}
 }
 @media (pointer:coarse){
   .btn,.nav-links a,.chips button,.foot-links a,.card .open{min-height:44px;display:inline-flex;align-items:center}
   .btn{justify-content:center}
   .nav-toggle{min-height:44px}
+  .tab{min-height:44px}
 }
 
 /* ============ REDUCED MOTION (complete, final states) ============ */
 @media (prefers-reduced-motion: reduce){
   html{scroll-behavior:auto}
   *,*::before,*::after{animation:none!important;transition:none!important;transition-delay:0s!important}
-  .js [data-io] .rv{opacity:1;transform:none}
+  .js [data-io] .rv,.js .legs .rv{opacity:1;transform:none}
   .js .draw .ln{stroke-dashoffset:0}
-  .js .fade,.js .fade-l{opacity:1}
+  .js .fade,.js .fade-l,.js .plot{opacity:1}
+  .js .ch-head .chh,.js .about-fig,.js .legend,.js .outline svg,.js .cl-row,.js .plate,.js .rwy{clip-path:none}
+  .js .about .rose,.js .msa{opacity:1;transform:none}
   .drz{display:none}
-  .runway .rab{opacity:0}
+  .als-row .rab{opacity:0}
   .nav-links{transform:none}
+  .hud{display:none}
+  .post:hover,.card:hover{transform:none}
 }
+
+/* hero diagnostics panel (hidden; five taps on the wordmark) */
+.diag{position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-height:70vh;overflow:auto;margin:0;padding:12px 14px;font:400 11px/1.55 var(--font-mono);color:var(--text-primary);background:rgba(10,23,51,.96);border:1px solid var(--line-strong);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
+
 </style>
 </head>
 <body>
@@ -744,15 +1144,49 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   </div>
 </header>
 
-<!-- ============ 01 ABOUT ============ -->
-<section class="sec about" id="about" aria-labelledby="about-h" data-io data-live>
-  <div class="about-grid">
-    <figure class="about-fig rv" style="--i:0">
-      <div class="about-art">
-        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。">
+<!-- ============ THE CHART: everything after the hero is one enroute chart, drawn as you fly it ============
+     Route order is DOM order of the [data-route] anchors (0x0 elements placed by CSS per layout); the script draws one
+     magenta line through them, with fly-by corners, and reveals it down to the reading line as the page scrolls. -->
+<div class="chart" id="chart">
+  <div class="chart-bg" id="chart-bg" aria-hidden="true">
+    <div class="neat neat-l"></div><div class="neat neat-r"></div>
+    <svg class="bg-svg" id="bg-svg" focusable="false"></svg>
+    <div id="bg-lbls"></div>
+  </div>
+  <svg class="airway-svg" id="airway-svg" aria-hidden="true" focusable="false"><path class="awy-ln" id="airway-path" d="M0 0"/></svg>
+  <div class="route-clip" id="route-clip" aria-hidden="true"><div class="route-inner" id="route-inner"><svg class="route-svg" id="route-svg" focusable="false"><path class="rt-glow" id="route-glow" d="M0 0"/><path class="rt-ln" id="route-path" d="M0 0"/></svg></div></div>
+  <div class="leg-lbls" id="leg-lbls" aria-hidden="true"></div>
+  <div class="ownship" id="ownship" aria-hidden="true"><svg viewBox="-26 -26 52 52"><path class="vec" d="M0,-27 V-86"/><circle class="halo" r="20"/><path class="os" d="M0,-21 C1.6,-21 2.4,-18 2.4,-14 L2.4,-5.4 L23,-3.2 L23.4,-.4 L2.4,1.4 L1.7,13.6 L8.4,15.6 L8.4,17.8 L1,17.4 L0,20 L-1,17.4 L-8.4,17.8 L-8.4,15.6 L-1.7,13.6 L-2.4,1.4 L-23.4,-.4 L-23,-3.2 L-2.4,-5.4 L-2.4,-14 C-2.4,-18 -1.6,-21 0,-21 Z"/></svg></div>
+
+  <!-- chart title block -->
+  <div class="ch-head cw" data-io>
+    <div class="chh">
+      <div class="chh-a">
+        <p class="chh-k">ENROUTE CHART · NIGHT</p>
+        <p class="chh-t">航路图</p>
+        <p class="chh-go">向下滚动，沿航路飞到跑道。</p>
       </div>
-      <figcaption>ON TOP · 云层上方 · 日落之后</figcaption>
-    </figure>
+      <dl class="chh-cells">
+        <div><dt>ROUTE</dt><dd>PILOT Y12 RW24</dd></div>
+        <div><dt>FIX</dt><dd>PILOT · LOGBK · PC12X · AISHP · CHKLT</dd></div>
+        <div><dt>SCALE · NM</dt><dd><svg class="scale" viewBox="0 0 170 26" aria-hidden="true" focusable="false"><rect class="on" x="0.5" y="2.5" width="32" height="5"/><rect x="32.5" y="2.5" width="32" height="5"/><rect class="on" x="64.5" y="2.5" width="32" height="5"/><rect x="96.5" y="2.5" width="32" height="5"/><rect class="on" x="128.5" y="2.5" width="32" height="5"/><text x="0" y="20">0</text><text x="157" y="20">5</text></svg></dd></div>
+        <div><dt>10-1 · VAR 6°W</dt><dd class="cn">示意航图，不作领航用</dd></div>
+      </dl>
+    </div>
+    <span class="dep" data-route="DEP" aria-hidden="true"><svg viewBox="-11 -11 22 22"><circle r="9"/><path d="M-5,4 L5,-4"/></svg></span>
+  </div>
+
+<!-- ============ 01 ABOUT · fix PILOT (VOR/DME) ============ -->
+<section class="sec about" id="about" aria-labelledby="about-h" data-io data-live>
+  <div class="cw about-grid">
+    <div class="about-nav" aria-hidden="true">
+      <div class="rose-wrap">
+        <svg class="rose" id="rose" viewBox="-230 -230 460 460" focusable="false"></svg>
+      <span class="fix vor-fix" data-route="PILOT"><svg class="vor" viewBox="-12 -12 24 24"><circle class="ring" r="15"/><rect class="sq" x="-10" y="-10" width="20" height="20"/><path class="hx" d="M-4.6,-8 L4.6,-8 L9.2,0 L4.6,8 L-4.6,8 L-9.2,0 Z"/><circle class="dot" r="2"/></svg></span>
+      <p class="navbox"><b>PILOT</b><span><span class="fq">113.85</span> PLT<span class="morse" data-morse="PLT"></span></span><span>VOR/DME</span><i class="fx-co" data-co="PILOT"></i></p>
+      </div>
+      <i class="bend" data-route=""></i>
+    </div>
     <div class="about-text">
       <p class="kicker rv" style="--i:1">01 / ABOUT</p>
       <h2 class="rv" id="about-h" style="--i:2">左座上的人。</h2>
@@ -767,55 +1201,290 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <div><dt>WX</dt><dd>低云 · 侧风 · 结冰季</dd></div>
       </dl>
     </div>
+    <figure class="about-fig">
+      <div class="about-art">
+        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。">
+        <p class="inset-tag" aria-hidden="true">INSET A</p>
+      </div>
+      <figcaption>ON TOP · 云层上方 · 日落之后</figcaption>
+    </figure>
   </div>
 </section>
 
-<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">LOC 24</span></div>
-
-<!-- ============ 02 LOG ============ -->
+<!-- ============ 02 LOG · fix LOGBK, each draft a leg of the airway ============ -->
 <section class="sec log" id="log" aria-labelledby="log-h" data-live>
-  <div class="wrap">
-    <div data-io>
-    <div class="plate-head rv" style="--i:0">
-      <p class="kicker">02 / LOG</p>
-      <h2 id="log-h">飞行日志</h2>
-      <p class="kicker">在写 5 篇</p>
+  <div class="cw log-grid">
+    <div class="log-intro" data-io>
+      <div class="plate-head rv" style="--i:0">
+        <p class="kicker">02 / LOG</p>
+        <h2 id="log-h">飞行日志</h2>
+        <p class="kicker">在写 5 篇</p>
+      </div>
+      <p class="lede rv" style="--i:1">落地之后写。每篇只讲一件事，写完先对一遍手册。</p>
+      <p class="list-end rv" style="--i:2">这几篇还在写，写完一篇放一篇。</p>
+      <p class="rv" style="--i:3"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
     </div>
-    <p class="lede rv" style="--i:1">落地之后写。每篇只讲一件事，写完先对一遍手册。</p>
 
-    <div class="fly rv" id="fly" style="--i:2" data-live>
-      <div class="fly-plate">
+    <div class="log-route">
+      <div class="hold-fig" aria-hidden="true">
+        <svg class="racetrack" viewBox="0 0 330 92" focusable="false">
+          <path class="rk" d="M330,46 H96 A40,40 0 0 1 96,-34 H260"/>
+          <path class="rk" d="M260,-34 A40,40 0 0 1 300,6"/>
+          <path class="ar" d="M200,46 l-12,-5 v10 z"/>
+          <path class="ar" d="M150,-34 l12,-5 v10 z"/>
+          <text x="128" y="68">067° · 1 MIN</text>
+        </svg>
+        <span class="fix wpt" data-route="LOGBK" data-leg="Y12|5200|4100T"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>LOGBK</b><i class="fx-co" data-co="LOGBK"></i></span></span>
+        <p class="hold-lbl"><b>HOLD</b> · 在写<br>LOGBK 067° · RIGHT TURNS</p>
+      </div>
+
+      <!-- SAMPLE POSTS: drafts, shown on screen as DRAFT with an estimated read time. Titles are not links in v1.
+           When a post is published: replace DRAFT with <time datetime="YYYY-MM-DD">YYYY.MM.DD</time>, drop 预计 from its read time,
+           wrap its title in <a href="posts/<slug>.html">, and once every strip is live, put 最新 5 篇 back in the plate header.
+           Each leg's course and distance are measured from the drawn route by the script; the read time is the leg's ETE. -->
+      <ol class="legs" data-io>
+        <li class="rv" style="--i:0"><article class="post">
+          <span class="fix rp" data-route="MINMS" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>MINMS</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 1</span><span aria-hidden="true">LOGBK<i class="to"></i>MINMS</span><span class="lv" aria-hidden="true" data-crs="MINMS">---°</span><span class="lv" aria-hidden="true" data-dis="MINMS">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 8 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">IMC</p></div>
+          <h3>低云进近：决断高度前的那两秒</h3><p class="ex">云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p>
+        </article></li>
+        <li class="rv" style="--i:1"><article class="post">
+          <span class="fix rp" data-route="SHORT" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>SHORT</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 2</span><span aria-hidden="true">MINMS<i class="to"></i>SHORT</span><span class="lv" aria-hidden="true" data-crs="SHORT">---°</span><span class="lv" aria-hidden="true" data-dis="SHORT">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 7 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PERF</p></div>
+          <h3>短跑道上的 PC-12：先算数，再上跑道</h3><p class="ex">起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p>
+        </article></li>
+        <li class="rv" style="--i:2"><article class="post">
+          <span class="fix rp" data-route="ICING" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>ICING</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 3</span><span aria-hidden="true">SHORT<i class="to"></i>ICING</span><span class="lv" aria-hidden="true" data-crs="ICING">---°</span><span class="lv" aria-hidden="true" data-dis="ICING">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 9 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">WX</p></div>
+          <h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p class="ex">PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。这篇讲我怎么看云、看温度，什么情况下直接改天。</p>
+        </article></li>
+        <li class="rv" style="--i:3"><article class="post">
+          <span class="fix rp" data-route="GLIDE" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>GLIDE</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 4</span><span aria-hidden="true">ICING<i class="to"></i>GLIDE</span><span class="lv" aria-hidden="true" data-crs="GLIDE">---°</span><span class="lv" aria-hidden="true" data-dis="GLIDE">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 6 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">OPS</p></div>
+          <h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p class="ex">PT6 很少停车，可飞机上只有这一台。每一段起飞前，我先找好滑翔得到的落地点，再定航路和高度。</p>
+        </article></li>
+        <li class="rv" style="--i:4"><article class="post">
+          <span class="fix rp" data-route="CHOCK" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="14"/><path class="f0" d="M0,-8.5 L7.4,4.8 L-7.4,4.8 Z"/><path class="f1" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/><path class="f2" d="M0,-4 L3.6,2.4 L-3.6,2.4 Z"/></svg><span class="fx-tag"><b>CHOCK</b></span></span>
+          <div class="leg-row"><span class="ln" aria-hidden="true">LEG 5</span><span aria-hidden="true">GLIDE<i class="to"></i>CHOCK</span><span class="lv" aria-hidden="true" data-crs="CHOCK">---°</span><span class="lv" aria-hidden="true" data-dis="CHOCK">-- NM</span><p class="strip-time"><span class="ete" aria-hidden="true">ETE</span>预计 5 分钟</p></div>
+          <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PREFLT</p></div>
+          <h3>绕机一圈：我的航前检查顺序</h3><p class="ex">从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。</p>
+        </article></li>
+      </ol>
+      <i class="bend log-exit" data-route=""></i>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 03 TYPE · fix PC12X, the chart legend ============ -->
+<section class="sec type" id="type" aria-labelledby="type-h" data-live>
+  <div class="cw">
+    <span class="fix wpt lane tag-l" data-route="PC12X" data-leg="Y12|4900|3800T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>PC12X</b><i class="fx-co" data-co="PC12X"></i></span></span>
+    <div class="legend-wrap" data-io>
+    <div class="legend">
+      <p class="lg-tab" aria-hidden="true">LEGEND · AIRCRAFT</p>
+      <ul class="icao" aria-label="ICAO">
+        <li>TYP PC12</li><li>L1T</li><li>WTC L</li><li>SINGLE PILOT IFR</li><li>FIKI</li><li>MAX CRZ 290 KTAS</li>
+      </ul>
+      <p class="icao-gloss">单发涡桨 · 轻型 · 可单人驾驶仪表飞行 · 获准在已知结冰条件下飞行</p>
+      <div class="lg-body">
+        <div>
+          <p class="kicker">03 / TYPE</p>
+          <h2 id="type-h">机型手记：PC-12 NGX</h2>
+          <p class="lede">一台发动机，五片桨叶，一个 T 型尾翼。下面这些数字，都查得到出处。</p>
+          <ol class="callouts">
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">1</text></svg>五叶螺旋桨<span class="lk" aria-hidden="true">PROP</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">2</text></svg><span class="lat">PT6E-67XP</span><span class="lk" aria-hidden="true">ENG</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">3</text></svg>货舱门 <span class="lat">1.35 × 1.32</span> 米<span class="lk" aria-hidden="true">CARGO</span></li>
+            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">4</text></svg>T 型尾翼<span class="lk" aria-hidden="true">TAIL</span></li>
+          </ol>
+        </div>
+        <figure class="outline" data-io>
+          <svg viewBox="220 190 1680 640" aria-hidden="true" focusable="false">
+            <path class="o dim" d="M316,398 A78,168 0 1,0 316,734 A78,168 0 1,0 316,398"/>
+            <g transform="translate(316 566) scale(.32 1)" class="fade-l" style="--d:1.6s"><g class="ghost-rot"><g class="ghost-blades">
+              <path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(72)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(144)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(216)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(288)"/>
+            </g></g></g>
+            <path class="o" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
+            <path class="o" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z"/>
+            <path class="o" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z"/>
+            <path class="o dim" d="M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273"/>
+            <path class="o dim" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z"/>
+            <path class="o dim" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z"/>
+            <path class="o dim" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z"/>
+            <path class="o dim" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1452,578 L1476,598 L1480,580"/>
+            <path class="o" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774"/>
+            <path class="lead" d="M316,396 V302"/>
+            <path class="lead" d="M470,540 V334"/>
+            <path class="lead" d="M1189,604 V766"/>
+            <path class="lead" d="M1560,262 L1652,232"/>
+            <g class="mk fade-l" style="--d:2.1s"><circle cx="316" cy="282" r="20"/><text x="316" y="283">1</text></g>
+            <g class="mk fade-l" style="--d:2.2s"><circle cx="470" cy="314" r="20"/><text x="470" y="315">2</text></g>
+            <g class="mk fade-l" style="--d:2.3s"><circle cx="1189" cy="786" r="20"/><text x="1189" y="787">3</text></g>
+            <g class="mk fade-l" style="--d:2.4s"><circle cx="1672" cy="226" r="20"/><text x="1672" y="227">4</text></g>
+          </svg>
+        </figure>
+      </div>
+      <dl class="facts">
+        <div><dt>ENG</dt><dd><span class="val">PT6E-67XP</span><span class="line">单台普惠加拿大涡桨发动机，起飞功率 1200 轴马力。电子发动机与螺旋桨控制，一根功率手柄。</span></dd></div>
+        <div><dt>PROP</dt><dd><span class="val">5 BLD</span><span class="line">五叶复合材料螺旋桨，可以反桨，落地后靠它减速，短跑道上用得上。</span></dd></div>
+        <div><dt>TAIL</dt><dd><span class="val">T-TAIL</span><span class="line">水平尾翼装在垂尾顶端，远离机翼下洗和螺旋桨滑流。</span></dd></div>
+        <div><dt>TO</dt><dd><span class="val">758 M</span><span class="line">最大起飞重量下，越过 15 米障碍物的起飞距离。</span></dd></div>
+        <div><dt>LDG</dt><dd><span class="val">661 M</span><span class="line">最大着陆重量下，越过 15 米障碍物的着陆距离。着陆形态失速速度 67 节，进近可以飞得又慢又稳。</span></dd></div>
+        <div><dt>RWY</dt><dd><span class="val">UNPAVED</span><span class="line">起落架按非铺装跑道设计，砂石和草地跑道也能起降。</span></dd></div>
+      </dl>
+      <p class="fnote"><span class="src" aria-hidden="true">SOURCE</span>数据来自 Pilatus 公开资料，条件为海平面、标准大气、干燥铺装跑道。实际运行以飞机飞行手册为准。</p>
+    </div>
+    </div>
+    <i class="bend" data-route=""></i>
+  </div>
+</section>
+
+<!-- ============ 04 AI 超市 · fix AISHP, the communications panel ============ -->
+<section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
+  <div class="cw">
+    <span class="fix wpt lane" data-route="AISHP" data-leg="Y12|4900|3600T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>AISHP</b><i class="fx-co" data-co="AISHP"></i></span></span>
+    <div class="comm">
+      <div class="comm-head">
+        <img class="ai-img" src="assets/ai-banner.webp" width="1600" height="800" loading="lazy" decoding="async" alt="">
+        <span class="ai-dim" aria-hidden="true"></span>
+        <div class="drz" aria-hidden="true">
+          <i style="--x:6%;--t:7.2s;--dl:-1.1s;--o:.12"></i><i style="--x:15%;--t:8.4s;--dl:-5.3s;--o:.16"></i><i style="--x:24%;--t:6.3s;--dl:-2.7s;--o:.1"></i><i style="--x:37%;--t:9s;--dl:-6.1s;--o:.14"></i><i style="--x:48%;--t:7.7s;--dl:-3.9s;--o:.18"></i>
+          <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
+        </div>
+        <p class="comm-tag" aria-hidden="true">COMM · AISHP</p>
+        <p class="kicker rv" style="--i:0">04 / AI 超市</p>
+        <h2 id="ai-h" class="rv" style="--i:1">AI 超市</h2>
+      </div>
+      <p class="lede rv" style="--i:2">按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。</p>
+      <div class="comm-grid">
+        <div class="radio" id="radio">
+          <div class="radio-head">
+            <span class="rh-l" aria-hidden="true">COM1</span>
+            <span class="rh-f rh-act" aria-hidden="true"><i>ACT</i><b id="f-act">118.250</b><span class="nm" id="f-act-n">A1 对话与写作</span></span>
+            <button class="rh-swap" id="f-swap" type="button" aria-label="切换到备用频率"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 7h13m-4-4 4 4-4 4M17 13H4m4-4-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+            <span class="rh-f rh-sby" aria-hidden="true"><i>STBY</i><b id="f-sby">121.650</b><span class="nm" id="f-sby-n">A2 图像与视频</span></span>
+          </div>
+          <div class="tune" id="tune" role="tablist" aria-label="货架"></div>
+          <div class="shelves" id="shelves">
+            <!-- Shelves render from the #shelf-data JSON below, one tab (a frequency) per shelf. -->
+            <p class="shelf-note">货架上的工具与本站没有合作关系，链接直达官网。</p>
+          </div>
+        </div>
+
+        <aside class="chat" aria-labelledby="chat-h">
+          <p class="twr" aria-hidden="true"><b>TWR</b> 塔台频率<span class="twf">118.100</span></p>
+          <div class="chat-head">
+            <h3 id="chat-h">AI 助手</h3>
+            <p class="lamp" id="lamp" data-state="inop"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code" id="lamp-code">INOP</span><span id="lamp-txt">接入中</span></p>
+          </div>
+          <p class="chat-lede">问飞行常识、PC-12，或者货架上哪样工具适合你。</p>
+          <p class="chat-caution">它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。</p>
+          <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
+          <div class="chips" id="chips">
+            <button type="button">决断高度和决断高有什么区别？</button>
+            <button type="button">PC-12 为什么用 T 型尾翼？</button>
+            <button type="button">读英文资料用哪个工具？</button>
+          </div>
+          <form class="chat-form" id="chat-form">
+            <label class="sr" for="chat-in">你的问题</label>
+            <textarea id="chat-in" rows="2" maxlength="500" placeholder="输入你的问题" autocomplete="off"></textarea>
+            <button class="btn btn-ghost" id="chat-send" type="submit">发送</button>
+          </form>
+          <p class="chat-limit" id="chat-limit" aria-live="polite"></p>
+          <p class="chat-privacy">对话会经本站服务器转给 AI 服务商处理，请不要输入个人信息。</p>
+        </aside>
+      </div>
+    </div>
+    <i class="bend" data-route=""></i>
+  </div>
+</section>
+
+<!-- ============ 05 FAQ · fix CHKLT, notes and NOTAM ============ -->
+<section class="sec faq" id="faq" aria-labelledby="faq-h" data-io data-live>
+  <div class="cw">
+    <span class="fix wpt lane tag-l" data-route="CHKLT" data-leg="Y12|4300|3200T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>CHKLT</b><i class="fx-co" data-co="CHKLT"></i><i class="fx-co">IAF</i></span></span>
+    <div class="faq-grid">
+      <!-- Reserved: up to three short real reader quotes go above this card, with the reader's permission. None are invented. -->
+      <div class="checklist rv" style="--i:0">
+        <div class="cl-bar"><p class="cl-head">CHECKLIST · 读之前</p><p class="cl-id" aria-hidden="true">NOTAM · CHKLT</p></div>
+        <div class="cl-body">
+          <p class="kicker">05 / FAQ</p>
+          <h2 id="faq-h">读之前，先过一遍检查单。</h2>
+          <dl class="cl-rows">
+            <div class="cl-row" style="--i:0"><dt><span class="nid" aria-hidden="true">A0101/26</span><span class="q">作者真的在飞吗？</span><span class="lead" aria-hidden="true"></span><span class="r">在飞</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>我是现役机长，飞 PC-12 NGX 短途支线。匿名写，技术问题可以讲得更直接。</p></dd></div>
+            <div class="cl-row" style="--i:1"><dt><span class="nid" aria-hidden="true">A0102/26</span><span class="q">能当训练资料用吗？</span><span class="lead" aria-hidden="true"></span><span class="r">不能</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>这里写的是个人经验和理解。训练和运行，以飞机飞行手册、公司程序和你的教员为准。文中引用的数字会注明出处。</p></dd></div>
+            <div class="cl-row" style="--i:2"><dt><span class="nid" aria-hidden="true">A0103/26</span><span class="q">单发飞机，安全吗？</span><span class="lead" aria-hidden="true"></span><span class="r">按单发计划</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>PC-12 用的是 PT6 系列发动机，六十年代投入使用，是装机最多的涡桨发动机之一。单发的不同在计划：每一段都先想好发动机停车后往哪里滑翔、在哪里落地，航路、高度和天气按这个来定。</p></dd></div>
+            <div class="cl-row" style="--i:3"><dt><span class="nid" aria-hidden="true">A0104/26</span><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p><span class="e" aria-hidden="true">E)</span>每篇一封邮件。不发广告，不转让邮箱，随时退订。<span class="mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</span></p></dd></div>
+          </dl>
+        </div>
+        <div class="scan" aria-hidden="true"></div>
+      </div>
+      <div class="msa" aria-hidden="true">
+        <svg viewBox="-160 -170 320 340" focusable="false">
+          <circle class="c" r="130"/>
+          <path class="s" d="M0,0 L112.6,-65 M0,0 L-112.6,65"/>
+          <path class="ar" d="M112.6,-65 l-11,1 l5,-9 z"/>
+          <text x="-34" y="-40">4800</text>
+          <text x="40" y="44">6300</text>
+          <text class="sm" x="0" y="-150">MSA PLT 25 NM</text>
+          <text class="sm" x="0" y="152">060° · 240°</text>
+          <circle class="ar" r="3"/>
+        </svg>
+      </div>
+      <p class="after"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ APPROACH · the plate, and the one thing you fly by hand ============ -->
+<section class="sec apch" id="apch" aria-labelledby="apch-h">
+  <div class="cw">
+    <div class="fly" id="fly" data-io data-live>
+      <dl class="brief" aria-hidden="true">
+        <div class="ttl"><dt>11-1 · APCH</dt><dd>ILS RWY 24</dd></div>
+        <div><dt>LOC</dt><dd>IYD 110.30</dd></div>
+        <div><dt>FINAL APCH CRS</dt><dd>243°</dd></div>
+        <div><dt>GS</dt><dd>3.0° · TCH 50</dd></div>
+        <div><dt>DA</dt><dd>200</dd></div>
+        <div><dt>FAF FINAL</dt><dd>1500 · 5.0 NM</dd></div>
+      </dl>
+      <div class="fly-plate" id="fly-plate">
         <img class="fly-img" src="assets/log-breakout.webp" width="1920" height="1088" loading="lazy" decoding="async" alt="">
         <span class="fly-dim" aria-hidden="true"></span>
-        <svg class="plate draw" viewBox="0 0 1000 320" aria-hidden="true" focusable="false">
-          <path class="ln" pathLength="1" d="M20,280 H980"/>
-          <path class="ln" pathLength="1" d="M40,70 H150" style="--d:.2s"/>
-          <path class="ln" pathLength="1" d="M150,54 V86" style="--d:.35s"/>
-          <path class="ln gs" pathLength="1" d="M150,70 L760,280" style="--d:.45s"/>
-          <path class="da fade" d="M40,252 H760" style="--d:.9s"/>
-          <path class="ln rwy" pathLength="1" d="M760,280 H960" style="--d:.7s"/>
-          <g class="fade" style="--d:1s">
-            <path class="post" d="M650,280 V268 M672,280 V268 M694,280 V268 M716,280 V268 M738,280 V268"/>
-            <circle class="lamp" cx="650" cy="265" r="3.4"/><circle class="lamp" cx="672" cy="265" r="3.4"/><circle class="lamp" cx="694" cy="265" r="3.4"/><circle class="lamp" cx="716" cy="265" r="3.4"/><circle class="lamp" cx="738" cy="265" r="3.4"/>
-            <path class="thr" d="M760,268 V292"/>
-            <circle class="edge" cx="784" cy="273" r="2.6"/><circle class="edge" cx="808" cy="273" r="2.6"/><circle class="edge" cx="832" cy="273" r="2.6"/><circle class="edge" cx="856" cy="273" r="2.6"/><circle class="edge" cx="880" cy="273" r="2.6"/><circle class="edge" cx="904" cy="273" r="2.6"/><circle class="edge" cx="928" cy="273" r="2.6"/><circle class="edge" cx="952" cy="273" r="2.6"/>
-          </g>
-          <g class="dev fade" style="--d:1.1s">
-            <circle cx="962" cy="36" r="4"/><circle cx="962" cy="58" r="4"/><circle cx="962" cy="102" r="4"/><circle cx="962" cy="124" r="4"/>
-            <path class="dia" d="M962,70 L972,80 L962,90 L952,80 Z"/>
-          </g>
-          <g class="glyph" id="glyph" transform="translate(150 70) rotate(19)"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></g>
+        <svg class="plate" viewBox="0 0 1000 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+          <path class="ln" d="M20,280 H980"/>
+          <path class="ln" d="M40,70 H150"/>
+          <path class="ln" d="M150,54 V280"/>
+          <path class="ln gs" d="M150,70 L760,280"/>
+          <path class="da" d="M40,252 H760"/>
+          <path class="ln rwy" d="M760,280 H960"/>
+          <path class="ma" d="M960,270 L990,150"/>
         </svg>
-        <p class="plate-lbl lbl-fap">FAP 1500</p>
-        <p class="plate-lbl lbl-gs">GS 3.0°</p>
-        <p class="plate-lbl lbl-da">DA 200</p>
-        <p class="plate-lbl lbl-rwy">RWY 24</p>
+        <div aria-hidden="true">
+          <span class="pl faf-x" style="--x:15;--y:21.875"><svg viewBox="-9 -9 18 18"><path d="M-2,-2 L-3,-8 L3,-8 L2,-2 L8,-3 L8,3 L2,2 L3,8 L-3,8 L-2,2 L-8,3 L-8,-3 Z"/></svg></span>
+          <span class="pl alb" style="--x:65;--y:82.8"></span><span class="pl alb" style="--x:67.2;--y:82.8"></span><span class="pl alb" style="--x:69.4;--y:82.8"></span><span class="pl alb" style="--x:71.6;--y:82.8"></span><span class="pl alb" style="--x:73.8;--y:82.8"></span>
+          <span class="pl thb" style="--x:76;--y:87.5"></span>
+          <span class="pl edg" style="--x:78.4;--y:85.3"></span><span class="pl edg" style="--x:80.8;--y:85.3"></span><span class="pl edg" style="--x:83.2;--y:85.3"></span><span class="pl edg" style="--x:85.6;--y:85.3"></span><span class="pl edg" style="--x:88;--y:85.3"></span><span class="pl edg" style="--x:90.4;--y:85.3"></span><span class="pl edg" style="--x:92.8;--y:85.3"></span><span class="pl edg" style="--x:95.2;--y:85.3"></span>
+          <span class="dev"><i></i><i></i><i class="dia"></i><i></i><i></i></span>
+          <span class="pglyph" id="glyph"><svg viewBox="-12 -12 24 24"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></svg></span>
+        </div>
+        <p class="plate-lbl lbl-fap" aria-hidden="true">FAP 1500</p>
+        <p class="plate-lbl lbl-gs" aria-hidden="true">GS 3.0°</p>
+        <p class="plate-lbl lbl-da" aria-hidden="true">DA 200</p>
+        <p class="plate-lbl lbl-dme" aria-hidden="true">5.0 NM</p>
+        <p class="plate-lbl lbl-thr" aria-hidden="true">THR</p>
+        <p class="plate-lbl lbl-rwy" aria-hidden="true">RWY 24</p>
+        <p class="plate-lbl lbl-ma" aria-hidden="true">MISSED APCH</p>
         <p class="mins-tag" aria-hidden="true">MINIMUMS</p>
       </div>
       <div class="fly-ctl">
         <div>
           <p class="kicker">ILS 示意 · 按住下降</p>
-          <h3>换你来飞。</h3>
+          <h2 id="apch-h">换你来飞。</h2>
           <p class="ins">按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。</p>
         </div>
         <div class="fly-act">
@@ -824,220 +1493,64 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           <p class="fly-read" id="fly-read" aria-hidden="true">ALT 1500</p>
         </div>
       </div>
-    </div>
-    </div>
-
-    <!-- SAMPLE POSTS: drafts, shown on screen as DRAFT with an estimated read time. Titles are not links in v1.
-         When a post is published: replace DRAFT with <time datetime="YYYY-MM-DD">YYYY.MM.DD</time>, drop 预计 from its read time,
-         wrap its title in <a href="posts/<slug>.html">, and once every strip is live, put 最新 5 篇 back in the plate header. -->
-    <ol class="strips" data-io>
-      <li class="rv" style="--i:0"><article class="strip" style="--i:0">
-        <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">IMC</p></div>
-        <div class="strip-main"><h3>低云进近：决断高度前的那两秒</h3><p>云底 300 英尺，能见度 2000 米。从最后进近点到决断高度，我的注意力怎么分配，又在哪一刻把眼睛交给窗外。</p></div>
-        <p class="strip-time">预计 8 分钟</p>
-      </article></li>
-      <li class="rv" style="--i:1"><article class="strip" style="--i:1">
-        <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PERF</p></div>
-        <div class="strip-main"><h3>短跑道上的 PC-12：先算数，再上跑道</h3><p>起飞距离、着陆距离、湿跑道修正、温度和坡度。在一条短跑道上，性能图表比手感可靠。这篇把一次完整的计算从头走一遍。</p></div>
-        <p class="strip-time">预计 7 分钟</p>
-      </article></li>
-      <li class="rv" style="--i:2"><article class="strip" style="--i:2">
-        <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">WX</p></div>
-        <div class="strip-main"><h3>结冰季：除冰靴、惯性分离器，和我不碰的那条线</h3><p>PC-12 获准在已知结冰条件下飞行。获准飞，和今天该不该飞，是两个问题。这篇讲我怎么看云、看温度，什么情况下直接改天。</p></div>
-        <p class="strip-time">预计 9 分钟</p>
-      </article></li>
-      <li class="rv" style="--i:3"><article class="strip" style="--i:3">
-        <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">OPS</p></div>
-        <div class="strip-main"><h3>单发涡桨的一天：如果它停了，我往哪里去</h3><p>PT6 很少停车，可飞机上只有这一台。每一段起飞前，我先找好滑翔得到的落地点，再定航路和高度。</p></div>
-        <p class="strip-time">预计 6 分钟</p>
-      </article></li>
-      <li class="rv" style="--i:4"><article class="strip" style="--i:4">
-        <span class="strip-bar" aria-hidden="true"></span>
-        <div class="strip-meta"><p class="strip-date">DRAFT</p><p class="strip-tag">PREFLT</p></div>
-        <div class="strip-main"><h3>绕机一圈：我的航前检查顺序</h3><p>从登机门出发，绕飞机走一圈。桨叶、滑油、进气道、除冰靴、静压孔，每一项为什么在检查单上，这篇逐项讲。</p></div>
-        <p class="strip-time">预计 5 分钟</p>
-      </article></li>
-    </ol>
-    <p class="list-end">这几篇还在写，写完一篇放一篇。</p>
-    <a class="tlink" href="#subscribe">订阅飞行日志</a>
-  </div>
-</section>
-
-<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">GS 3.0°</span></div>
-
-<!-- ============ 03 TYPE ============ -->
-<section class="sec type" id="type" aria-labelledby="type-h" data-live>
-  <div class="wrap">
-    <div data-io>
-    <ul class="icao rv" style="--i:0" aria-label="ICAO">
-      <li>TYP PC12</li><li>L1T</li><li>WTC L</li><li>SINGLE PILOT IFR</li><li>FIKI</li><li>MAX CRZ 290 KTAS</li>
-    </ul>
-    <p class="icao-gloss rv" style="--i:1">单发涡桨 · 轻型 · 可单人驾驶仪表飞行 · 获准在已知结冰条件下飞行</p>
-    <p class="kicker rv" style="--i:2">03 / TYPE</p>
-    <h2 class="rv" id="type-h" style="--i:3">机型手记：PC-12 NGX</h2>
-    <p class="lede rv" style="--i:4">一台发动机，五片桨叶，一个 T 型尾翼。下面这些数字，都查得到出处。</p>
-    </div>
-
-    <figure class="outline">
-      <svg class="draw" viewBox="220 190 1680 640" aria-hidden="true" focusable="false">
-        <path class="ln o dim" pathLength="1" d="M316,398 A78,168 0 1,0 316,734 A78,168 0 1,0 316,398" style="--d:1.1s"/>
-        <g transform="translate(316 566) scale(.32 1)" class="fade" style="--d:1.4s"><g class="ghost-rot"><g class="ghost-blades">
-          <path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(72)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(144)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(216)"/><path d="M-6,-18 L6,-18 L3,-158 Q0,-166 -3,-158 Z" transform="rotate(288)"/>
-        </g></g></g>
-        <path class="ln o" pathLength="1" d="M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z"/>
-        <path class="ln o" pathLength="1" d="M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z" style="--d:.25s"/>
-        <path class="ln o" pathLength="1" d="M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z" style="--d:.35s"/>
-        <path class="ln o dim" pathLength="1" d="M1498,273 A32,14 0 1,0 1562,273 A32,14 0 1,0 1498,273" style="--d:.5s"/>
-        <path class="ln o dim" pathLength="1" d="M598,492 L640,466 L690,462 L684,492 Z M700,470 L742,467 L744,515 L690,515 Z" style="--d:.55s"/>
-        <path class="ln o dim" pathLength="1" d="M881,503 A11,11 0 0,1 903,503 V523 A11,11 0 0,1 881,523 Z M940,503 A11,11 0 0,1 962,503 V523 A11,11 0 0,1 940,523 Z M1002,505 A11,11 0 0,1 1024,505 V525 A11,11 0 0,1 1002,525 Z M1064,508 A11,11 0 0,1 1086,508 V528 A11,11 0 0,1 1064,528 Z" style="--d:.6s"/>
-        <path class="ln o dim" pathLength="1" d="M797,457 H846 Q853,457 853,464 V596 Q853,603 846,603 H797 Q790,603 790,596 V464 Q790,457 797,457 Z M1139,486 H1239 Q1246,486 1246,493 V597 Q1246,604 1239,604 H1139 Q1132,604 1132,597 V493 Q1132,486 1139,486 Z" style="--d:.7s"/>
-        <path class="ln o dim" pathLength="1" d="M334,531 C341,554 341,578 334,600 M397,551 H440 A10.5,10.5 0 0,1 440,572 H397 A10.5,10.5 0 0,1 397,551 Z M1452,578 L1476,598 L1480,580" style="--d:.75s"/>
-        <path class="ln o" pathLength="1" d="M548,650 L552,728 M806,652 L811,716 M1105,648 L1120,745 M522,756 A28,28 0 1,0 578,756 A28,28 0 1,0 522,756 M783,744 A28,28 0 1,0 839,744 A28,28 0 1,0 783,744 M1092,774 A30,30 0 1,0 1152,774 A30,30 0 1,0 1092,774" style="--d:.85s"/>
-        <path class="ln lead" pathLength="1" d="M316,396 V302" style="--d:1.6s"/>
-        <path class="ln lead" pathLength="1" d="M470,540 V334" style="--d:1.7s"/>
-        <path class="ln lead" pathLength="1" d="M1189,604 V766" style="--d:1.8s"/>
-        <path class="ln lead" pathLength="1" d="M1560,262 L1652,232" style="--d:1.9s"/>
-        <g class="mk fade" style="--d:1.9s"><circle cx="316" cy="282" r="20"/><text x="316" y="283">1</text></g>
-        <g class="mk fade" style="--d:2s"><circle cx="470" cy="314" r="20"/><text x="470" y="315">2</text></g>
-        <g class="mk fade" style="--d:2.1s"><circle cx="1189" cy="786" r="20"/><text x="1189" y="787">3</text></g>
-        <g class="mk fade" style="--d:2.2s"><circle cx="1672" cy="226" r="20"/><text x="1672" y="227">4</text></g>
-      </svg>
-      <ol class="callouts">
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">1</text></svg>五叶螺旋桨</li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">2</text></svg><span class="lat">PT6E-67XP</span></li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">3</text></svg>货舱门 <span class="lat">1.35 × 1.32</span> 米</li>
-        <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10.5"/><text x="12" y="12.5">4</text></svg>T 型尾翼</li>
-      </ol>
-    </figure>
-
-    <dl class="facts" data-io>
-      <div class="rv" style="--i:0"><dt>ENG</dt><dd><span class="val">PT6E-67XP</span><span class="line">单台普惠加拿大涡桨发动机，起飞功率 1200 轴马力。电子发动机与螺旋桨控制，一根功率手柄。</span></dd></div>
-      <div class="rv" style="--i:1"><dt>PROP</dt><dd><span class="val">5 BLD</span><span class="line">五叶复合材料螺旋桨，可以反桨，落地后靠它减速，短跑道上用得上。</span></dd></div>
-      <div class="rv" style="--i:2"><dt>TAIL</dt><dd><span class="val">T-TAIL</span><span class="line">水平尾翼装在垂尾顶端，远离机翼下洗和螺旋桨滑流。</span></dd></div>
-      <div class="rv" style="--i:3"><dt>TO</dt><dd><span class="val">758 M</span><span class="line">最大起飞重量下，越过 15 米障碍物的起飞距离。</span></dd></div>
-      <div class="rv" style="--i:4"><dt>LDG</dt><dd><span class="val">661 M</span><span class="line">最大着陆重量下，越过 15 米障碍物的着陆距离。着陆形态失速速度 67 节，进近可以飞得又慢又稳。</span></dd></div>
-      <div class="rv" style="--i:5"><dt>RWY</dt><dd><span class="val">UNPAVED</span><span class="line">起落架按非铺装跑道设计，砂石和草地跑道也能起降。</span></dd></div>
-    </dl>
-    <p class="fnote">数据来自 Pilatus 公开资料，条件为海平面、标准大气、干燥铺装跑道。实际运行以飞机飞行手册为准。</p>
-  </div>
-</section>
-
-<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">OM</span></div>
-
-<!-- ============ 04 AI ============ -->
-<section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
-  <div class="ai-banner">
-    <img class="ai-img" src="assets/ai-banner.webp" width="1600" height="800" loading="lazy" decoding="async" alt="">
-    <span class="ai-dim" aria-hidden="true"></span>
-    <div class="drz" aria-hidden="true">
-      <i style="--x:6%;--t:7.2s;--dl:-1.1s;--o:.12"></i><i style="--x:15%;--t:8.4s;--dl:-5.3s;--o:.16"></i><i style="--x:24%;--t:6.3s;--dl:-2.7s;--o:.1"></i><i style="--x:37%;--t:9s;--dl:-6.1s;--o:.14"></i><i style="--x:48%;--t:7.7s;--dl:-3.9s;--o:.18"></i>
-      <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
-    </div>
-    <div class="wrap">
-      <p class="kicker rv" style="--i:0">04 / AI 超市</p>
-      <h2 id="ai-h" class="rv" style="--i:1">AI 超市</h2>
-    </div>
-  </div>
-  <div class="wrap">
-    <p class="lede rv" style="--i:2">按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。</p>
-    <div class="ai-grid">
-      <div class="shelves" id="shelves">
-        <!-- Shelves render from the #shelf-data JSON below. -->
-        <p class="shelf-note">货架上的工具与本站没有合作关系，链接直达官网。</p>
+      <div class="mins-strip" aria-hidden="true">
+        <p><b>MINIMUMS</b> · DA 200 · RVR 550 M</p>
+        <p><b>MISSED APCH</b> · CLIMB 3000 · DIRECT CHKLT · HOLD</p>
       </div>
-
-      <aside class="chat" aria-labelledby="chat-h">
-        <div class="chat-head">
-          <h3 id="chat-h">AI 助手</h3>
-          <p class="lamp" id="lamp" data-state="inop"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code" id="lamp-code">INOP</span><span id="lamp-txt">接入中</span></p>
-        </div>
-        <p class="chat-lede">问飞行常识、PC-12，或者货架上哪样工具适合你。</p>
-        <p class="chat-caution">它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。</p>
-        <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
-        <div class="chips" id="chips">
-          <button type="button">决断高度和决断高有什么区别？</button>
-          <button type="button">PC-12 为什么用 T 型尾翼？</button>
-          <button type="button">读英文资料用哪个工具？</button>
-        </div>
-        <form class="chat-form" id="chat-form">
-          <label class="sr" for="chat-in">你的问题</label>
-          <textarea id="chat-in" rows="2" maxlength="500" placeholder="输入你的问题" autocomplete="off"></textarea>
-          <button class="btn btn-ghost" id="chat-send" type="submit">发送</button>
-        </form>
-        <p class="chat-limit" id="chat-limit" aria-live="polite"></p>
-        <p class="chat-privacy">对话会经本站服务器转给 AI 服务商处理，请不要输入个人信息。</p>
-      </aside>
     </div>
+    <i class="bend" data-route=""></i>
   </div>
 </section>
 
-<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1200,86"/></svg><span class="lbl fade-l">MM</span></div>
-
-<!-- ============ 05 FAQ ============ -->
-<section class="sec faq" id="faq" aria-labelledby="faq-h" data-io data-live>
-  <div class="wrap">
-    <!-- Reserved: up to three short real reader quotes go above this card, with the reader's permission. None are invented. -->
-    <div class="checklist rv" style="--i:0">
-      <p class="cl-head">CHECKLIST · 读之前</p>
-      <div class="cl-body">
-        <p class="kicker">05 / FAQ</p>
-        <h2 id="faq-h">读之前，先过一遍检查单。</h2>
-        <dl class="cl-rows">
-          <div class="cl-row"><dt><span class="q">作者真的在飞吗？</span><span class="lead" aria-hidden="true"></span><span class="r">在飞</span></dt><dd><p>我是现役机长，飞 PC-12 NGX 短途支线。匿名写，技术问题可以讲得更直接。</p></dd></div>
-          <div class="cl-row"><dt><span class="q">能当训练资料用吗？</span><span class="lead" aria-hidden="true"></span><span class="r">不能</span></dt><dd><p>这里写的是个人经验和理解。训练和运行，以飞机飞行手册、公司程序和你的教员为准。文中引用的数字会注明出处。</p></dd></div>
-          <div class="cl-row"><dt><span class="q">单发飞机，安全吗？</span><span class="lead" aria-hidden="true"></span><span class="r">按单发计划</span></dt><dd><p>PC-12 用的是 PT6 系列发动机，六十年代投入使用，是装机最多的涡桨发动机之一。单发的不同在计划：每一段都先想好发动机停车后往哪里滑翔、在哪里落地，航路、高度和天气按这个来定。</p></dd></div>
-          <div class="cl-row"><dt><span class="q">订阅之后会收到什么？</span><span class="lead" aria-hidden="true"></span><span class="r">只有日志</span></dt><dd><p>每篇一封邮件。不发广告，不转让邮箱，随时退订。<span class="mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</span></p></dd></div>
-        </dl>
-      </div>
-      <div class="scan" aria-hidden="true"></div>
-    </div>
-    <p class="after"><a class="tlink" href="#subscribe">订阅飞行日志</a></p>
-  </div>
-</section>
-
-<div class="gs-div" data-io aria-hidden="true"><svg class="draw" viewBox="0 0 1200 96" preserveAspectRatio="none"><path class="ln" pathLength="1" d="M0,10 L1170,86"/></svg><span class="lbl fade-l">THR 24</span><span class="thr fade-l" style="--d:1.2s"><i></i><i></i><i></i><i></i><i></i></span></div>
-
-<!-- ============ 06 SUBSCRIBE (the one call to action) ============ -->
+<!-- ============ 06 SUBSCRIBE · RWY 24, the far end reads 06 (the one call to action) ============ -->
 <section class="sec subscribe" id="subscribe" aria-labelledby="sub-h" data-io data-live>
-  <div class="sub-bg" aria-hidden="true"></div>
-  <div class="wrap">
-    <div class="sub-stage">
-    <div class="sub-card rv" style="--i:0">
-      <p class="kicker">06 / SUBSCRIBE</p>
-      <h2 id="sub-h">订阅飞行日志</h2>
-      <p class="lede">最低标准写在起飞前，日志写在落地后。</p>
-      <p class="sub2">新的一篇写完，发到你的邮箱。</p>
-      <form class="sub-form" id="sub-form" novalidate>
-        <label for="sub-email">邮箱</label>
-        <input id="sub-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="sub-err">
-        <p class="sub-err" id="sub-err" aria-live="polite"></p>
-        <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
-        <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
-        <p class="micro">只发飞行日志。不发广告，随时退订。</p>
-        <p class="micro mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</p>
-      </form>
-      <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
-    </div>
-    <!-- the runway runs from the card (its far end) toward you: edge lights, green threshold, approach lights with the rabbit -->
-    <svg class="runway draw" viewBox="0 0 1600 440" aria-hidden="true" focusable="false">
-      <path class="ln" pathLength="1" d="M409,300 L644,0"/>
-      <path class="ln" pathLength="1" d="M1191,300 L956,0"/>
-      <path class="cl fade" d="M800,292 V4" style="--d:.6s"/>
-      <g class="fade" style="--d:.8s" id="rw-edges"></g>
-      <g class="fade" style="--d:1s" id="rw-bars"></g>
-    </svg>
+  <div class="rwy-zone">
+    <svg class="loc" viewBox="0 0 76 300" preserveAspectRatio="none" aria-hidden="true" focusable="false"><path class="lf" d="M38,0 L76,26 L38,300 L0,26 Z"/><path d="M38,0 L76,26 L38,300 L0,26 Z M38,0 V300"/></svg>
+    <span class="fix faf" data-route="FINAL" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M-2,-2 L-3,-9 L3,-9 L2,-2 L9,-3 L9,3 L2,2 L3,9 L-3,9 L-2,2 L-9,3 L-9,-3 Z"/><path class="f1" d="M-1,-1 L-1.5,-4.5 L1.5,-4.5 L1,-1 L4.5,-1.5 L4.5,1.5 L1,1 L1.5,4.5 L-1.5,4.5 L-1,1 L-4.5,1.5 L-4.5,-1.5 Z"/><path class="f2" d="M-1,-1 L-1.5,-4.5 L1.5,-4.5 L1,-1 L4.5,-1.5 L4.5,1.5 L1,1 L1.5,4.5 L-1.5,4.5 L-1,1 L-4.5,1.5 L-4.5,-1.5 Z"/></svg><span class="fx-tag"><b>FINAL</b><i class="fx-co">FAF · 1500</i></span></span>
+    <p class="loc-lbl" aria-hidden="true"><b>LOC 243°</b><span>IYD 110.30</span></p>
+    <div class="als" id="rw-als" aria-hidden="true"></div>
+    <div class="rwy">
+      <div class="edges l" id="rw-edge-l" aria-hidden="true"></div><div class="edges r" id="rw-edge-r" aria-hidden="true"></div>
+      <div class="rwy-thr" aria-hidden="true">
+        <div class="lights g" id="rw-thr"></div>
+        <div class="keys"><span><i></i><i></i><i></i><i></i></span><span><i></i><i></i><i></i><i></i></span></div>
+        <p class="rwy-no">24</p>
+        <div class="tdz"><span><i></i><i></i><i></i></span><span><i></i><i></i><i></i></span></div>
+        <span class="fix td" data-route="RW24"><span class="fx-tag"><b>RW24</b></span></span>
+      </div>
+      <div class="rwy-cl" aria-hidden="true"></div>
+      <div class="sub-card">
+        <p class="kicker">06 / SUBSCRIBE</p>
+        <h2 id="sub-h">订阅飞行日志</h2>
+        <p class="lede">最低标准写在起飞前，日志写在落地后。</p>
+        <p class="sub2">新的一篇写完，发到你的邮箱。</p>
+        <form class="sub-form" id="sub-form" novalidate>
+          <label for="sub-email">邮箱</label>
+          <input id="sub-email" name="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" required aria-describedby="sub-err">
+          <p class="sub-err" id="sub-err" aria-live="polite"></p>
+          <div class="thr5" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div>
+          <button class="btn btn-primary" id="sub-btn" type="submit">订阅飞行日志</button>
+          <p class="micro">只发飞行日志。不发广告，随时退订。</p>
+          <p class="micro mode-a">订阅通道还在接入，开通之前提交的邮箱不会被保存。</p>
+        </form>
+        <div class="sub-done" id="sub-done" tabindex="-1" hidden></div>
+      </div>
+      <div class="rwy-end" aria-hidden="true">
+        <p class="rwy-no">06</p>
+        <div class="keys"><span><i></i><i></i><i></i><i></i></span><span><i></i><i></i><i></i><i></i></span></div>
+        <div class="lights r" id="rw-end"></div>
+      </div>
     </div>
   </div>
 </section>
 
+</div>
 </main>
 
+<p class="hud" id="hud" aria-hidden="true"><span class="to"></span><b id="hud-to">PILOT</b><span class="dtk">DTK <i id="hud-dtk">---°</i></span><span><i id="hud-dis">--</i> NM</span></p>
+
 <footer class="foot">
-  <div class="wrap foot-grid">
+  <div class="cw foot-grid">
     <div>
       <p class="foot-mark"><span class="brand-name">云底之下</span><span class="mono">PC12/L · L1T</span></p>
       <p class="foot-tag">落地，关车，写日志。</p>
@@ -1051,6 +1564,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
       <p>本站的飞机影像和配图由 AI 生成，不对应任何真实航空器。</p>
       <p>本站内容是个人飞行经验分享，不能代替飞机飞行手册、公司程序和教员的指导。</p>
       <p>© 2026 <span class="brand-name">云底之下</span></p>
+      <p class="foot-chart" aria-hidden="true">CHART 10-1 · ENROUTE · NIGHT<br>示意航图，不作领航用</p>
     </div>
   </div>
 </footer>
@@ -1861,27 +2375,37 @@ function applyHeroMode() {
   navSolid = null; navCheck();
 }
 
-/* ============ 02: hold to fly the glide slope ============ */
+/* ============ APPROACH PLATE: hold to fly the glide slope ============ */
+/* The plate's lines stretch with the box (preserveAspectRatio none, non-scaling strokes); the glyph, lamps and labels are
+   HTML on percentages, so the profile can be taller on phones without distorting anything. */
 const fly = $('#fly');
-const logSec = $('#log');
+const subSec = $('#subscribe');
 const holdBtn = $('#hold');
 const holdLabel = $('#hold-label');
 const holdFill = $('#hold-fill');
 const flyStatus = $('#fly-status');
 const flyRead = $('#fly-read');
 const glyph = $('#glyph');
+const plateBox = $('#fly-plate');
 const GS0 = [150, 70], GS1 = [678.7, 252], FULL_MS = 2800;
 let prog = 0, holding = false, landed = false, hRaf = null, hLast = 0, rel = null, lastReadAt = 0, lastRead = '', lastStatus = '';
+let pw = 1000, ph = 320, gsAng = 19;
+function measurePlate() {
+  pw = plateBox.clientWidth || pw; ph = plateBox.clientHeight || ph;
+  gsAng = Math.atan2((GS1[1] - GS0[1]) / 320 * ph, (GS1[0] - GS0[0]) / 1000 * pw) * 180 / Math.PI;
+  fly.style.setProperty('--gsa', gsAng.toFixed(2) + 'deg');
+}
 function setStatus(s) { if (s !== lastStatus) { flyStatus.textContent = s; lastStatus = s; } }
 function renderFly(now, force) {
-  const x = GS0[0] + (GS1[0] - GS0[0]) * prog, y = GS0[1] + (GS1[1] - GS0[1]) * prog;
-  glyph.setAttribute('transform', 'translate(' + x.toFixed(1) + ' ' + y.toFixed(1) + ') rotate(19)');
+  const x = (GS0[0] + (GS1[0] - GS0[0]) * prog) / 1000 * pw, y = (GS0[1] + (GS1[1] - GS0[1]) * prog) / 320 * ph;
+  glyph.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + gsAng.toFixed(2) + 'deg)';
   holdFill.style.transform = 'scaleX(' + prog.toFixed(4) + ')';
   if (force || now - lastReadAt >= 100) {
     const r = 'ALT ' + Math.round((1500 - 1300 * prog) / 10) * 10;
     if (r !== lastRead) { flyRead.textContent = r; lastRead = r; lastReadAt = now; }
   }
 }
+if (window.ResizeObserver) new ResizeObserver(() => { measurePlate(); renderFly(performance.now(), true); }).observe(plateBox);
 function flyLoop(now) {
   const dt = Math.min(100, now - (hLast || now)); hLast = now;
   if (holding) {
@@ -1917,12 +2441,12 @@ function land() {
   setStatus(T.flyDone);
   holdLabel.textContent = T.holdAgain;
   fly.classList.add('done');
-  logSec.classList.add('landed');
+  subSec.classList.add('landed');           // completion lights the runway the chart lands on: approach lights, threshold, edges
 }
 function resetFly() {
   landed = false; prog = 0; rel = null;
   fly.classList.remove('done');
-  logSec.classList.remove('landed');
+  subSec.classList.remove('landed');
   holdLabel.textContent = T.holdBtn;
   renderFly(performance.now(), true);
 }
@@ -1949,6 +2473,7 @@ function pinToFinalStates() {
   pinned = true;
   disableScrub();
   land();                                  // hold module complete, drives stopped
+  chartRedraw();                           // route drawn to the runway, every leg label plotted
 }
 function unpinFinalStates() {
   if (!pinned) return;
@@ -1956,49 +2481,64 @@ function unpinFinalStates() {
   resetFly();
   fly.classList.remove('touched');
   setStatus(T.flyIdle);
+  chartRedraw();                           // the route goes back to following the scroll
 }
 RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { unpinFinalStates(); applyHeroMode(); } });
 
 /* ============ 06: runway lights (generated once) ============ */
 (function buildRunway() {
-  const ns = 'http://www.w3.org/2000/svg';
-  const edges = $('#rw-edges'), bars = $('#rw-bars');
-  const VPY = -200, HALF = 500, NEAR = 640;          // vanishing point above the card; half-width 500 at y = 440
-  const sc = y => (y - VPY) / NEAR;
-  const dot = (g, x, y, r, cls) => { const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', x.toFixed(1)); c.setAttribute('cy', y.toFixed(1)); c.setAttribute('r', r.toFixed(2)); c.setAttribute('class', cls); g.appendChild(c); return c; };
-  for (const y of [300, 232, 180, 140, 108, 82, 60, 42, 27, 14, 3]) {
-    const s = sc(y);
-    for (const side of [-1, 1]) dot(edges, 800 + side * (HALF * s + 6 * s), y, 1.1 + 3.4 * s, 'edge');
-  }
-  const th = sc(300);
-  for (let j = 0; j <= 16; j++) dot(edges, 800 - HALF * th + j * (2 * HALF * th / 16), 300, 1.2 + 3 * th, 'thl');
-  [420, 380, 348, 322].forEach((y, i) => {          // nearest bar first: the rabbit runs toward the threshold
-    const s = sc(y);
-    const n = y === 380 ? 11 : 5, gap = (y === 380 ? 26 : 13) * s;
-    for (let j = 0; j < n; j++) dot(bars, 800 + (j - (n - 1) / 2) * gap, y, 1.2 + 2.6 * s, 'bar');
-    dot(bars, 800, y, 3 + 3.5 * s, 'rab').style.setProperty('--r', i);
+  const mk = (host, n, cls) => { for (let i = 0; i < n; i++) { const d = document.createElement('i'); d.style.setProperty('--i', i); if (cls) d.className = cls; host.append(d); } };
+  mk($('#rw-edge-l'), 15); mk($('#rw-edge-r'), 15);
+  mk($('#rw-thr'), 14); mk($('#rw-end'), 10);
+  // approach lights: four centreline barrettes (nearest first, so the rabbit runs toward the threshold) and a crossbar
+  const als = $('#rw-als');
+  [[0, 5], [26, 5], [52, 11], [78, 5]].forEach(([y, n], r) => {
+    const row = document.createElement('div'); row.className = 'als-row'; row.style.top = y + 'px';
+    mk(row, n);
+    const rab = document.createElement('i'); rab.className = 'rab'; rab.style.setProperty('--r', r); row.append(rab);
+    als.append(row);
   });
 })();
 
-/* ============ 04: AI shelf (from the inline JSON) ============ */
+/* ============ 04: AI shelf as a COM radio, one frequency per shelf (from the inline JSON) ============ */
+/* Tabs (role=tablist) tune a shelf: the tuned frequency goes to ACT, the one before it drops to STBY, and the swap button
+   flips back, like a real COM head. Every card stays in the DOM; inactive shelves are hidden panels. */
+const FREQ = ['118.250', '121.650', '124.350', '127.850', '132.450'];
+let tuneTo = () => {};
 (function renderShelves() {
   const host = $('#shelves');
   const note = $('.shelf-note', host);
+  const bar = $('#tune');
+  const fAct = $('#f-act'), fSby = $('#f-sby'), fActN = $('#f-act-n'), fSbyN = $('#f-sby-n'), swap = $('#f-swap');
   let data;
   try { data = JSON.parse($('#shelf-data').textContent); } catch (_) { return; }
   const mk = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; };
+  const tabs = [], panels = [], names = [];
   data.shelves.forEach((shelf, i) => {
+    const code = 'A' + (i + 1), fq = FREQ[i % FREQ.length];
+    names.push(code + ' ' + shelf.title);
+    const tab = mk('button', 'tab');
+    tab.type = 'button'; tab.id = 'tab-' + shelf.id;
+    tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'panel-' + shelf.id); tab.setAttribute('aria-selected', 'false'); tab.tabIndex = -1;
+    tab.append(mk('span', 'tc', code), document.createTextNode(' '), mk('span', 'tf', fq.slice(0, 6)), document.createTextNode(' '), mk('span', 'tn', shelf.title));
+    bar.append(tab); tabs.push(tab);
+
     const sec = mk('section', 'shelf');
-    sec.setAttribute('aria-labelledby', 'shelf-' + shelf.id);
+    sec.id = 'panel-' + shelf.id;
+    sec.setAttribute('role', 'tabpanel'); sec.setAttribute('aria-labelledby', 'shelf-' + shelf.id);
+    sec.hidden = true;
+    const inner = mk('div', 'shelf-in');
     const aisle = mk('div', 'aisle');
-    aisle.append(mk('b', null, 'A' + (i + 1)));
+    aisle.append(mk('b', null, code));
     const h = mk('h3', null, shelf.title); h.id = 'shelf-' + shelf.id;
-    aisle.append(h);
-    sec.append(aisle, mk('p', 'shelf-blurb', shelf.blurb));
+    const af = mk('span', 'af', fq); af.setAttribute('aria-hidden', 'true');
+    aisle.append(h, af);
+    inner.append(aisle, mk('p', 'shelf-blurb', shelf.blurb));
     const ul = mk('ul', 'cards');
-    for (const tool of shelf.tools) {
+    shelf.tools.forEach((tool, j) => {
       const li = mk('li', 'card');
-      li.append(mk('h4', null, tool.name), mk('p', 'desc', tool.desc));
+      const ix = mk('span', 'ix', code + '-' + String(j + 1).padStart(2, '0')); ix.setAttribute('aria-hidden', 'true');
+      li.append(ix, mk('h4', null, tool.name), mk('p', 'desc', tool.desc));
       if (tool.cn_access === '能直接访问' || tool.cn_access === '需要国际网络') li.append(mk('span', 'badge', tool.cn_access));
       if (tool.note) li.append(mk('p', 'note', tool.note));
       const a = mk('a', 'open');
@@ -2008,11 +2548,289 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
       a.append(document.createTextNode('打开'), mk('span', 'dom', host2));
       li.append(a);
       ul.append(li);
-    }
-    sec.append(ul);
+    });
+    inner.append(ul);
+    sec.append(inner);
     host.insertBefore(sec, note);
+    panels.push(sec);
+  });
+  if (!tabs.length) return;
+  let cur = -1, sby = Math.min(1, tabs.length - 1);
+  function select(i, o) {
+    o = o || {};
+    if (i === cur) return;
+    if (cur >= 0) sby = cur;
+    cur = i;
+    tabs.forEach((t, k) => { const on = k === i; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
+    panels.forEach((p, k) => { p.hidden = k !== i; p.classList.toggle('tuned', k === i && !!o.user); });
+    fAct.textContent = FREQ[i % FREQ.length]; fActN.textContent = names[i];
+    fSby.textContent = FREQ[sby % FREQ.length]; fSbyN.textContent = names[sby];
+    swap.setAttribute('aria-label', '切换到备用频率：' + names[sby]);
+    if (o.user) {
+      fAct.classList.remove('flip'); void fAct.offsetWidth; fAct.classList.add('flip');
+      const t = tabs[i], bl = bar.scrollLeft, bw = bar.clientWidth;   // keep the tuned tab in view inside the bar, never scroll the page sideways
+      if (t.offsetLeft < bl + 8 || t.offsetLeft + t.offsetWidth > bl + bw - 8) bar.scrollTo({ left: t.offsetLeft - 14, behavior: RM.matches ? 'auto' : 'smooth' });
+      const top = panels[i].getBoundingClientRect().top;          // phones: a shorter shelf must not leave the reader below it
+      if (top < 72) scrollTo({ top: scrollY + top - 88, behavior: RM.matches ? 'auto' : 'smooth' });
+    }
+    if (o.focus) tabs[i].focus();
+  }
+  tuneTo = select;
+  tabs.forEach((t, i) => t.addEventListener('click', () => select(i, { user: true })));
+  bar.addEventListener('keydown', e => {
+    const n = tabs.length;
+    let k = null;
+    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') k = (cur + 1) % n;
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') k = (cur - 1 + n) % n;
+    else if (e.key === 'Home') k = 0;
+    else if (e.key === 'End') k = n - 1;
+    if (k === null) return;
+    e.preventDefault();
+    select(k, { user: true, focus: true });
+  });
+  swap.addEventListener('click', () => select(sby, { user: true }));
+  select(0);
+})();
+
+/* ============ THE CHART: one route, drawn as you scroll ============ */
+/* Geometry: the route is a polyline through the [data-route] anchors in DOM order (each anchor a 0x0 element that CSS places
+   per layout), with fly-by corners. It always descends the page, so the reading line (55% of the viewport) maps to one point
+   on it: the magenta route is revealed down to that point by a clipping wrapper moved with transforms (the wrapper slides
+   up, its content slides back down by the same amount), and the ownship sits on the point, turned to the local track.
+   Scale: 32px = 1' of latitude = 1 NM; 277px = 10' of longitude at 30°N. Courses are magnetic (VAR 6°W). */
+const chart = $('#chart');
+const airwaySvg = $('#airway-svg'), airwayPath = $('#airway-path');
+const routeClip = $('#route-clip'), routeInner = $('#route-inner'), routeSvg = $('#route-svg');
+const routePath = $('#route-path'), routeGlow = $('#route-glow');
+const legHost = $('#leg-lbls'), own = $('#ownship');
+const hud = $('#hud'), hudTo = $('#hud-to'), hudDtk = $('#hud-dtk'), hudDis = $('#hud-dis');
+const PX_NM = 32, PX_LON = 27.7, VAR = 6, LAT0 = 30 * 60, LON0 = 106 * 60 + 30, REVEAL = 0.55;
+const MORSE = { A: '.-', B: '-...', C: '-.-.', D: '-..', E: '.', F: '..-.', G: '--.', H: '....', I: '..', J: '.---', K: '-.-', L: '.-..', M: '--', N: '-.', O: '---', P: '.--.', Q: '--.-', R: '.-.', S: '...', T: '-', U: '..-', V: '...-', W: '.--', X: '-..-', Y: '-.--', Z: '--..' };
+const svgNS = 'http://www.w3.org/2000/svg';
+const bearing = (dx, dy) => ((Math.atan2(dx, -dy) * 180 / Math.PI) + 360 + VAR) % 360;   // page up = true north; magnetic = true + 6
+const crs3 = b => String((Math.round(b) % 360) || 360).padStart(3, '0') + '°';
+const fmtLat = min => { const d = Math.floor(min / 60); return 'N' + d + '°' + (min - d * 60).toFixed(1).padStart(4, '0') + "'"; };
+const fmtLon = min => { const d = Math.floor(min / 60); return 'E' + String(d).padStart(3, '0') + '°' + (min - d * 60).toFixed(1).padStart(4, '0') + "'"; };
+const dm = min => { const d = Math.floor(min / 60), m = Math.round(min - d * 60); return d + '°' + String(m).padStart(2, '0') + "'"; };
+
+/* printed once: the compass rose (oriented to magnetic north, so turned 6° west) and the morse idents */
+(function printRose() {
+  const rose = $('#rose');
+  let s = '<g transform="rotate(' + (-VAR) + ')"><circle class="rc" r="200"/><circle class="rc2" r="140"/>';
+  for (let d = 0; d < 360; d += 5) {
+    const mj = d % 30 === 0, len = mj ? 16 : d % 10 === 0 ? 10 : 6;
+    s += '<line class="tk' + (mj ? ' mj' : '') + '" x1="0" y1="-200" x2="0" y2="' + (-200 + len) + '" transform="rotate(' + d + ')"/>';
+    if (mj) s += d === 0
+      ? '<path class="mn" d="M0,-228 L6,-212 L-6,-212 Z"/>'
+      : '<text x="0" y="-170" transform="rotate(' + d + ')">' + (d / 10) + '</text>';
+  }
+  s += '<line class="rad" x1="0" y1="0" x2="0" y2="-200" transform="rotate(300)"/><text class="radl" x="0" y="-122" transform="rotate(300)">R-300</text>';
+  s += '</g>';
+  rose.innerHTML = s;
+  $$('[data-morse]').forEach(el => {
+    el.setAttribute('aria-hidden', 'true');
+    [...el.dataset.morse].forEach((ch, k) => {
+      if (k) el.append(Object.assign(document.createElement('i'), { className: 'gap' }));
+      for (const sym of MORSE[ch] || '') el.append(Object.assign(document.createElement('i'), { className: sym === '.' ? 'dit' : 'dah' }));
+    });
   });
 })();
+
+let RT = null, chartVis = false, chartRaf = 0, lastYv = -1, hudOn = null, hudTxt = '', ownHome = null;
+function chartBuild() {
+  const cr = chart.getBoundingClientRect();
+  const W = chart.clientWidth, H = chart.offsetHeight;
+  if (!W || !H) return;
+  const P = [];
+  for (const el of $$('[data-route]', chart)) {
+    if (!el.getClientRects().length) continue;            // anchors a layout hides (collinear bends on phones)
+    const r = el.getBoundingClientRect();
+    const p = { el, name: el.dataset.route, leg: el.dataset.leg || '', x: r.left - cr.left + r.width / 2, y: r.top - cr.top + r.height / 2 };
+    const q = P[P.length - 1];
+    if (q && Math.hypot(p.x - q.x, p.y - q.y) < 2) continue;
+    if (q && p.y < q.y + 1) p.y = q.y + 1;                // the route only ever descends the page
+    P.push(p);
+  }
+  if (P.length < 2) { RT = null; return; }
+
+  // path and sample table, built together: straight legs, quadratic fly-by corners (tight at named fixes, wide at bends)
+  const xs = [P[0].x], ys = [P[0].y], ls = [0];
+  let L = 0, cx0 = P[0].x, cy0 = P[0].y;
+  const put = (x, y) => { L += Math.hypot(x - cx0, y - cy0); cx0 = x; cy0 = y; xs.push(x); ys.push(y); ls.push(L); };
+  const seg = (x, y) => { const x0 = cx0, y0 = cy0, n = Math.max(1, Math.ceil(Math.hypot(x - x0, y - y0) / 5)); for (let i = 1; i <= n; i++) put(x0 + (x - x0) * i / n, y0 + (y - y0) * i / n); };
+  const quad = (qx, qy, x, y) => { const x0 = cx0, y0 = cy0; for (let i = 1; i <= 18; i++) { const t = i / 18, u = 1 - t; put(u * u * x0 + 2 * u * t * qx + t * t * x, u * u * y0 + 2 * u * t * qy + t * t * y); } };
+  const f = v => v.toFixed(1);
+  let d = 'M' + f(P[0].x) + ' ' + f(P[0].y);
+  P[0].si = 0;
+  for (let i = 1; i < P.length; i++) {
+    const a = P[i - 1], b = P[i], c = P[i + 1];
+    if (!c) { seg(b.x, b.y); d += 'L' + f(b.x) + ' ' + f(b.y); b.si = xs.length - 1; break; }
+    const l1 = Math.hypot(b.x - a.x, b.y - a.y), l2 = Math.hypot(c.x - b.x, c.y - b.y);
+    const r = Math.min(b.name ? 26 : 120, l1 * 0.45, l2 * 0.45);
+    const ax = b.x - (b.x - a.x) / l1 * r, ay = b.y - (b.y - a.y) / l1 * r;
+    const bx = b.x + (c.x - b.x) / l2 * r, by = b.y + (c.y - b.y) / l2 * r;
+    seg(ax, ay); d += 'L' + f(ax) + ' ' + f(ay);
+    b.si = xs.length + 8;
+    quad(b.x, b.y, bx, by); d += 'Q' + f(b.x) + ' ' + f(b.y) + ' ' + f(bx) + ' ' + f(by);
+  }
+  for (const s of [airwaySvg, routeSvg]) { s.setAttribute('width', W); s.setAttribute('height', H); s.setAttribute('viewBox', '0 0 ' + W + ' ' + H); }
+  airwayPath.setAttribute('d', d); routePath.setAttribute('d', d); routeGlow.setAttribute('d', d);
+
+  const named = P.filter(p => p.name);
+  const lat = p => LAT0 - p.y / PX_NM, lon = p => LON0 + (p.x - W / 2) / PX_LON;
+  named.forEach(p => { const co = $('[data-co="' + p.name + '"]'); if (co) co.textContent = fmtLat(lat(p)) + ' ' + fmtLon(lon(p)); });
+
+  // leg data: section legs get a plotted label on their most crossing segment (phones: beside the rail, above the fix);
+  // the five draft legs carry their own course and distance in their header row
+  legHost.textContent = '';
+  const labels = [];
+  for (let j = 1; j < P.length; j++) {
+    const p = P[j];
+    if (!p.name) continue;
+    let k = j - 1; while (k > 0 && !P[k].name) k--;
+    const dist = (ls[p.si] - ls[P[k].si]) / PX_NM;
+    const crsEl = $('[data-crs="' + p.name + '"]'), disEl = $('[data-dis="' + p.name + '"]');
+    if (crsEl) crsEl.textContent = crs3(bearing(p.x - P[j - 1].x, p.y - P[j - 1].y));
+    if (disEl) disEl.textContent = dist.toFixed(1) + ' NM';
+    if (!p.leg) continue;
+    const [awy, mea, moca] = p.leg.split('|');
+    let best = j - 1, bdx = -1;
+    for (let m = k; m < j; m++) { const dx = Math.abs(P[m + 1].x - P[m].x); if (dx > bdx) { bdx = dx; best = m; } }
+    const s0 = P[best], s1 = P[best + 1], el = document.createElement('div');
+    const along = bdx >= 160;
+    const crs = crs3(bearing(s1.x - s0.x, s1.y - s0.y));
+    el.className = 'leg-lbl ' + (along ? 'along' : 'side');
+    const add = (cls, t) => { const sp = document.createElement('span'); sp.className = cls; sp.textContent = t; el.append(sp); };
+    add('crs', crs); add('awy', awy); add('dis', Math.round(dist) + ' NM'); add('mea', 'MEA ' + mea); add('moca', moca);
+    legHost.append(el);
+    let lx, ly, tr;
+    if (along) {
+      lx = (s0.x + s1.x) / 2; ly = (s0.y + s1.y) / 2;
+      let ang = Math.atan2(s1.y - s0.y, s1.x - s0.x) * 180 / Math.PI;
+      if (ang > 90) ang -= 180; else if (ang < -90) ang += 180;
+      tr = 'translate(' + f(lx) + 'px,' + f(ly) + 'px) rotate(' + ang.toFixed(2) + 'deg) translate(-50%,-50%)';
+    } else {
+      lx = p.x + 18; ly = p.y - 62;
+      tr = 'translate(' + f(lx) + 'px,' + f(ly) + 'px) translateY(-50%)';
+    }
+    el.style.transform = tr;
+    labels.push({ el, y: ly, on: false });
+  }
+
+  printChartBg(W, H, P);
+  RT = { W, H, xs, ys, ls, n: xs.length, end: ys[ys.length - 1], named, labels, top0: cr.top + scrollY };
+  lastYv = -1;
+  chartFrame();
+}
+
+/* the printed sheet around the route: graticule labels, Grid MORA figures, an isogonic line, two crossing airways and the
+   terminal-area boundary around the runway. Rebuilt with the route (positions depend on the layout). */
+function printChartBg(W, H, P) {
+  const bg = $('#bg-svg'), host = $('#bg-lbls');
+  const phone = W <= 900;
+  bg.setAttribute('width', W); bg.setAttribute('height', H); bg.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
+  host.textContent = '';
+  const lbl = (cls, text, x, y, extra) => { const p = document.createElement('p'); p.className = 'bg-lbl ' + cls; p.textContent = text; p.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)' + (extra || ''); host.append(p); return p; };
+  // latitude down the right neatline every 10', longitude along the top edge
+  for (let y = 320; y < H - 40; y += 320) lbl('lat', dm(LAT0 - y / PX_NM) + 'N', W - 26, y, ' translate(-100%,-50%)');
+  for (let k = -6; k <= 6; k++) { const x = W / 2 + k * 277; if (x > 30 && x < W - 90) lbl('lon', 'E' + dm(LON0 + k * 10), x + 4, 8); }
+  // Grid MORA: one figure per graticule cell, kept off every content block
+  const cr = chart.getBoundingClientRect();
+  const solids = $$('.chh, .about-text, .about-fig, .rose-wrap, .log-intro, .post, .hold-fig, .legend, .comm, .checklist, .msa, .fly, .rwy-zone, .faq .after').map(e => {
+    const r = e.getBoundingClientRect();
+    let t = r.top, bt = r.bottom;
+    if (e.classList.contains('log-intro')) { const g = e.parentElement.getBoundingClientRect(); t = g.top; bt = g.bottom; }   // sticky: it can sit anywhere in its column
+    return [r.left - cr.left - 30, t - cr.top - 40, r.right - cr.left + 30, bt - cr.top + 40];
+  });
+  const clear = (x, y) => x > 50 && x < W - 50 && y > 20 && y < H - 20 && !solids.some(b => x > b[0] && x < b[2] && y > b[1] && y < b[3]);
+  const r = rng(4021);
+  for (let y = 0; y < H; y += 320) for (let x = W / 2 - 277 * 6; x < W; x += 277) {
+    const cx = x + 138.5, cy = y + 160;
+    if (cx < 40 || cx > W - 40 || r() < 0.25) continue;
+    if (solids.some(b => cx > b[0] - 40 && cx < b[2] + 40 && cy > b[1] - 30 && cy < b[3] + 30)) continue;
+    const big = 3 + Math.floor(r() * 6), small = Math.floor(r() * 10);
+    const m = document.createElement('p'); m.className = 'mora'; m.textContent = big;
+    const sup = document.createElement('sup'); sup.textContent = small; m.append(sup);
+    m.style.left = cx.toFixed(0) + 'px'; m.style.top = cy.toFixed(0) + 'px';
+    host.append(m);
+  }
+  // vector furniture
+  const byName = n => P.find(p => p.name === n);
+  let s = '';
+  s += '<path class="iso" d="M' + (W * 0.2).toFixed(0) + ',0 L' + (W * 0.78).toFixed(0) + ',' + H + '"/>';
+  const isoAt = t => [W * 0.2 + (W * 0.58) * t, H * t];
+  const isoAng = Math.atan2(H, W * 0.58) * 180 / Math.PI - 90;
+  [0.16, 0.62].forEach(t => { const [x, y] = isoAt(t); lbl('iso', 'VAR 6°W', x, y, ' rotate(' + (isoAng + 90).toFixed(1) + 'deg) translate(-50%,-140%)'); });
+  [['LOGBK', 64, 'W77'], ['AISHP', -58, 'V21']].forEach(([n, ang, des]) => {
+    const p = byName(n); if (!p) return;
+    const a = ang * Math.PI / 180, dx = Math.cos(a), dy = Math.sin(a), len = Math.max(W, 1400);
+    s += '<path class="awy2" d="M' + (p.x - dx * len).toFixed(0) + ',' + (p.y - dy * len).toFixed(0) + ' L' + (p.x + dx * len).toFixed(0) + ',' + (p.y + dy * len).toFixed(0) + '"/>';
+    const t = [300, -300, 460, -460, 620, -620, 180, -180].map(v => phone ? v / 2 : v).find(v => clear(p.x + dx * v, p.y + dy * v));
+    if (t !== undefined) lbl('box', des, p.x + dx * t, p.y + dy * t, ' translate(-50%,-50%)');
+  });
+  const rw = byName('RW24');
+  if (rw) {
+    const R = phone ? 980 : 1500;
+    s += '<circle class="tma-h" cx="' + rw.x.toFixed(0) + '" cy="' + rw.y.toFixed(0) + '" r="' + R + '"/><circle class="tma" cx="' + rw.x.toFixed(0) + '" cy="' + rw.y.toFixed(0) + '" r="' + (R - 5) + '"/>';
+    const a = -118 * Math.PI / 180;
+    lbl('tma', '云底 TMA · 1000 / 9500', rw.x + Math.cos(a) * (R + 22), rw.y + Math.sin(a) * (R + 22), ' translate(-50%,-50%) rotate(' + (-118 + 90) + 'deg)');
+  }
+  bg.innerHTML = s;
+}
+
+function chartFrame() {
+  chartRaf = 0;
+  if (!RT) return;
+  const top = chart.getBoundingClientRect().top;
+  const yv = RM.matches ? RT.end : clamp(innerHeight * REVEAL - top, RT.ys[0], RT.end);
+  if (Math.abs(yv - lastYv) < 0.4) return;
+  lastYv = yv;
+  const { xs, ys, ls, n, H } = RT;
+  let lo = 0, hi = n - 1;                                   // last sample at or above the reading line
+  while (lo < hi) { const mid = (lo + hi + 1) >> 1; if (ys[mid] <= yv) lo = mid; else hi = mid - 1; }
+  const i = lo, j = Math.min(n - 1, i + 1);
+  const t = ys[j] > ys[i] ? (yv - ys[i]) / (ys[j] - ys[i]) : 0;
+  const x = xs[i] + (xs[j] - xs[i]) * t;
+  const a = Math.max(0, i - 3), b = Math.min(n - 1, i + 4);
+  const brg = Math.atan2(xs[b] - xs[a], -(ys[b] - ys[a])) * 180 / Math.PI;
+  routeClip.style.transform = 'translate3d(0,' + (yv - H).toFixed(1) + 'px,0)';
+  routeInner.style.transform = 'translate3d(0,' + (H - yv).toFixed(1) + 'px,0)';
+  own.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + yv.toFixed(1) + 'px,0) rotate(' + brg.toFixed(1) + 'deg)';
+  const home = yv <= ys[0] + 1 || yv >= RT.end - 1;      // parked at the start or stopped on the runway: no track vector
+  if (home !== ownHome) { own.classList.toggle('home', home); ownHome = home; }
+  for (const l of RT.labels) if (!l.on && yv >= l.y - 40) { l.on = true; l.el.classList.add('on'); }
+  let next = null;
+  for (const p of RT.named) {
+    const past = p.y <= yv + 0.5;
+    if (!past && !next) next = p;
+    if (p.past !== past) { p.el.classList.toggle('past', past); p.past = past; }
+    const act = p === next;
+    if (p.act !== act) { p.el.classList.toggle('act', act); p.act = act; }
+  }
+  // the active-leg line: next fix, desired track, distance along the route
+  const on = chartVis && !RM.matches && !!next && yv > ys[0] + 4 && performance.now() - lastScrollAt < 1800;
+  if (on) {
+    const txt = next.name + '|' + crs3(bearing(xs[b] - xs[a], ys[b] - ys[a])) + '|' + Math.max(0, (ls[next.si] - (ls[i] + (ls[j] - ls[i]) * t)) / PX_NM).toFixed(1);
+    if (txt !== hudTxt) { const [nm, dtk, dis] = txt.split('|'); hudTo.textContent = nm; hudDtk.textContent = dtk; hudDis.textContent = dis; hudTxt = txt; }
+  }
+  if (on !== hudOn) { hud.classList.toggle('on', on); hudOn = on; }
+}
+// the readout wakes while the page moves and sleeps 1.8s after it stops, so it never sits on top of what is being read
+let lastScrollAt = -1e9, hudSleep = 0;
+function chartScroll() {
+  lastScrollAt = performance.now();
+  clearTimeout(hudSleep);
+  hudSleep = setTimeout(() => { lastYv = -1; chartFrame(); }, 1850);
+  if (chartVis && !chartRaf) chartRaf = requestAnimationFrame(chartFrame);
+}
+function chartRedraw() { lastYv = -1; if (RT) { if (RM.matches) RT.labels.forEach(l => { l.on = true; l.el.classList.add('on'); }); chartFrame(); } }
+addEventListener('scroll', chartScroll, { passive: true });
+new IntersectionObserver(es => { chartVis = es[0].isIntersecting; lastYv = -1; chartFrame(); }).observe(chart);
+let buildT = 0;
+const rebuild = () => { clearTimeout(buildT); buildT = setTimeout(chartBuild, 120); };
+if (window.ResizeObserver) new ResizeObserver(rebuild).observe(chart); else addEventListener('resize', rebuild);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(rebuild);
+addEventListener('load', rebuild);
 
 /* ============ 04: AI assistant (front end only, honest) ============ */
 const chatLog = $('#chat-log');
@@ -2215,8 +3033,10 @@ subForm.addEventListener('submit', async e => {
 const MQLS = [...STATIC_GATES, PORTRAIT_GATE].map(q => matchMedia(q));    // keep the lists referenced
 MQLS.forEach(m => m.addEventListener('change', applyHeroMode));
 if (conn && conn.addEventListener) conn.addEventListener('change', applyHeroMode);   // Data Saver switched mid-visit
+measurePlate();
 renderFly(performance.now(), true);
 applyHeroMode();
+chartBuild();
 if (RM.matches) pinToFinalStates();
 })();
 </script>
