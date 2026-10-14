@@ -978,6 +978,7 @@ function admin_versions_rollback(): void
     try {
         $res = version_rollback($id);
         if ($res['ok']) {
+            audit('rollback', $id);
             flash('ok', '已回滚到 ' . cn_time($m['created_at']) . ' 的版本，网站已经更新。草稿没有变。');
             foreach ($res['skipped'] ?? [] as $s) {
                 flash('error', $s);

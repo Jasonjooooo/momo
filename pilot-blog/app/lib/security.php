@@ -321,6 +321,7 @@ function setup_code_path(): string
 function setup_code_current(): ?string
 {
     $f = setup_code_path();
+    clearstatcache(true, $f);
     if (!is_file($f) || (int) @filemtime($f) + SETUP_VALID_SEC < time()) {
         return null;
     }

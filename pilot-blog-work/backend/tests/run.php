@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'subscribers', 'http'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'subscribers', 'http', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -721,6 +721,70 @@ function http_tests(): void
         }
     }
     ok(!str_contains($all, $key) && !str_contains($all, '决断高度是什么'), 'no data file except secrets.json holds the key or a question');
+}
+
+/** Admin code rules that need no browser (SPEC §11.6, §11.9, T11, T12); the flows are in admin.e2e.js. */
+function group_admin(): void
+{
+    app_init('cli');
+    $views = glob(APP_DIR . '/views/*.php');
+    ok(count($views) >= 12, 'admin views present', (string) count($views));
+    $bad = [];
+    foreach ($views as $f) {
+        $src = (string) file_get_contents($f);
+        if (preg_match_all('/<\?=(?!\s*(h|j)\()/', $src, $m)) {
+            $bad[] = basename($f);
+        }
+    }
+    ok(!$bad, 'views echo only through h() or j()', implode(', ', $bad));
+    $inline = [];
+    foreach ($views as $f) {
+        $src = (string) file_get_contents($f);
+        if (preg_match('/<script(?![^>]*type="application\/json")(?![^>]*\bsrc=)[^>]*>/', $src) || preg_match('/\sstyle\s*=/', $src) || preg_match('/\son[a-z]+\s*=/', $src)) {
+            $inline[] = basename($f);
+        }
+    }
+    ok(!$inline, 'views have no inline scripts, style attributes or on* handlers (CSP)', implode(', ', $inline));
+    $js = (string) preg_replace('~/\*.*?\*/|(?<![:\'"])//[^\n]*~s', '', (string) file_get_contents(PUBLIC_DIR . '/admin/assets/admin.js'));
+    $css = (string) file_get_contents(PUBLIC_DIR . '/admin/assets/admin.css');
+    ok(!preg_match('/innerHTML|outerHTML|insertAdjacentHTML|document\.write|eval\(|new Function/', $js), 'admin.js builds DOM without HTML strings');
+    ok(!preg_match("/setAttribute\\(\\s*['\"]style/", $js), 'admin.js never sets a style attribute');
+    ok(!preg_match('/\bconfirm\(|\balert\(|\bprompt\(/', $js), 'admin.js never uses confirm/alert/prompt (WeChat)');
+    $ext = [];
+    foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', PUBLIC_DIR . '/admin/assets/admin.css']) as $f) {
+        $src = (string) file_get_contents($f);
+        if (preg_match_all('/(?:src|href|action)\s*=\s*["\'](?:https?:)?\/\/|url\(\s*["\']?(?:https?:)?\/\/|@import/i', $src, $m)) {
+            $ext[] = basename($f);
+        }
+    }
+    ok(!$ext, 'admin pages load nothing from other hosts', implode(', ', $ext));
+    ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
+    $copy = '';
+    foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php']) as $f) {
+        $copy .= (string) file_get_contents($f);
+    }
+    ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');
+    $words = array_values(array_filter(['赋能', '无缝', '一站式', '解决方案', '助力', '打造', '颠覆', '神器', '极致'], fn($w) => str_contains($copy, $w)));
+    ok(!$words, 'admin copy avoids the banned words', implode(' ', $words));
+    ok(!preg_match('/会自动(发|寄)|自动发送|自动通知/u', str_replace('不会自动发邮件', '', $copy)), 'admin copy never promises automatic mail');
+    // passwords and the setup code
+    ok(password_problem('短密码') !== null, 'password: under 10 characters refused');
+    ok(password_problem(str_repeat('啊', 12)) !== null, 'password: one repeated character refused');
+    ok(password_problem('Password123') !== null, 'password: common password refused (any case)');
+    ok(password_problem('云底下的跑道灯2026春') === null, 'password: a Chinese sentence with digits is fine');
+    ok(setup_code_normalize(" k7p2 9qxm\u{2014}4htb ") === 'K7P29QXM4HTB', 'setup code: spaces, dashes and case ignored');
+    ok(setup_needed(), 'fresh data dir needs setup');
+    setup_code_ensure();
+    $f = DATA_DIR . '/setup-code.txt';
+    $txt = (string) @file_get_contents($f);
+    ok((bool) preg_match('/^[A-HJ-KM-NP-Z2-9]{4}-[A-HJ-KM-NP-Z2-9]{4}-[A-HJ-KM-NP-Z2-9]{4}$/m', $txt), 'setup-code.txt holds a 12-character code without look-alike letters');
+    ok((fileperms($f) & 0777) === 0600, 'setup-code.txt is private (0600)', decoct(fileperms($f) & 0777));
+    $code = setup_code_current();
+    setup_code_ensure();
+    ok(setup_code_current() === $code, 'the code stays the same until it expires');
+    touch($f, time() - 8 * 86400);
+    setup_code_ensure();
+    ok(setup_code_current() !== null && setup_code_current() !== $code, 'an expired code is replaced on the next visit');
 }
 
 $fn = 'group_' . $group;

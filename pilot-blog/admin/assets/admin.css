@@ -152,7 +152,8 @@ input[type=checkbox]{width:22px;height:22px;margin:0;flex:none;accent-color:var(
 .auth-h{font-size:22px;margin:0 0 16px}
 
 /* ---------- editors ---------- */
-.find{position:sticky;top:56px;z-index:10;background:var(--canvas);padding:8px 0;margin:0 0 8px}
+.find{background:var(--canvas);padding:8px 0;margin:0 0 8px}
+@media (min-width:1024px){.find{position:sticky;top:56px;z-index:10}}
 .grp{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);margin:0 0 12px}
 .grp>summary{display:flex;align-items:center;flex-wrap:wrap;gap:4px;min-height:52px;padding:8px 16px;cursor:pointer;list-style:none;font-weight:600;font-size:17px}
 .grp>summary::-webkit-details-marker{display:none}
@@ -242,10 +243,12 @@ input[type=checkbox]{width:22px;height:22px;margin:0;flex:none;accent-color:var(
 .find-form label{display:block;font-weight:600;margin:0 0 4px}
 .find-row{display:flex;gap:8px}
 .find-row input{flex:1;min-width:0}
-.srow{display:flex;align-items:center;gap:12px;min-height:52px;padding:6px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.srow{display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:0 12px;min-height:56px;padding:8px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+.srow input{grid-row:1 / span 2}
 .slist li:first-child .srow{border-top:1px solid var(--line)}
-.srow-e{flex:1;min-width:0;overflow-wrap:anywhere}
-.srow-t{font-size:13px;color:var(--text-2);white-space:nowrap}
+.srow-e{min-width:0;overflow-wrap:anywhere;word-break:normal;line-height:1.5}
+.srow-t{font-size:13px;line-height:1.5;color:var(--text-2);white-space:nowrap}
+@media (min-width:640px){.srow{grid-template-columns:auto minmax(0,1fr) auto}.srow input{grid-row:auto}}
 .pager{display:flex;gap:10px;justify-content:space-between}
 
 /* AI usage */
@@ -287,3 +290,4 @@ body.has-sheet,body.menu-open{overflow:hidden}
 .msg-ok{color:var(--ok);font-size:15px;margin:8px 0 0}
 .msg-err{color:var(--err);font-size:15px;margin:8px 0 0}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
+.shelf-body>.label{margin-top:16px}
