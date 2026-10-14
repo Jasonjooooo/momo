@@ -23,6 +23,7 @@ require_once __DIR__ . '/images.php';
 require_once __DIR__ . '/subscribers.php';
 require_once __DIR__ . '/publish.php';
 require_once __DIR__ . '/content.php';
+require_once __DIR__ . '/view.php';
 
 const DATA_SUBDIRS = ['content', 'posts', 'trash', 'trash/posts', 'uploads', 'usage', 'ratelimit', 'sessions', 'versions', 'locks', 'log'];
 
@@ -51,6 +52,9 @@ function app_init(string $context): void
                 seed_install();
             }
         });
+    }
+    if ($context === 'admin') {
+        setup_code_ensure();   // first run: setup-code.txt in the data dir (never shown over HTTP)
     }
     $done = true;
 }
