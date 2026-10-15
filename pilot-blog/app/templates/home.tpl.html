@@ -724,7 +724,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ APPROACH: the plate, and the one thing you fly by hand (between 02 TYPE and 03 LOG) ============ */
 .apch{padding-bottom:120px}
-.apch .bend{left:calc(100% - var(--lane));bottom:-50px}
+.apch .bend{left:calc(100% - var(--lane));bottom:-30px}
+.apch .bend.to-log{left:calc(100% - 444px);bottom:-150px}   /* over the LOGBK hold (log column + 66px), clear of the log plate */
 .fly{position:relative;margin-right:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
 .brief{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0;border-bottom:1px solid var(--line-strong)}
 .brief>div{padding:10px 14px 11px;border-right:1px solid var(--line)}
@@ -884,6 +885,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .chat{position:relative;top:auto;border-top:1px solid var(--line-strong)}
   .log-grid{grid-template-columns:minmax(0,1fr) 270px;column-gap:170px}
   .faq-grid{grid-template-columns:minmax(0,1fr) 240px;column-gap:32px}
+  .apch .bend.to-log{left:calc(100% - 374px)}
   .brief{grid-template-columns:repeat(3,minmax(0,1fr))}
   .brief>div:nth-child(3){border-right:0}
   .brief>div:nth-child(-n+3){border-bottom:1px solid var(--line)}
@@ -1341,7 +1343,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <p><b>MISSED APCH</b> · CLIMB 3000 · DIRECT LOGBK · HOLD</p>
       </div>
     </div>
-    <i class="bend" data-route=""></i>
+    <i class="bend" data-route=""></i><i class="bend to-log" data-route=""></i>
   </div>
 </section>
 
