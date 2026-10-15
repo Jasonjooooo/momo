@@ -199,7 +199,9 @@ const MSG_LOGIN_UNAVAILABLE = '后台暂时登录不了，过一会儿再试。'
 /** URL path of the admin directory, e.g. '/admin/'. */
 function admin_base(): string
 {
-    $dir = str_replace('\\', '/', dirname((string) ($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php')));
+    $script = str_replace('\\', '/', (string) ($_SERVER['SCRIPT_NAME'] ?? '/admin/index.php'));
+    // Nginx can pass the directory itself ('/admin/') as SCRIPT_NAME; dirname() would then give '/'.
+    $dir = str_ends_with($script, '/') ? $script : dirname($script);
     return rtrim($dir, '/') . '/';
 }
 

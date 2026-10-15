@@ -31,6 +31,7 @@ server {
         add_header X-Robots-Tag "noindex, nofollow" always;
         include fastcgi.conf;
         fastcgi_param SCRIPT_FILENAME $document_root/admin/index.php;
+        fastcgi_param SCRIPT_NAME /admin/index.php;
         fastcgi_pass unix:/run/php/php8.3-fpm.sock;
     }
     location = /admin/index.php {
