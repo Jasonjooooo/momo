@@ -21,8 +21,10 @@ function block_render(string $name, array $ctx, string $indent): string
             return render_type_facts($ctx['type_facts'], $indent);
         case 'shelf_json':
             return render_shelf_json($ctx['shelves']);
+        case 'about_album':
+            return render_about_album($ctx['album'], $indent);
         case 'extra_css':
-            if (!cond_eval('subscribe_live', $ctx) && !cond_eval('has_published', $ctx)) {
+            if (!cond_eval('subscribe_live', $ctx) && !cond_eval('has_published', $ctx) && !cond_eval('has_album', $ctx)) {
                 return '';
             }
             return '<style id="extra-css">' . "\n" . trim((string) $ctx['extra_css']) . "\n</style>\n";
@@ -62,6 +64,8 @@ function cond_eval(string $cond, array $ctx): bool
             return str_contains((string) $ctx['fields']['site.origin'], 'DEPLOY-DOMAIN');
         case 'stats_live':
             return (bool) ($ctx['stats_live'] ?? false);
+        case 'has_album':
+            return count($ctx['album'] ?? []) > 1;
     }
     throw new TemplateError('unknown condition ' . $cond);
 }
@@ -223,6 +227,66 @@ function extract_type_facts(string $inner, string $ind): array
     return $rows;
 }
 
+// ---------- 关于 · INSET A (one photo exactly as the page always had it; 2+ photos a swipeable strip in the same frame) ----------
+
+function render_about_album(array $album, string $ind): string
+{
+    $i2 = $ind . '  ';
+    $i4 = $ind . '    ';
+    $i6 = $ind . '      ';
+    $img = function (array $p): string {
+        [$w, $h] = album_dims((string) $p['src']) ?? [1600, 900];
+        return '<img src="' . enc_attr((string) $p['src']) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async" alt="' . enc_attr((string) $p['alt']) . '">';
+    };
+    $tag = '<p class="inset-tag" aria-hidden="true">INSET A</p>';
+    if (count($album) <= 1) {
+        $p = $album[0] ?? ['src' => ALBUM_SEED_SRC, 'caption' => '', 'alt' => ''];
+        return '<figure class="about-fig">' . "\n"
+            . $i2 . '<div class="about-art">' . "\n"
+            . $i4 . $img($p) . "\n"
+            . $i4 . $tag . "\n"
+            . $i2 . '</div>' . "\n"
+            . $i2 . '<figcaption>' . enc_text((string) $p['caption']) . '</figcaption>' . "\n"
+            . $ind . '</figure>';
+    }
+    $n = count($album);
+    $slides = [];
+    $dots = [];
+    foreach ($album as $k => $p) {
+        $slides[] = $i6 . '<div class="alb-slide" role="group" aria-roledescription="slide" aria-label="' . ($k + 1) . ' / ' . $n . '" data-cap="' . enc_attr((string) $p['caption']) . '">' . $img($p) . '</div>';
+        $dots[] = '<button class="alb-dot" type="button" aria-label="第 ' . ($k + 1) . ' 张"' . ($k === 0 ? ' aria-current="true"' : '') . '></button>';
+    }
+    $arrow = fn(string $d) => '<svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="' . $d . '" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    return '<figure class="about-fig album" data-album>' . "\n"
+        . $i2 . '<div class="about-art" role="region" aria-roledescription="carousel" aria-label="照片，共 ' . $n . ' 张">' . "\n"
+        . $i4 . '<div class="alb-track" tabindex="0" aria-label="左右滑动，或用方向键换一张">' . "\n"
+        . implode("\n", $slides) . "\n"
+        . $i4 . '</div>' . "\n"
+        . $i4 . $tag . "\n"
+        . $i4 . '<button class="alb-btn alb-prev" type="button" aria-label="上一张">' . $arrow('M12.5 4 6.5 10l6 6') . '</button>'
+        . '<button class="alb-btn alb-next" type="button" aria-label="下一张">' . $arrow('M7.5 4l6 6-6 6') . '</button>' . "\n"
+        . $i2 . '</div>' . "\n"
+        . $i2 . '<figcaption><span class="alb-cap" aria-live="polite">' . enc_text((string) $album[0]['caption']) . '</span><span class="alb-dots">' . implode('', $dots) . '</span></figcaption>' . "\n"
+        . $ind . '</figure>';
+}
+
+/** Today's one photo from the template default: [['src', 'caption', 'alt']]. */
+function extract_about_album(string $inner, string $ind): array
+{
+    $re = '/^<figure class="about-fig">\n *<div class="about-art">\n *<img src="([^"]*)" width="(\d+)" height="(\d+)" loading="lazy" decoding="async" alt="([^"<]*)">\n *<p class="inset-tag" aria-hidden="true">INSET A<\/p>\n *<\/div>\n *<figcaption>([^<]*)<\/figcaption>\n *<\/figure>$/';
+    if (!preg_match($re, $inner, $m)) {
+        throw new TemplateError('about_album default is not the one-photo figure');
+    }
+    if ($m[1] !== ALBUM_SEED_SRC || [(int) $m[2], (int) $m[3]] !== ALBUM_SEED_DIMS) {
+        throw new TemplateError('about_album default photo differs from ALBUM_SEED_SRC / ALBUM_SEED_DIMS');
+    }
+    $album = [['src' => $m[1], 'caption' => dec_text($m[5]), 'alt' => enc_decode('attr', $m[4])]];
+    if (render_about_album($album, $ind) !== $inner) {
+        throw new TemplateError('about_album block does not round-trip');
+    }
+    return $album;
+}
+
 // ---------- shelf JSON ----------
 
 function render_shelf_json(array $shelves): string
@@ -270,6 +334,12 @@ function extract_shelf_json(string $inner): array
 function block_extract_all(array $nodes): array
 {
     $ex = tpl_extract($nodes);
+    if (!isset($ex['blocks']['about_album'])) {
+        throw new TemplateError('block missing: about_album');
+    }
+    $album = extract_about_album($ex['blocks']['about_album'][0], $ex['blocks']['about_album'][1]);
+    $ex['fields']['about.figcaption'] = $album[0]['caption'];   // the legacy mirrors of the first photo (fields.php)
+    $ex['fields']['about.img_alt'] = $album[0]['alt'];
     $reg = field_registry();
     $fields = [];
     foreach ($reg as $k => $f) {
@@ -291,6 +361,7 @@ function block_extract_all(array $nodes): array
         'fields' => $fields,
         'faq' => extract_faq_rows($ex['blocks']['faq_rows'][0], $ex['blocks']['faq_rows'][1], $fields),
         'type_facts' => extract_type_facts($ex['blocks']['type_facts'][0], $ex['blocks']['type_facts'][1]),
+        'album' => $album,
     ];
     $shelf = ['shelves' => extract_shelf_json($ex['blocks']['shelf_json'][0])];
     return ['site' => $site, 'shelf' => $shelf, 'posts' => $posts, 'values' => $ex['values']];
@@ -304,6 +375,7 @@ function block_extract(string $name, string $inner, string $indent, array $field
         'faq_rows' => extract_faq_rows($inner, $indent, $fields),
         'type_facts' => extract_type_facts($inner, $indent),
         'shelf_json' => extract_shelf_json($inner),
+        'about_album' => extract_about_album($inner, $indent),
         'extra_css' => $inner,
         default => throw new TemplateError('unknown block ' . $name),
     };

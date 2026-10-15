@@ -1211,13 +1211,13 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <div><dt>WX</dt><dd><!--{t about.fact4|lat}-->低云 · 侧风 · 结冰季<!--{/t}--></dd></div>
       </dl>
     </div>
-    <figure class="about-fig">
+    <!--{block about_album}--><figure class="about-fig">
       <div class="about-art">
-        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="<!--{t about.img_alt|attr}-->日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。<!--{/t}-->">
+        <img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后，一架白色机身、橙红色机腹的 PC-12 在云层上方飞行，起落架已经放下，天边还留着一道晚霞。">
         <p class="inset-tag" aria-hidden="true">INSET A</p>
       </div>
-      <figcaption><!--{t about.figcaption}-->ON TOP · 云层上方 · 日落之后<!--{/t}--></figcaption>
-    </figure>
+      <figcaption>ON TOP · 云层上方 · 日落之后</figcaption>
+    </figure><!--{/block}-->
   </div>
 </section>
 
@@ -2515,7 +2515,46 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
   });
 })();
 
-/* ============ 04: AI shelf as a COM radio, one frequency per shelf (from the inline JSON) ============ */
+<!--{if has_album}-->/* ============ 01: INSET A as a small album (only rendered when the owner keeps 2+ photos) ============ */
+/* The strip is a native scroll-snap row, so swiping works without script; the script adds prev/next, dots, arrow keys and
+   keeps the caption with the photo in view. Nothing moves on its own. */
+(function album() {
+  const fig = $('[data-album]');
+  if (!fig) return;
+  const track = $('.alb-track', fig), slides = $$('.alb-slide', fig), dots = $$('.alb-dot', fig), cap = $('.alb-cap', fig);
+  const prev = $('.alb-prev', fig), next = $('.alb-next', fig);
+  let cur = -1, settle = 0;
+  function show(k) {
+    if (k === cur) return;
+    cur = k;
+    cap.textContent = slides[k].dataset.cap;
+    dots.forEach((d, i) => d.setAttribute('aria-current', i === k ? 'true' : 'false'));
+    slides.forEach((s, i) => s.setAttribute('aria-hidden', i === k ? 'false' : 'true'));
+    prev.disabled = k === 0;
+    next.disabled = k === slides.length - 1;
+  }
+  function go(k) {
+    k = clamp(k, 0, slides.length - 1);
+    track.scrollTo({ left: k * track.clientWidth, behavior: RM.matches ? 'auto' : 'smooth' });
+    show(k);
+  }
+  prev.addEventListener('click', () => go(cur - 1));
+  next.addEventListener('click', () => go(cur + 1));
+  dots.forEach((d, i) => d.addEventListener('click', () => go(i)));
+  track.addEventListener('keydown', e => {
+    const k = { ArrowLeft: cur - 1, ArrowRight: cur + 1, Home: 0, End: slides.length - 1 }[e.key];
+    if (k === undefined) return;
+    e.preventDefault();
+    go(k);
+  });
+  track.addEventListener('scroll', () => {
+    clearTimeout(settle);
+    settle = setTimeout(() => show(clamp(Math.round(track.scrollLeft / (track.clientWidth || 1)), 0, slides.length - 1)), 90);
+  }, { passive: true });
+  show(0);
+})();
+
+<!--{/if}-->/* ============ 04: AI shelf as a COM radio, one frequency per shelf (from the inline JSON) ============ */
 /* Tabs (role=tablist) tune a shelf: the tuned frequency goes to ACT, the one before it drops to STBY, and the swap button
    flips back, like a real COM head. Every card stays in the DOM; inactive shelves are hidden panels. */
 const FREQ = ['118.250', '121.650', '124.350', '127.850', '132.450'];
