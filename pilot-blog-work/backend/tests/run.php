@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'subscribers', 'http', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'subscribers', 'http', 'stats', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -730,6 +730,217 @@ function http_tests(): void
         }
     }
     ok(!str_contains($all, $key) && !str_contains($all, '决断高度是什么'), 'no data file except secrets.json holds the key or a question');
+}
+
+// ---------- visitor statistics (api/hit.php, app/lib/stats.php, admin 访问统计) ----------
+
+const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+const UA_WECHAT = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 MicroMessenger/8.0.50(0x1800322d) NetType/WIFI Language/zh_CN';
+const UA_MAC = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36';
+
+function stats_today_file(): array
+{
+    return stats_day(local_day());
+}
+
+function stats_files_text(): string
+{
+    $all = '';
+    foreach (glob(DATA_DIR . '/stats/*') ?: [] as $f) {
+        $all .= (string) file_get_contents($f);
+    }
+    foreach (glob(DATA_DIR . '/ratelimit/*/*') ?: [] as $f) {
+        $all .= basename($f) . (string) file_get_contents($f);
+    }
+    return $all;
+}
+
+function hit(string $q, array $opt = []): array
+{
+    $ua = $opt['ua'] ?? UA_IPHONE;
+    $headers = $opt['headers'] ?? [];
+    if ($ua !== '') {
+        $headers[] = 'User-Agent: ' . $ua;
+    }
+    return http($opt['method'] ?? 'GET', '/api/hit.php?' . $q, ['headers' => $headers]);
+}
+
+function group_stats(): void
+{
+    app_init('cli');
+    // what counts
+    foreach (['' => '', 'curl/8.5.0' => 'curl', 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' => 'Googlebot',
+        'Mozilla/5.0 (compatible; Baiduspider/2.0; +http://www.baidu.com/search/spider.html)' => 'Baiduspider',
+        'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/128.0.0.0 Safari/537.36' => 'HeadlessChrome',
+        'python-requests/2.31' => 'python', 'facebookexternalhit/1.1' => 'link preview'] as $ua => $name) {
+        ok(stats_is_bot($ua), "bot skipped: $name" . ($ua === '' ? '(missing user agent)' : ''));
+    }
+    foreach (['iPhone Safari' => UA_IPHONE, 'WeChat' => UA_WECHAT, 'Mac Chrome' => UA_MAC] as $name => $ua) {
+        ok(!stats_is_bot($ua), "real browser counted: $name");
+    }
+    ok(stats_device(UA_IPHONE) === 'phone' && stats_device(UA_MAC) === 'desktop', 'device split by user agent');
+    ok(stats_ref_host('www.Google.com', 'hxpilot.com') === 'google.com', 'referrer host lowercased, www. dropped');
+    ok(stats_ref_host('https://evil.example/path?q=secret') === null, 'a full URL is refused as a referrer (hostname only)');
+    ok(stats_ref_host('www.hxpilot.com', 'hxpilot.com') === null && stats_ref_host('hxpilot.com', 'hxpilot.com:443') === null, 'own site is not a referrer');
+    ok(stats_ref_host('203.0.113.9') === null && stats_ref_host('a b.com') === null && stats_ref_host(str_repeat('a.', 140) . 'com') === null, 'IPs and junk hosts refused');
+    ok(stats_ref_label('mp.weixin.qq.com') === '微信公众号' && stats_ref_label('m.baidu.com') === '百度' && stats_ref_label('google.com.hk') === '谷歌' && stats_ref_label('cn.bing.com') === '必应' && stats_ref_label('example.org') === null, 'friendly names for common referrers');
+    ok(stats_path('/') === '/' && stats_path('/index.html') === '/' && stats_path('/posts/') === '/posts/', 'home and archive paths');
+    ok(stats_path('/posts/nope.html') === null && stats_path('/../etc/passwd') === null && stats_path('/admin/') === null, 'unknown or foreign paths refused');
+
+    // counting and unique dedup (library)
+    $ip = '203.0.113.77';
+    stats_record('/', 'baidu.com', $ip, UA_IPHONE);
+    stats_record('/', null, $ip, UA_IPHONE);
+    stats_record('/posts/', null, $ip, UA_IPHONE);
+    $d = stats_today_file();
+    ok($d['views'] === 3 && $d['visitors'] === 1, 'same visitor three times: 3 views, 1 visitor', json_encode($d));
+    stats_record('/', null, $ip, UA_MAC);
+    stats_record('/', null, '2001:db8:1:2::5/64', UA_WECHAT);
+    $d = stats_today_file();
+    ok($d['visitors'] === 3 && $d['devices'] === ['phone' => 2, 'desktop' => 1] && $d['wechat'] === 1, 'other browser or network is another visitor; devices and WeChat counted per visitor', json_encode($d));
+    ok($d['paths'] === ['/' => 4, '/posts/' => 1] && $d['refs'] === ['baidu.com' => 1], 'per-page and referrer counts');
+    for ($i = 0; $i < STATS_REF_KEYS + 5; $i++) {
+        stats_record('/', "site$i.example", '198.51.100.' . ($i % 250), UA_MAC);
+    }
+    $d = stats_today_file();
+    ok(count($d['refs']) === STATS_REF_KEYS + 1 && ($d['refs']['*'] ?? 0) === 6, 'distinct referrer hosts capped, the rest under 其他', (string) count($d['refs']));
+    $raw = stats_files_text();
+    ok(!str_contains($raw, $ip) && !str_contains($raw, '198.51.100.') && !str_contains($raw, '2001:db8') && !str_contains($raw, 'iPhone') && !str_contains($raw, 'Mozilla'), 'no raw IP or user agent stored');
+    ok((fileperms(DATA_DIR . '/stats/' . local_day() . '.json') & 0777) === 0600, 'day file is private (0600)');
+    // a new day: new salt, yesterday's hash list gone, files older than 400 days pruned
+    $saltBefore = json_read(DATA_DIR . '/stats/salt.json')['salt'];
+    json_write_atomic(DATA_DIR . '/stats/2020-01-01.json', stats_empty('2020-01-01'));
+    $recent = local_day(time() - 300 * 86400);
+    json_write_atomic(DATA_DIR . '/stats/' . $recent . '.json', stats_empty($recent));
+    $tomorrow = time() + 86400;
+    stats_record('/', null, $ip, UA_IPHONE, $tomorrow);
+    $salt = json_read(DATA_DIR . '/stats/salt.json');
+    ok($salt['day'] === local_day($tomorrow) && $salt['salt'] !== $saltBefore, 'a new day gets a new salt; the old one is discarded');
+    ok(!is_file(DATA_DIR . '/stats/seen-' . local_day() . '.txt') && is_file(DATA_DIR . '/stats/seen-' . local_day($tomorrow) . '.txt'), "the previous day's visitor hashes are deleted");
+    ok(!is_file(DATA_DIR . '/stats/2020-01-01.json') && is_file(DATA_DIR . '/stats/' . $recent . '.json'), 'days older than 400 days pruned, 300 days kept');
+    ok(stats_day(local_day($tomorrow))['visitors'] === 1, 'the same person counts again on a new day');
+    $top = stats_top([stats_day(local_day()), stats_day(local_day($tomorrow))], 'paths', 1);
+    ok(array_keys($top) === ['/', '*'] && $top['/'] === 109 + 1, 'top pages summed over days', json_encode($top));
+    exec('rm -rf ' . escapeshellarg(DATA_DIR . '/stats'));
+
+    // templates: beacon on home, pixel on post and archive, nothing when off, nothing in previews
+    $p = make_post('统计像素测试', "正文。", '2026-10-02');
+    post_publish($p['id'], $p['rev']);
+    $slug = $p['slug'];
+    publish_site('x');
+    $home = pub('index.html');
+    $post = pub('posts/' . $slug . '.html');
+    ok(str_contains($home, "navigator.sendBeacon") && str_contains($home, "api/hit.php?p=%2F") && str_contains($home, 'document.referrer') && str_contains($home, 'u.hostname'), 'home page has the beacon (hostname only)');
+    ok(str_contains($post, '<img class="hit-px" src="../api/hit.php?p=%2Fposts%2F' . $slug . '.html" alt="" width="1" height="1" decoding="async">'), 'post page has the pixel');
+    ok(str_contains(pub('posts/index.html'), '<img class="hit-px" src="../api/hit.php?p=%2Fposts%2F"'), 'archive has the pixel');
+    ok(!preg_match('/<script|\sstyle=/i', $post . pub('posts/index.html')), 'post and archive still have no script and no inline style (CSP)');
+    ok(str_contains((string) file_get_contents(PUBLIC_DIR . '/assets/post.css'), '.hit-px{display:none'), 'pixel hidden by a class in post.css');
+    $prev = preview_post(post_get($p['id']));
+    $prevHome = preview_home(content_get('site', 'draft'), content_get('shelf', 'draft'));
+    ok(!str_contains($prev, 'hit.php') && !str_contains($prevHome, 'hit.php'), 'previews never count');
+
+    // HTTP
+    $port = 20000 + random_int(0, 9999);
+    $GLOBALS['PORT'] = $port;
+    $env = ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'PATH' => getenv('PATH')];
+    $srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', PUBLIC_DIR, APP_DIR . '/dev/router.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, null, $env);
+    for ($i = 0; $i < 50 && @fsockopen('127.0.0.1', $port) === false; $i++) {
+        usleep(100000);
+    }
+    try {
+        stats_http_tests($slug);
+    } finally {
+        proc_terminate($srv);
+        proc_close($srv);
+    }
+
+    // switch off: no beacon, no pixel, nothing counted
+    $s = settings_get();
+    $res = settings_save(['stats' => ['enabled' => false]], $s['rev']);
+    ok(($res['publish']['ok'] ?? false) === true, 'switching stats off republishes the site');
+    ok(!str_contains(pub('index.html'), 'hit.php') && !str_contains(pub('posts/' . $slug . '.html'), 'hit.php') && !str_contains(pub('posts/index.html'), 'hit.php'), 'off: no beacon or pixel on any page');
+}
+
+function stats_http_tests(string $slug): void
+{
+    clear_rl();
+    $r = hit('p=%2Fposts%2F' . $slug . '.html');
+    ok($r['status'] === 200 && ($r['headers']['content-type'] ?? '') === 'image/gif' && str_contains($r['headers']['cache-control'] ?? '', 'no-store'), 'pixel answers a no-store gif', json_encode($r['headers']));
+    $img = @getimagesizefromstring($r['body']);
+    ok(is_array($img) && $img[0] === 1 && $img[1] === 1, 'the gif is 1x1');
+    $r = hit('p=%2F&r=www.baidu.com', ['method' => 'POST']);
+    ok($r['status'] === 204 && $r['body'] === '' && str_contains($r['headers']['cache-control'] ?? '', 'no-store'), 'beacon answers 204 no-store', (string) $r['status']);
+    hit('p=%2F&r=' . rawurlencode('https://evil.example/path?secret=1'), ['method' => 'POST']);
+    hit('p=%2Fposts%2F&r=google.com');
+    $d = stats_today_file();
+    ok($d['views'] === 4 && $d['visitors'] === 1, 'HTTP: 4 views from one visitor = 1 visitor', json_encode($d));
+    ok($d['refs'] === ['baidu.com' => 1], 'only the hostname is kept; a full URL and a referrer on a non-home page are dropped', json_encode($d['refs']));
+    ok(($d['paths']['/posts/' . $slug . '.html'] ?? 0) === 1 && ($d['paths']['/posts/'] ?? 0) === 1 && ($d['paths']['/'] ?? 0) === 2, 'per-path counts over HTTP', json_encode($d['paths']));
+    // not counted, same answer
+    $before = stats_today_file()['views'];
+    $codes = [];
+    foreach ([
+        'missing user agent' => ['p=%2F', ['ua' => '']],
+        'bot' => ['p=%2F', ['ua' => 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)']],
+        'owner cookie' => ['p=%2F', ['headers' => ['Cookie: pb_nostat=1']]],
+        'cross-site pixel' => ['p=%2F', ['headers' => ['Sec-Fetch-Site: cross-site']]],
+        'other Origin' => ['p=%2F', ['method' => 'POST', 'headers' => ['Origin: https://evil.example']]],
+        'prefetch' => ['p=%2F', ['headers' => ['Sec-Purpose: prefetch']]],
+        'unknown path' => ['p=%2Fetc%2Fpasswd', []],
+        'missing post' => ['p=%2Fposts%2Fno-such-post.html', []],
+        'array param' => ['p[]=x', []],
+    ] as $name => [$q, $opt]) {
+        $r = hit($q, $opt);
+        $codes[$name] = $r['status'] . (($opt['method'] ?? 'GET') === 'POST' ? '' : ' ' . ($r['headers']['content-type'] ?? ''));
+    }
+    ok(stats_today_file()['views'] === $before, 'not counted: missing UA, bots, the owner, cross-site, other Origin, prefetch, bad paths', json_encode(stats_today_file()));
+    $other = $codes['other Origin'];
+    unset($codes['other Origin']);
+    ok(array_values(array_unique($codes)) === ['200 image/gif'] && $other === '204', 'every refused request gets the same quiet answer (gif for GET, 204 for POST)', json_encode($codes) . $other);
+    $r = hit('p=%2F', ['method' => 'PUT']);
+    ok($r['status'] === 204, 'other methods: quiet 204, nothing counted', (string) $r['status']);
+    // rate limit per visitor
+    clear_rl();
+    exec('rm -rf ' . escapeshellarg(DATA_DIR . '/stats'));
+    for ($i = 0; $i < STATS_IP_HOUR + 5; $i++) {
+        hit('p=%2F', ['method' => 'POST', 'ua' => UA_MAC . " r$i"]);
+    }
+    $d = stats_today_file();
+    ok($d['views'] === STATS_IP_HOUR, 'rate limit: at most ' . STATS_IP_HOUR . ' views per visitor per hour', (string) $d['views']);
+    // admin 访问统计 page (logged in through the real login)
+    stats_record('/posts/' . $slug . '.html', null, '192.0.2.1', UA_WECHAT);
+    stats_record('/', 'mp.weixin.qq.com', '192.0.2.2', UA_IPHONE);
+    $pw = '云底下的跑道灯2026春';
+    json_write_atomic(data_path('admin.json'), ['version' => 1, 'password_hash' => pw_hash($pw), 'created_at' => now_iso(), 'password_changed_at' => now_iso(), 'session_epoch' => 1]);
+    @unlink(DATA_DIR . '/setup-code.txt');
+    $r = http('GET', '/admin/?r=login', ['headers' => ['Accept: application/json']]);
+    $csrf = (string) ($r['json']['csrf'] ?? '');
+    $r = http('POST', '/admin/?r=login', ['form' => ['_csrf' => $csrf, 'password' => $pw]]);
+    preg_match('/pb_admin=([^;]+)/', $r['headers']['set-cookie'] ?? '', $m);
+    $cookie = 'Cookie: pb_admin=' . ($m[1] ?? '');
+    $r = http('GET', '/admin/?r=stats', ['headers' => [$cookie]]);
+    $b = $r['body'];
+    ok($r['status'] === 200 && str_contains($b, '<h1 class="page-h">访问统计</h1>'), 'admin 访问统计 page renders', (string) $r['status']);
+    ok(str_contains($b, '《统计像素测试》') && str_contains($b, '微信公众号') && str_contains($b, '首页') && str_contains($b, '<svg viewBox="0 0 600 150"'), 'page shows post titles, friendly referrer names and the 30-day chart');
+    ok(str_contains($b, '不保存访客的 IP 地址') && str_contains($b, '大概'), 'page says the numbers are approximate and nothing personal is kept');
+    ok(str_contains($r['headers']['content-security-policy'] ?? '', "script-src 'self'") && !preg_match('/\sstyle=|<script(?![^>]*\bsrc=)/', $b), 'admin CSP kept: no inline style or script');
+    ok(str_contains($b, '>访问统计</a>'), '访问统计 is in the menu');
+    $r = http('GET', '/admin/?r=dashboard', ['headers' => [$cookie]]);
+    ok(str_contains($r['body'], '今天访客') && str_contains($r['body'], '今天浏览'), '概览 has the visitor card');
+    $r = http('GET', '/admin/?r=stats', ['headers' => [$cookie]]);
+    ok(str_contains($r['headers']['set-cookie'] ?? '', 'pb_nostat=1') && str_contains(strtolower($r['headers']['set-cookie'] ?? ''), 'path=/'), 'admin pages mark the owner device (pb_nostat cookie for the whole site)', $r['headers']['set-cookie'] ?? '');
+    // switch from the admin page
+    $csrfPage = preg_match('/<meta name="csrf" content="([0-9a-f]+)"/', $r['body'], $mm) ? $mm[1] : '';
+    $rev = (string) settings_get()['rev'];
+    $r = http('POST', '/admin/?r=stats.toggle', ['form' => ['_csrf' => $csrfPage, 'rev' => $rev, 'enabled' => '0'], 'headers' => [$cookie]]);
+    ok(in_array($r['status'], [302, 303], true) && !stats_enabled() && !str_contains(pub('index.html'), 'hit.php'), 'admin switch turns stats off and republishes', (string) $r['status']);
+    clear_rl();
+    $before = stats_today_file()['views'];
+    hit('p=%2F', ['method' => 'POST']);
+    ok(stats_today_file()['views'] === $before, 'off: hit.php counts nothing');
+    $rev = (string) settings_get()['rev'];
+    http('POST', '/admin/?r=stats.toggle', ['form' => ['_csrf' => $csrfPage, 'rev' => $rev, 'enabled' => '1'], 'headers' => [$cookie]]);
+    ok(stats_enabled() && str_contains(pub('index.html'), 'hit.php'), 'admin switch turns stats back on');
 }
 
 /** Admin code rules that need no browser (SPEC §11.6, §11.9, T11, T12); the flows are in admin.e2e.js. */

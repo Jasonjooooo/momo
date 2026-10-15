@@ -1645,6 +1645,20 @@ re-run; harness in `pilot-blog-work/` scratch, not committed):
    the host proxy forwarded `X-Forwarded-Proto: https`) and sends HSTS over HTTPS, so readers' emails and the
    home page never travel in clear text. Deploy note: also turn on hPanel's "Force HTTPS".
 
+Added by the visitor-statistics pass (2026-10-15):
+
+23. **Visitor statistics.** New public endpoint `api/hit.php` (allowed in `api/.htaccess`, the dev router and both Nginx
+   files exactly like `subscribe.php`), `app/lib/stats.php`, admin route `stats` / `stats.toggle` (menu 访问统计, 概览
+   card). Home: an inline `sendBeacon` script inside `<!--{if stats_live}-->` right before `</head>` (false in the
+   baseline, so T1 holds; T3 regions untouched); post and archive pages: a `<img class="hit-px">` pixel (hidden by
+   `.hit-px` in `assets/post.css`, allowed by the post CSP `img-src 'self'`). Setting `stats.enabled` (default true;
+   baseline seed false, launch patch true) republishes on change. Data: `blog-data/stats/YYYY-MM-DD.json` (views,
+   visitors, paths, referrer hostnames capped at 100, phone/desktop, WeChat), `seen-<day>.txt` (16-hex HMAC of
+   /64-or-IPv4 + UA under a per-day random salt in `salt.json`; both deleted when the day changes), days older than
+   400 kept nowhere. Skipped: bots and missing UA, prefetch, cross-site, the owner's browser (`pb_nostat` cookie set
+   by every admin page), unknown paths, previews; 120 counted views per visitor per hour, 200 000 per day. Referrers
+   come only from the home page (post pages run no script).
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.

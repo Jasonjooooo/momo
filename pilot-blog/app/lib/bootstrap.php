@@ -21,11 +21,12 @@ require_once __DIR__ . '/shelf.php';
 require_once __DIR__ . '/settings.php';
 require_once __DIR__ . '/images.php';
 require_once __DIR__ . '/subscribers.php';
+require_once __DIR__ . '/stats.php';
 require_once __DIR__ . '/publish.php';
 require_once __DIR__ . '/content.php';
 require_once __DIR__ . '/view.php';
 
-const DATA_SUBDIRS = ['content', 'posts', 'trash', 'trash/posts', 'uploads', 'usage', 'ratelimit', 'sessions', 'versions', 'locks', 'log'];
+const DATA_SUBDIRS = ['content', 'posts', 'trash', 'trash/posts', 'uploads', 'usage', 'ratelimit', 'sessions', 'versions', 'locks', 'log', 'stats'];
 
 final class DataDirError extends RuntimeException {}
 

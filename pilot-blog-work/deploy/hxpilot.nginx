@@ -24,6 +24,7 @@ server {
     # the only PHP that may run
     location = /api/chat.php      { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location = /api/subscribe.php { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
+    location = /api/hit.php       { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location ^~ /api/ { deny all; }
 
     location = /admin { return 301 /admin/; }
@@ -59,5 +60,5 @@ server {
     location ~ \.php$ { deny all; }
 
     location ~* \.html$ { add_header Cache-Control "no-cache"; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; }
-    location ~* \.(mp4|webp|jpg|png|woff2)$ { expires 30d; access_log off; }
+    location ~* \.(mp4|webp|jpg|png|woff2)$ { expires 30d; }
 }

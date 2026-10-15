@@ -60,6 +60,8 @@ function cond_eval(string $cond, array $ctx): bool
             return (int) $ctx['legs']['published_total'] > 0;
         case 'origin_placeholder':
             return str_contains((string) $ctx['fields']['site.origin'], 'DEPLOY-DOMAIN');
+        case 'stats_live':
+            return (bool) ($ctx['stats_live'] ?? false);
     }
     throw new TemplateError('unknown condition ' . $cond);
 }

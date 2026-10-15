@@ -1051,7 +1051,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .diag{position:fixed;left:12px;right:12px;bottom:12px;z-index:300;max-height:70vh;overflow:auto;margin:0;padding:12px 14px;font:400 11px/1.55 var(--font-mono);color:var(--text-primary);background:rgba(10,23,51,.96);border:1px solid var(--line-strong);border-radius:8px;white-space:pre-wrap;overflow-wrap:anywhere}
 
 </style>
-<!--{block extra_css}--><!--{/block}--></head>
+<!--{block extra_css}--><!--{/block}--><!--{if stats_live}--><script>(function(){try{var r='';try{var u=new URL(document.referrer);if(u.hostname!==location.hostname)r=u.hostname}catch(e){}var q='api/hit.php?p=%2F'+(r?'&r='+encodeURIComponent(r):'');if(!(navigator.sendBeacon&&navigator.sendBeacon(q))&&window.fetch)fetch(q,{method:'POST',keepalive:true,credentials:'same-origin'}).catch(function(){})}catch(e){}})();</script>
+<!--{/if}--></head>
 <body>
 <a class="skip" href="#main"><!--{t nav.skip}-->跳到正文<!--{/t}--></a>
 <div class="env" aria-hidden="true"><i></i></div>

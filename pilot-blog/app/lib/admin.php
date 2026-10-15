@@ -35,6 +35,8 @@ const ADMIN_ROUTES = [
     'subs.delete' => ['admin_subs_delete', ['POST'], 'auth', false],
     'subs.toggle' => ['admin_subs_toggle', ['POST'], 'auth', false],
     'subs.export' => ['admin_subs_export', ['GET'], 'auth', false],
+    'stats' => ['admin_stats', ['GET'], 'auth', false],
+    'stats.toggle' => ['admin_stats_toggle', ['POST'], 'auth', false],
     'ai' => ['admin_ai', ['GET'], 'auth', false],
     'ai.save' => ['admin_ai_save', ['POST'], 'auth', false],
     'ai.key' => ['admin_ai_key', ['POST'], 'auth', false],
@@ -53,6 +55,7 @@ const ADMIN_MENU = [
     'posts' => '飞行日志',
     'shelf' => 'AI 超市',
     'subs' => '订阅者',
+    'stats' => '访问统计',
     'ai' => 'AI 助手',
     'versions' => '版本记录',
     'password' => '修改密码',
@@ -105,6 +108,7 @@ function admin_dispatch(): void
     }
     if ($access === 'auth') {
         auth_require($json);
+        stats_owner_mark();   // the owner's own visits to the site are not counted
     }
     if ($method === 'POST') {
         origin_verify($json);
@@ -374,6 +378,8 @@ function admin_dashboard(): void
         'chat_live' => chat_live(),
         'key_source' => chat_key_source(),
         'today' => $today,
+        'stats_on' => stats_enabled($settings),
+        'stats_today' => stats_day(local_day()),
         'origin_missing' => str_contains($origin, 'DEPLOY-DOMAIN'),
         'origin_suggest' => field_problem('site.origin', $suggest) === null ? $suggest : null,
     ]);
@@ -862,6 +868,44 @@ function admin_subs_export(): void
     header('Content-Disposition: attachment; filename="subscribers-' . str_replace('-', '', local_day()) . '.csv"');
     header('Content-Length: ' . strlen($csv));
     echo $csv;
+}
+
+// ---------- 访问统计 ----------
+
+function admin_stats(): void
+{
+    $days = stats_range(30);
+    $titles = [];
+    foreach (posts_all() as $p) {
+        if (($p['live']['mode'] ?? null) === 'full') {
+            $titles['/posts/' . $p['slug'] . '.html'] = (string) $p['live']['title'];
+        }
+    }
+    $settings = settings_get();
+    view('stats', [
+        'title' => '访问统计',
+        'settings' => $settings,
+        'on' => stats_enabled($settings),
+        'days' => $days,
+        'pages' => stats_top($days, 'paths', 10),
+        'refs' => stats_top($days, 'refs', 10),
+        'titles' => $titles,
+    ]);
+}
+
+function admin_stats_toggle(): void
+{
+    $on = post_str('enabled', 2) === '1';
+    try {
+        settings_save(['stats' => ['enabled' => $on]], (int) post_str('rev', 20));
+        flash('ok', $on ? '访问统计已打开，网站已经更新。' : '访问统计已关闭，网站已经更新。以前的数字还在。');
+    } catch (ConflictException $e) {
+        flash('error', '没有保存：设置在别处改过了，刷新页面再试。');
+    } catch (Throwable $e) {
+        error_log('admin stats.toggle: ' . get_class($e));
+        flash('error', '没有保存：服务器出错了。');
+    }
+    redirect('stats');
 }
 
 // ---------- AI 助手 ----------

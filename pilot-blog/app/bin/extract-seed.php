@@ -21,6 +21,7 @@ $settings = settings_defaults();
 unset($settings['rev'], $settings['updated_at']);
 $settings['subscribe']['enabled'] = false;   // baseline = today's page: Mode A, assistant INOP
 $settings['chat']['enabled'] = false;
+$settings['stats']['enabled'] = false;     // the visitor counter is off in the baseline (T1)
 json_write_atomic($seed . '/settings.baseline.json', $settings, 0644);
 printf("seed written: %d fields, %d faq rows, %d type facts, %d shelves, %d posts\n",
     count($ex['site']['fields']), count($ex['site']['faq']), count($ex['site']['type_facts']), count($ex['shelf']['shelves']), count($ex['posts']));

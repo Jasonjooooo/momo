@@ -126,6 +126,16 @@ async function openMenuIfPhone(page) {
   const btn = page.locator('.menu-btn');
   if (await btn.isVisible()) { await btn.click(); await page.waitForSelector('#menu.open'); }
 }
+// The committed launch content already carries the real address (https://hxpilot.com). The one-tap
+// 网站地址 banner is for a site that still has the placeholder, so the tests put the placeholder back first.
+function originPlaceholder(dataDir) {
+  for (const f of ['site.draft.json', 'site.live.json']) {
+    const p = dataDir + '/content/' + f;
+    const d = JSON.parse(fs.readFileSync(p, 'utf8'));
+    d.fields['site.origin'] = 'https://DEPLOY-DOMAIN';
+    fs.writeFileSync(p, JSON.stringify(d, null, 4) + '\n');
+  }
+}
 async function go(page, base, r, q = '') { await page.goto(base + '/admin/?r=' + r + q); }
 const sha = f => require('crypto').createHash('sha256').update(fs.readFileSync(f)).digest('hex');
 const read = f => fs.readFileSync(f, 'utf8');
@@ -194,6 +204,7 @@ async function run(browser, W) {
     check(`[${W}] second setup refused (redirected away)`, !page.url().includes('r=setup'), page.url());
 
     // ----- dashboard -----
+    originPlaceholder(DATA);
     await go(page, base, 'dashboard');
     const dash = await page.textContent('main');
     check(`[${W}] 概览 shows the last publish time`, /上次发布\s*\d+月\d+日/.test(dash.replace(/\s+/g, ' ')), dash.slice(0, 200));
@@ -555,6 +566,28 @@ async function run(browser, W) {
     await go(page, base, 'dashboard');
     check(`[${W}] 概览 shows today's usage`, (await page.textContent('#c-ai ~ dl')).includes('2 / 120'));
 
+    // ----- 访问统计 -----
+    {
+      const day = new Date(Date.now() + 8 * 3600e3).toISOString().slice(0, 10);   // Beijing day
+      fs.mkdirSync(DATA + '/stats', { recursive: true });
+      fs.writeFileSync(DATA + '/stats/' + day + '.json', JSON.stringify({ date: day, views: 57, visitors: 21,
+        paths: { '/': 30, '/posts/': 5, '/posts/gone-post.html': 2 },
+        refs: { 'mp.weixin.qq.com': 6, 'google.com.hk': 3, 'a-rather-long-host-name-for-the-phone-layout.example.com': 1 },
+        devices: { phone: 15, desktop: 6 }, wechat: 9 }));
+      await go(page, base, 'stats');
+      const t = await page.textContent('main');
+      check(`[${W}] 访问统计 shows today's visitors and views`, (await page.textContent('#st-today-visitors')).trim() === '21' && (await page.textContent('#st-today-views')).trim() === '57');
+      check(`[${W}] 访问统计 names pages and referrers in plain Chinese`, t.includes('首页') && t.includes('全部日志') && t.includes('已撤下的日志（gone-post）') && t.includes('微信公众号') && t.includes('谷歌'), t.slice(0, 300));
+      check(`[${W}] 访问统计 device split`, t.includes('71%') && t.includes('29%') && t.includes('在微信里打开的 9 位'));
+      check(`[${W}] 访问统计 says nothing personal is kept`, t.includes('不保存访客的 IP 地址'));
+      check(`[${W}] 访问统计 chart has 30 bars`, await page.locator('.chart svg rect').count() === 30);
+      await layoutCheck(page, 'stats', W);
+      await shot(page, 'stats', W);
+      await go(page, base, 'dashboard');
+      const card = await page.textContent('section[aria-labelledby="c-stats"]');
+      check(`[${W}] 概览 card: 今天访客 21 / 今天浏览 57`, card.includes('今天访客') && card.includes('21') && card.includes('今天浏览') && card.includes('57'), card);
+    }
+
     // ----- 版本记录 and rollback -----
     await go(page, base, 'versions');
     const rows = page.locator('.vrow');
@@ -664,7 +697,7 @@ async function narrow(browser) {
     await page.fill('#password', PW1);
     await page.fill('#password2', PW1);
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
-    for (const r of ['dashboard', 'site', 'posts', 'shelf', 'subs', 'ai', 'versions', 'password']) {
+    for (const r of ['dashboard', 'site', 'posts', 'shelf', 'subs', 'stats', 'ai', 'versions', 'password']) {
       await go(page, base, r);
       if (r === 'site') { await openDet(page, '#g-faq'); await openDet(page, '#g-type'); }
       if (r === 'shelf') { await openDet(page, page.locator('#shelves > details.shelf').first()); await openDet(page, page.locator('details.tool').first()); }

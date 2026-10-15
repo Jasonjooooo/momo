@@ -53,7 +53,7 @@ if ($top === 'app') {
     return deny();
 }
 if ($top === 'api') {
-    if (count($segments) === 2 && in_array($name, ['chat.php', 'subscribe.php'], true)) {
+    if (count($segments) === 2 && in_array($name, ['chat.php', 'subscribe.php', 'hit.php'], true)) {
         $_SERVER['SCRIPT_NAME'] = $path;
         $_SERVER['SCRIPT_FILENAME'] = $root . '/api/' . $name;
         require $root . '/api/' . $name;

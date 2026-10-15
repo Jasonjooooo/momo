@@ -166,6 +166,39 @@ async function pageChecks(browser, base, url, tag, opt, expect) {
   return R;
 }
 
+// Visitor statistics in a real browser: the home beacon and the post/archive pixel under the post CSP.
+// Headless Chromium says "HeadlessChrome" (a bot to hit.php), so this context uses a phone Safari user agent.
+async function statsFlow(browser, base, tmp, fx, opt) {
+  const R = { checks: [] };
+  const ctx = await browser.newContext({ ...opt, userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1' });
+  await standins(ctx);
+  const p = await ctx.newPage();
+  track(p, R, base);
+  const hits = [];
+  p.on('response', r => { if (r.url().includes('/api/hit.php')) hits.push([r.request().method(), r.status(), new URL(r.url()).search]); });
+  await p.goto(base, { waitUntil: 'load', referer: 'https://www.baidu.com/s?wd=secret-search-words' });
+  await sleep(1200);
+  const slug = fx.published[0].slug;
+  await p.goto(base + 'posts/' + slug + '.html', { waitUntil: 'load' });
+  await sleep(500);
+  const px = await p.evaluate(() => { const i = document.querySelector('img.hit-px'); return i ? { w: i.naturalWidth, shown: i.getBoundingClientRect().height, display: getComputedStyle(i).display } : null; });
+  check(R, 'post page pixel loads under the post CSP and is not shown', px && px.w === 1 && px.shown === 0 && px.display === 'none', px);
+  await p.goto(base + 'posts/', { waitUntil: 'load' });
+  await sleep(500);
+  check(R, 'beacon (POST 204) on home, pixel (GET 200) on post and archive', JSON.stringify(hits.map(h => h[0] + ' ' + h[1])) === JSON.stringify(['POST 204', 'GET 200', 'GET 200']), hits);
+  check(R, 'beacon sends only the referrer hostname', hits.length > 0 && hits[0][2] === '?p=%2F&r=www.baidu.com', hits[0]);
+  const dir = tmp + '/data/stats';
+  const files = fs.existsSync(dir) ? fs.readdirSync(dir).filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)) : [];
+  const d = files.length === 1 ? JSON.parse(fs.readFileSync(dir + '/' + files[0], 'utf8')) : {};
+  check(R, 'three views, one visitor, one phone', d.views === 3 && d.visitors === 1 && d.devices && d.devices.phone === 1, d);
+  check(R, 'paths and referrer recorded', d.paths && d.paths['/'] === 1 && d.paths['/posts/' + slug + '.html'] === 1 && d.paths['/posts/'] === 1 && JSON.stringify(d.refs) === '{"baidu.com":1}', d);
+  const raw = fs.readdirSync(dir).map(f => fs.readFileSync(dir + '/' + f, 'utf8')).join('');
+  check(R, 'no search words, IP or user agent stored', !raw.includes('secret') && !raw.includes('127.0.0.1') && !raw.includes('iPhone'));
+  check(R, 'no console errors (CSP included), external or failed requests', R.logs.length === 0, R.logs);
+  await ctx.close();
+  return R;
+}
+
 (async () => {
   const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
   let port = 21000 + Math.floor(Math.random() * 3000);
@@ -179,6 +212,7 @@ async function pageChecks(browser, base, url, tag, opt, expect) {
     const S = report[sc] = { legs: fx.legs, published: fx.published.length };
     try {
       if (sc === 'launch') S['subscribe-390'] = await subscribeFlow(browser, base, tmp, VIEWPORTS[1][1]);
+      if (sc === 'pub1') S['stats-390'] = await statsFlow(browser, base, tmp, fx, VIEWPORTS[1][1]);
       for (const [tag, opt] of VIEWPORTS) {
         S['home-' + tag] = await homeChecks(browser, base, fx, tag, opt);
         for (const pp of fx.published.slice(0, 3)) S[pp.slug + '-' + tag] = await pageChecks(browser, base, 'posts/' + pp.slug + '.html', tag, opt, { title: pp.title, draft: fx.draft_title });

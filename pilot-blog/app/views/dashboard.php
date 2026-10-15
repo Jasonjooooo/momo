@@ -79,6 +79,18 @@ $asked = (int) $today['chat']['requests'];
   <div class="row-btns"><a class="btn" href="<?= h(url('subs')) ?>">查看订阅者</a></div>
 </section>
 
+<section class="card" aria-labelledby="c-stats">
+  <h2 class="card-h" id="c-stats">访问统计</h2>
+  <dl class="kv kv-2">
+    <div><dt>今天访客</dt><dd class="num"><?= h((string) $stats_today['visitors']) ?></dd></div>
+    <div><dt>今天浏览</dt><dd class="num"><?= h((string) $stats_today['views']) ?></dd></div>
+  </dl>
+<?php if (!$stats_on): ?>
+  <p class="muted">访问统计现在是关着的。</p>
+<?php endif; ?>
+  <div class="row-btns"><a class="btn" href="<?= h(url('stats')) ?>">查看访问统计</a></div>
+</section>
+
 <section class="card" aria-labelledby="c-ai">
   <h2 class="card-h" id="c-ai">AI 助手</h2>
   <dl class="kv kv-2">

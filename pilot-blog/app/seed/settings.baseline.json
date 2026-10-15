@@ -11,5 +11,8 @@
     },
     "home": {
         "leg_limit": 6
+    },
+    "stats": {
+        "enabled": false
     }
 }

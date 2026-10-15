@@ -264,6 +264,14 @@ input[type=checkbox]{width:22px;height:22px;margin:0;flex:none;accent-color:var(
 .usage tr.zero td,.usage tr.zero th{color:#6F7090}
 .usage tfoot th,.usage tfoot td{font-weight:700;border-bottom:0}
 
+/* visitor stats */
+.toplist{list-style:none;margin:0;padding:0}
+.toplist li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 12px;min-height:44px;padding:10px 0;border-bottom:1px solid var(--line)}
+.toplist li:first-child{border-top:1px solid var(--line)}
+.tl-name{min-width:0;overflow-wrap:anywhere;line-height:1.5}
+.tl-host{font-size:12px;color:var(--text-2)}
+.tl-num{white-space:nowrap;color:var(--text-2)}
+
 /* versions */
 .vrow-t{margin:0 0 4px}
 .vrow-r{margin:0 0 4px;color:var(--text-2)}

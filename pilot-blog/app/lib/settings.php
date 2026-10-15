@@ -13,6 +13,7 @@ function settings_defaults(): array
         'chat' => ['enabled' => false, 'daily_limit' => 300, 'ip_limit' => 20, 'ip_window_min' => 10, 'extra_note' => ''],
         'subscribe' => ['enabled' => true],
         'home' => ['leg_limit' => 6],
+        'stats' => ['enabled' => true],
     ];
 }
 
@@ -27,6 +28,7 @@ function settings_normalize(array $s): array
     $out['chat']['extra_note'] = str_replace(["\r\n", "\r", "\t"], ["\n", "\n", ' '], (string) $out['chat']['extra_note']);
     $out['subscribe']['enabled'] = (bool) $out['subscribe']['enabled'];
     $out['home']['leg_limit'] = (int) $out['home']['leg_limit'];
+    $out['stats']['enabled'] = (bool) $out['stats']['enabled'];
     $out['rev'] = (int) $out['rev'];
     return $out;
 }
@@ -60,7 +62,7 @@ function settings_get(): array
 /** Things in the settings that change the public page. */
 function settings_page_state(array $s): array
 {
-    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null];
+    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled']];
 }
 
 /**

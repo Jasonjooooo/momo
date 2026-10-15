@@ -185,6 +185,16 @@ async function pasteInto(page, sel, text, replace = false) {
   await page.keyboard.insertText(text);
 }
 function heroOk(file) { return spawnSync('php', [REPO + '/pilot-blog-work/backend/tests/hero-check.php', file]).stdout.toString().trim() === 'HERO OK'; }
+// The committed launch content already carries the real address (https://hxpilot.com). The one-tap
+// 网站地址 banner is for a site that still has the placeholder, so the tests put the placeholder back first.
+function originPlaceholder(dataDir) {
+  for (const f of ['site.draft.json', 'site.live.json']) {
+    const p = dataDir + '/content/' + f;
+    const d = JSON.parse(fs.readFileSync(p, 'utf8'));
+    d.fields['site.origin'] = 'https://DEPLOY-DOMAIN';
+    fs.writeFileSync(p, JSON.stringify(d, null, 4) + '\n');
+  }
+}
 function versionsCount(T) { return fs.existsSync(T.DATA + '/versions') ? fs.readdirSync(T.DATA + '/versions').filter(n => /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(n)).length : 0; }
 function newestVersion(T) {
   const ids = fs.readdirSync(T.DATA + '/versions').filter(n => /^\d{8}-\d{6}-[0-9a-f]{6}$/.test(n));
@@ -306,7 +316,7 @@ async function sweepAdmin(T, label) {
   const page = T.page;
   const pages = [
     ['dashboard', '', '概览'], ['site', '', '网站文字'], ['posts', '', '飞行日志'], ['posts', '&f=published', '飞行日志 已发布'],
-    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shelf', '', 'AI 超市'], ['subs', '', '订阅者'],
+    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shelf', '', 'AI 超市'], ['subs', '', '订阅者'], ['stats', '', '访问统计'],
     ['ai', '', 'AI 助手'], ['versions', '', '版本记录'], ['password', '', '修改密码'],
     ['no-such-page', '', '404 页'], ['post.edit', '&id=p000000000000', '找不到的日志'], ['versions.view', '&id=19990101-000000-abcdef', '找不到的版本'],
     ['logout', '', '用 GET 打开 POST 地址（405）'],
@@ -541,6 +551,7 @@ async function flows(T, browser, SEED) {
   });
 
   await section(T, '概览：网站地址、计数、待发布提醒', async () => {
+    originPlaceholder(T.DATA);
     await go(T, page, 'dashboard');
     check(T, '概览 says the site address is missing', (await page.textContent('main')).includes('网站地址还没填'));
     await Promise.all([page.waitForNavigation(), page.locator('form[action*="site.origin"] button').click()]);

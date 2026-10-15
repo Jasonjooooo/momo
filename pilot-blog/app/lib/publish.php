@@ -27,6 +27,7 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
         'legs' => home_legs($posts, (int) $settings['home']['leg_limit']),
         'subscribe_live' => (bool) $settings['subscribe']['enabled'],
         'chat_live' => (bool) $settings['chat']['enabled'] && $chatKey,
+        'stats_live' => stats_enabled($settings),
         'site_published_at' => (string) ($site['published_at'] ?? $site['updated_at'] ?? now_iso()),
         'extra_css' => (string) file_get_contents(app_path('templates', 'home-extra.css')),
     ];
@@ -34,7 +35,7 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
     foreach (['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act', 'radio_sby'] as $v) {
         $ctx['values'][$v] = value_render($v, $base);
     }
-    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder'] as $c) {
+    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live'] as $c) {
         $ctx['conds'][$c] = cond_eval($c, $base);
     }
     foreach (['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css'] as $b) {
@@ -65,7 +66,7 @@ function page_base_ctx(array $site, array $settings): array
     return [
         'fields' => $site['fields'],
         'values' => ['css_href' => enc_attr(post_css_href())],
-        'conds' => ['subscribe_live' => (bool) $settings['subscribe']['enabled']],
+        'conds' => ['subscribe_live' => (bool) $settings['subscribe']['enabled'], 'stats_live' => stats_enabled($settings)],
         'blocks' => [],
         'origin' => (string) $site['fields']['site.origin'],
     ];
@@ -93,6 +94,7 @@ function render_post_page(array $post, array $ctx, ?array $older, ?array $newer,
         'post_slug' => enc_attr($post['slug']),
         'post_og_image' => enc_attr($ogImage),
         'post_url' => enc_attr($origin . '/posts/' . $post['slug'] . '.html'),
+        'hit_path' => enc_attr(rawurlencode('/posts/' . $post['slug'] . '.html')),
     ];
     $tags = $l['tags'] ?? [];
     $ctx['conds'] += [
@@ -486,7 +488,9 @@ function preview_home(array $siteDraft, array $shelfDraft): string
     if ($err) {
         throw new ValidationError($err);
     }
-    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), settings_get(), chat_key() !== null));
+    $settings = settings_get();
+    $settings['stats']['enabled'] = false;   // a preview is not a visit
+    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), $settings, chat_key() !== null));
     return inject_preview($html, '../', PREVIEW_BANNER_HOME);
 }
 
@@ -496,6 +500,8 @@ function preview_post(array $postWithDraft): string
     $p['draft']['date'] ??= local_day();
     $p['live'] = post_live_from_draft($p, 'full');
     $site = site_live();
-    $html = render_post_page($p, page_base_ctx($site, settings_get()), null, null);
+    $settings = settings_get();
+    $settings['stats']['enabled'] = false;   // a preview is not a visit
+    $html = render_post_page($p, page_base_ctx($site, $settings), null, null);
     return inject_preview($html, '../posts/', '<div class="preview-banner">预览：这是还没发布的草稿，访客看不到。</div>');
 }
