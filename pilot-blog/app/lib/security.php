@@ -74,6 +74,26 @@ function client_ip(): string
     return (string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown');
 }
 
+/**
+ * The per-visitor rate-limit key. IPv6 clients are grouped by their /64 prefix (a home or VPS
+ * allocation), so one client cannot get a fresh quota from every address in its range. IPv4 and
+ * IPv4-mapped IPv6 addresses key on the exact address.
+ */
+function client_key(): string
+{
+    $ip = client_ip();
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) && !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4)) {
+        $bin = @inet_pton($ip);
+        if ($bin !== false && strlen($bin) === 16) {
+            if (str_starts_with($bin, "\0\0\0\0\0\0\0\0\0\0\xff\xff")) {
+                return (string) inet_ntop(substr($bin, 12));   // ::ffff:a.b.c.d → a.b.c.d
+            }
+            return (string) inet_ntop(substr($bin, 0, 8) . str_repeat("\0", 8)) . '/64';
+        }
+    }
+    return $ip;
+}
+
 // ---------- secrets.json (0600, server side only, never logged) ----------
 
 function secrets_get(): array
@@ -109,6 +129,47 @@ function ip_hash(string $ip): string
     return hash_hmac('sha256', $ip, ip_salt());
 }
 
+/** A stable per-install secret in secrets.json, created on first use (64 hex). Never sent or logged. */
+function secret_value(string $name): string
+{
+    $s = secrets_get();
+    if (isset($s[$name]) && preg_match('/^[0-9a-f]{64}$/', (string) $s[$name])) {
+        return $s[$name];
+    }
+    $s = secrets_update(function (array $s) use ($name) {
+        if (!isset($s[$name]) || !preg_match('/^[0-9a-f]{64}$/', (string) $s[$name])) {
+            $s[$name] = bin2hex(random_bytes(32));
+        }
+        return $s;
+    });
+    return $s[$name];
+}
+
+/**
+ * Hash a password. bcrypt ignores everything after byte 72, which for Chinese text is only 24
+ * characters, so the password is first folded to a fixed length with an HMAC (keyed by a per-install
+ * pepper). The whole password then counts.
+ */
+function pw_hash(string $pw): string
+{
+    return password_hash(base64_encode(hash_hmac('sha256', $pw, secret_value('pw_pepper'), true)), PASSWORD_BCRYPT, ['cost' => 12]);
+}
+
+/** Verify a password against a stored hash. $legacy is set true for an old raw-bcrypt hash (pre-prehash). */
+function pw_verify(string $pw, string $hash, ?bool &$legacy = null): bool
+{
+    $legacy = false;
+    if (password_verify(base64_encode(hash_hmac('sha256', $pw, secret_value('pw_pepper'), true)), $hash)) {
+        return true;
+    }
+    // one-time path for any hash written before the prehash change (there are none in a fresh install)
+    if (strlen($pw) <= 72 && $pw !== '' && password_verify($pw, $hash)) {
+        $legacy = true;
+        return true;
+    }
+    return false;
+}
+
 /** Audit line in blog-data/log/admin.log (JSON lines, rotated at 1 MB, 2 kept). Never secrets or bulk emails. */
 function audit(string $event, string $detail = ''): void
 {
@@ -130,12 +191,10 @@ const SESSION_IDLE_SEC = 7200;          // 120 min without a request
 const SESSION_ABSOLUTE_SEC = 43200;     // 12 h after login
 const SETUP_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const SETUP_VALID_SEC = 7 * 86400;
-const LOGIN_IP_MAX = 5;                 // failures per IP hash ...
+const LOGIN_IP_MAX = 5;                 // failures per /64 or IPv4 address ...
 const LOGIN_IP_WINDOW = 900;            // ... in 15 min
-const LOGIN_GLOBAL_MAX = 30;            // failures for everyone per hour
-const LOGIN_GLOBAL_LOCK = 1800;         // then all logins pause 30 min
 const MSG_LOGIN_LOCKED_IP = '尝试次数太多，请 15 分钟后再试。';
-const MSG_LOGIN_LOCKED_ALL = '登录尝试太多，后台暂停登录 30 分钟。急用的话，在文件管理器里删除 blog-data/ratelimit/login-global 文件夹。';
+const MSG_LOGIN_UNAVAILABLE = '后台暂时登录不了，过一会儿再试。';
 
 /** URL path of the admin directory, e.g. '/admin/'. */
 function admin_base(): string
@@ -155,6 +214,28 @@ function admin_read(): ?array
 {
     $a = json_read(data_path('admin.json'));
     return is_array($a) && is_string($a['password_hash'] ?? null) && $a['password_hash'] !== '' ? $a : null;
+}
+
+/**
+ * Start the admin session only when it can matter, so anonymous and bogus-cookie requests leave no
+ * session file behind (a forged or stale cookie would otherwise fill the account's inodes). Logging
+ * in and first-run setup use a stateless CSRF token and start their session on success instead.
+ */
+function admin_session_start_if_needed(): void
+{
+    $id = $_COOKIE['pb_admin'] ?? null;
+    if (is_string($id) && preg_match('/^[A-Za-z0-9,\-]{1,128}$/', $id)
+        && is_file(DATA_DIR . '/sessions/sess_' . $id)) {
+        admin_session_start();
+    }
+}
+
+/** Remove every stored session file (used when a reset or password change signs out all devices). */
+function sessions_clear(): void
+{
+    foreach (glob(DATA_DIR . '/sessions/sess_*') ?: [] as $f) {
+        @unlink($f);
+    }
 }
 
 function admin_session_start(): void
@@ -221,6 +302,7 @@ function auth_require(bool $json = false): void
 
 function auth_set_session(array $admin): void
 {
+    admin_session_start();   // a first login or a reset starts from no session
     session_regenerate_id(true);
     $now = time();
     $_SESSION = [
@@ -232,35 +314,30 @@ function auth_set_session(array $admin): void
     ];
 }
 
-/** Null when logins are allowed, else the Chinese message to show. */
-function login_locked(): ?string
+/**
+ * Count this login/setup/password attempt per /64 (or IPv4) and say whether it is allowed. The count
+ * happens before the password is checked and under the counter's own lock, so a burst of parallel
+ * requests cannot slip past the limit by all reading the count before any is recorded. There is no
+ * site-wide lock: a flood from other addresses can never shut the owner out of their own login.
+ * Returns ['ok' => bool, 'msg' => ?string]; ok false with MSG_LOGIN_LOCKED_IP once over the limit,
+ * or MSG_LOGIN_UNAVAILABLE when the counter cannot be written (fail closed).
+ */
+function login_gate(): array
 {
-    $lock = json_read(DATA_DIR . '/ratelimit/login-global/lock.json');
-    if (is_array($lock) && (int) ($lock['until'] ?? 0) > time()) {
-        return MSG_LOGIN_LOCKED_ALL;
+    $hit = rl_hit('login-ip', ip_hash(client_key()), LOGIN_IP_MAX, LOGIN_IP_WINDOW);
+    if (!empty($hit['error'])) {
+        return ['ok' => false, 'msg' => MSG_LOGIN_UNAVAILABLE];
     }
-    if (rl_count('login-ip', ip_hash(client_ip()), LOGIN_IP_WINDOW) >= LOGIN_IP_MAX) {
-        return MSG_LOGIN_LOCKED_IP;
-    }
-    return null;
+    return $hit['allowed'] ? ['ok' => true, 'msg' => null] : ['ok' => false, 'msg' => MSG_LOGIN_LOCKED_IP];
 }
 
-/** Count one failed password or setup code; returns the lock message when this failure triggered a lock. */
-function login_failed(string $what = 'login_fail'): ?string
+/** Record a failed attempt in the audit log and slow the caller down (never on the CLI). */
+function login_failed(string $what = 'login_fail'): void
 {
-    $ip = rl_hit('login-ip', ip_hash(client_ip()), LOGIN_IP_MAX, LOGIN_IP_WINDOW);
-    $all = rl_hit('login-global', 'all', LOGIN_GLOBAL_MAX, 3600);
-    if ($all['count'] >= LOGIN_GLOBAL_MAX) {
-        json_write_atomic(DATA_DIR . '/ratelimit/login-global/lock.json', ['until' => time() + LOGIN_GLOBAL_LOCK]);
-    }
     audit($what);
     if (PHP_SAPI !== 'cli') {
         sleep(1);
     }
-    if ($all['count'] >= LOGIN_GLOBAL_MAX) {
-        return MSG_LOGIN_LOCKED_ALL;
-    }
-    return $ip['count'] >= LOGIN_IP_MAX ? MSG_LOGIN_LOCKED_IP : null;
 }
 
 /** ['ok' => bool, 'error' => ?string] */
@@ -270,17 +347,19 @@ function auth_login(string $password): array
     if ($admin === null) {
         return ['ok' => false, 'error' => '还没有设置后台密码。'];
     }
-    $locked = login_locked();
-    if ($locked !== null) {
-        return ['ok' => false, 'error' => $locked];
+    $gate = login_gate();
+    if (!$gate['ok']) {
+        return ['ok' => false, 'error' => $gate['msg']];
     }
-    if ($password === '' || strlen($password) > 1000 || !password_verify($password, $admin['password_hash'])) {
-        return ['ok' => false, 'error' => login_failed() ?? '密码不对。'];
+    $legacy = false;
+    if ($password === '' || strlen($password) > 1000 || !pw_verify($password, $admin['password_hash'], $legacy)) {
+        login_failed();
+        return ['ok' => false, 'error' => '密码不对。'];
     }
-    rl_clear('login-ip', ip_hash(client_ip()));
-    if (password_needs_rehash($admin['password_hash'], PASSWORD_DEFAULT, ['cost' => 12])) {
+    rl_clear('login-ip', ip_hash(client_key()));
+    if ($legacy || password_needs_rehash($admin['password_hash'], PASSWORD_BCRYPT, ['cost' => 12])) {
         $admin = admin_update(function (array $a) use ($password) {
-            $a['password_hash'] = password_hash($password, PASSWORD_DEFAULT, ['cost' => 12]);
+            $a['password_hash'] = pw_hash($password);
             return $a;
         });
     }
@@ -369,15 +448,15 @@ function setup_complete(string $code, string $pw1, string $pw2): array
     if (!setup_needed()) {
         return ['ok' => false, 'error' => '后台密码已经设置过了，请直接登录。', 'field' => null];
     }
-    $locked = login_locked();
-    if ($locked !== null) {
-        return ['ok' => false, 'error' => $locked, 'field' => 'code'];
+    $gate = login_gate();
+    if (!$gate['ok']) {
+        return ['ok' => false, 'error' => $gate['msg'], 'field' => 'code'];
     }
     $want = setup_code_current();
     $got = setup_code_normalize($code);
     if ($want === null || $got === '' || !hash_equals($want, $got)) {
-        $lock = login_failed('setup_fail');
-        return ['ok' => false, 'error' => $lock ?? '设置码不对。请对照 setup-code.txt 再填一遍。', 'field' => 'code'];
+        login_failed('setup_fail');
+        return ['ok' => false, 'error' => '设置码不对。请对照 setup-code.txt 再填一遍。', 'field' => 'code'];
     }
     if ($pw1 !== $pw2) {
         return ['ok' => false, 'error' => '两次输入的密码不一样。', 'field' => 'password2'];
@@ -391,15 +470,22 @@ function setup_complete(string $code, string $pw1, string $pw2): array
             return null;
         }
         $now = now_iso();
-        $a = ['version' => 1, 'password_hash' => password_hash($pw1, PASSWORD_DEFAULT, ['cost' => 12]), 'created_at' => $now, 'password_changed_at' => $now, 'session_epoch' => 1];
+        // A reset through 忘记密码 deletes admin.json; start the epoch past any value an old admin.json
+        // left (or a random one), so sessions made before the reset no longer match and are not valid
+        // again. Then drop every stored session, which signs out every device the way a reset should.
+        $old = json_read(data_path('admin.json'));
+        $prev = is_array($old) ? (int) ($old['session_epoch'] ?? 0) : 0;
+        $epoch = $prev > 0 ? $prev + 1 : random_int(1, 2000000000);
+        $a = ['version' => 1, 'password_hash' => pw_hash($pw1), 'created_at' => $now, 'password_changed_at' => $now, 'session_epoch' => $epoch];
         json_write_atomic(data_path('admin.json'), $a);
         @unlink(setup_code_path());
+        sessions_clear();
         return $a;
     });
     if ($admin === null) {
         return ['ok' => false, 'error' => '后台密码已经设置过了，请直接登录。', 'field' => null];
     }
-    rl_clear('login-ip', ip_hash(client_ip()));
+    rl_clear('login-ip', ip_hash(client_key()));
     auth_set_session($admin);
     audit('setup_done');
     return ['ok' => true, 'error' => null, 'field' => null];
@@ -453,13 +539,15 @@ function password_change(string $old, string $new1, string $new2): array
     if ($admin === null) {
         return ['ok' => false, 'error' => '还没有设置后台密码。', 'field' => null];
     }
-    $locked = login_locked();
-    if ($locked !== null) {
-        return ['ok' => false, 'error' => $locked, 'field' => 'old'];
+    $gate = login_gate();
+    if (!$gate['ok']) {
+        return ['ok' => false, 'error' => $gate['msg'], 'field' => 'old'];
     }
-    if ($old === '' || !password_verify($old, $admin['password_hash'])) {
-        return ['ok' => false, 'error' => login_failed() ?? '当前密码不对。', 'field' => 'old'];
+    if ($old === '' || !pw_verify($old, $admin['password_hash'])) {
+        login_failed();
+        return ['ok' => false, 'error' => '当前密码不对。', 'field' => 'old'];
     }
+    rl_clear('login-ip', ip_hash(client_key()));
     if ($new1 !== $new2) {
         return ['ok' => false, 'error' => '两次输入的新密码不一样。', 'field' => 'new2'];
     }
@@ -471,11 +559,12 @@ function password_change(string $old, string $new1, string $new2): array
         return ['ok' => false, 'error' => '新密码和现在的一样，换一个。', 'field' => 'new1'];
     }
     $admin = admin_update(function (array $a) use ($new1) {
-        $a['password_hash'] = password_hash($new1, PASSWORD_DEFAULT, ['cost' => 12]);
+        $a['password_hash'] = pw_hash($new1);
         $a['password_changed_at'] = now_iso();
         $a['session_epoch'] = (int) ($a['session_epoch'] ?? 0) + 1;
         return $a;
     });
+    sessions_clear();   // the epoch already invalidates them; remove the files so nothing lingers
     auth_set_session($admin);
     audit('password_changed');
     return ['ok' => true, 'error' => null, 'field' => null];
@@ -483,10 +572,40 @@ function password_change(string $old, string $new1, string $new2): array
 
 // ---------- CSRF and same-origin checks ----------
 
+/** True when a logged-in owner session is active (its CSRF token is per session). */
+function csrf_has_session(): bool
+{
+    return session_status() === PHP_SESSION_ACTIVE && ($_SESSION['uid'] ?? null) === 'owner';
+}
+
+/**
+ * A CSRF token for the login and setup forms that needs no session, so a first-time or logged-out
+ * visitor creates no session file. It is an HMAC of a 30-minute time slot, keyed by a per-install
+ * secret; the same-origin check in admin_dispatch() stays as the second layer.
+ */
+function stateless_csrf(): string
+{
+    return hash_hmac('sha256', 'pre|' . floor(time() / 1800), secret_value('csrf_secret'));
+}
+
+function stateless_csrf_ok(string $sent): bool
+{
+    if (strlen($sent) !== 64) {
+        return false;
+    }
+    $slot = (int) floor(time() / 1800);
+    foreach ([$slot, $slot - 1] as $s) {   // accept the current and previous slot (up to ~60 min old)
+        if (hash_equals(hash_hmac('sha256', 'pre|' . $s, secret_value('csrf_secret')), $sent)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 function csrf_token(): string
 {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-        return '';
+    if (!csrf_has_session()) {
+        return stateless_csrf();
     }
     if (!is_string($_SESSION['csrf'] ?? null) || strlen($_SESSION['csrf']) !== 64) {
         $_SESSION['csrf'] = bin2hex(random_bytes(32));
@@ -494,12 +613,21 @@ function csrf_token(): string
     return $_SESSION['csrf'];
 }
 
-/** 403 unless the request carries this session's token (form field _csrf or header X-CSRF-Token). */
+/** True when $sent is this request's valid CSRF token (session token when logged in, else stateless). */
+function csrf_token_ok(string $sent): bool
+{
+    if (csrf_has_session()) {
+        $want = (string) ($_SESSION['csrf'] ?? '');
+        return strlen($want) === 64 && hash_equals($want, $sent);
+    }
+    return stateless_csrf_ok($sent);
+}
+
+/** 403 unless the request carries a valid CSRF token (form field _csrf or header X-CSRF-Token). */
 function csrf_verify(bool $json = false): void
 {
     $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['_csrf'] ?? '');
-    $want = session_status() === PHP_SESSION_ACTIVE ? ($_SESSION['csrf'] ?? '') : '';
-    if (is_string($sent) && is_string($want) && strlen($want) === 64 && hash_equals($want, $sent)) {
+    if (is_string($sent) && csrf_token_ok($sent)) {
         return;
     }
     if ($json) {

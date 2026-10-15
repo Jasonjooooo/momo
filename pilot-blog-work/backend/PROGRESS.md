@@ -19,3 +19,6 @@
 - 2026-10-14T21:41:11Z QA agent: e2e.js extended (delete+rollback exact, long Latin title, upload after expiry, 60k body, badges, FAQ delete, link tool, wrong current password); 390 ALL PASS 468; B-chart test.js both: only chat 503 logs
 - 2026-10-14T21:55:14Z QA agent: DONE. e2e.js ALL PASS 805 (1440: 337, 390: 468) twice in a row; admin.e2e 386, public.e2e pass, run.php 219, T1/T2/T3 pass, B-chart test.js only chat 503. SPEC §18 items 9-12 record the QA deviations
 - 2026-10-14T22:22:46Z security-fix agent: started; 13 findings (sessions/epoch, login race, global lock, bcrypt 72, anon sessions, uploads resync, rl fail-open, sub site-day, ipv6 /64, chat order+origin, sub full oracle, data dir path, https)
+- 2026-10-15T01:36:32Z security-fix agent (resumed): nothing from the first attempt was on disk; reading code, then a repro harness, then fixes
+- 2026-10-15T01:40:42Z security-fix agent: exploit harness (scratchpad sec/exploits.js) reproduces F1-F12 on unfixed code; F13 to check on real Apache
+- 2026-10-15T02:01:24Z security-fix agent: all 13 findings fixed, exploit sweep 0 VULNERABLE. Fixed F1-F13 across security.php, ratelimit.php, subscribers.php, images.php, api/subscribe.php, api/chat.php, admin/index.php, app/views/post_edit.php, .htaccess. Running project suites.

@@ -63,11 +63,16 @@ if (!settings_get()['subscribe']['enabled']) {
     respond(503, ['error' => 'closed', 'message' => '订阅暂时关闭了，这次没有保存你的邮箱。'], 'subscribe.closed');
 }
 
-$ipKey = ip_hash(client_ip());
-$limited = !rl_hit('sub-ip-hour', $ipKey, SUB_IP_HOUR, 3600)['allowed'];
-$limited = !rl_hit('sub-ip-day', $ipKey, SUB_IP_DAY, 86400)['allowed'] || $limited;
-$limited = !rl_hit('sub-site-day', local_day(), SUB_SITE_DAY, 2 * 86400)['allowed'] || $limited;
-if ($limited) {
+// The site-wide daily cap is read first without counting, so a request that is about to be blocked by
+// it (and a flood of junk) never creates per-IP counter files or inflates the site-wide bucket.
+if (rl_count('sub-site-day', local_day(), 2 * 86400) >= SUB_SITE_DAY) {
+    respond(429, ['error' => 'rate_limited', 'message' => '提交得有点频繁，过一会儿再试。'], 'subscribe.rate_limited');
+}
+
+// Per-visitor limits (IPv6 grouped by /64, so address rotation gets no fresh quota).
+$ipKey = ip_hash(client_key());
+if (!rl_hit('sub-ip-hour', $ipKey, SUB_IP_HOUR, 3600)['allowed']
+    || !rl_hit('sub-ip-day', $ipKey, SUB_IP_DAY, 86400)['allowed']) {
     respond(429, ['error' => 'rate_limited', 'message' => '提交得有点频繁，过一会儿再试。'], 'subscribe.rate_limited');
 }
 
@@ -90,12 +95,17 @@ if (($_POST['consent'] ?? '') !== '1') {
 
 $consent = (string) (site_live()['fields']['sub.consent'] ?? '');
 try {
-    sub_add($email, $consent, 'home');
+    $result = sub_add($email, $consent, 'home');
 } catch (SubscribersFull $e) {
     respond(503, ['error' => 'full', 'message' => '订阅名单满了，这次没有保存。']);
 } catch (Throwable $e) {
     error_log('subscribe.php store: ' . get_class($e));
     respond(503, ['error' => 'unavailable', 'message' => '这次没有提交成功。稍后再试一次。']);
+}
+// Count the site-wide bucket only when a genuinely new address was stored, so duplicates and junk
+// cannot push the whole site to its daily cap.
+if ($result === 'new') {
+    rl_hit('sub-site-day', local_day(), SUB_SITE_DAY, 2 * 86400);
 }
 // the same answer for a new and a repeated address, so nobody can probe who is on the list
 respond(200, ['ok' => true], 'subscribe.ok');

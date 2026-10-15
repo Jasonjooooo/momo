@@ -9,15 +9,18 @@ require __DIR__ . '/../app/lib/admin.php';
 try {
     app_init('admin');
 } catch (DataDirError $e) {
+    // The absolute path (which reveals the hosting account layout) goes to the server log only;
+    // the visitor sees a relative hint.
+    error_log('admin: data dir not writable: ' . $e->getMessage());
     send_headers('admin');
     http_response_code(503);
     echo '<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>后台</title></head><body><p>'
-        . h('数据目录没法写入：' . $e->getMessage() . '。请在 Hostinger 文件管理器里检查这个文件夹的权限。') . '</p></body></html>';
+        . h('和 public_html 同级的 blog-data 文件夹没法写入。请在 Hostinger 文件管理器里检查这个文件夹的权限。') . '</p></body></html>';
     exit;
 }
 
 send_headers('admin');
-admin_session_start();
+admin_session_start_if_needed();
 try {
     admin_dispatch();
 } catch (Throwable $e) {

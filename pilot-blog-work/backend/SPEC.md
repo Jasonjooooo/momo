@@ -1040,10 +1040,13 @@ and setup forms are replaced with 「请用 https:// 打开后台，再登录。
 
 ### 11.4 Login throttling
 
-`login-ip`: 5 failures per 15 min per IP hash → locked 15 min. `login-global`: 30 failures per hour →
-all logins locked 30 min. Each failure sleeps 1 s. Messages: 「密码不对。」, 「尝试次数太多，请 15 分钟后再试。」,
-global: 「登录尝试太多，后台暂停登录 30 分钟。急用的话，在文件管理器里删除 blog-data/ratelimit/login-global 文件夹。」.
-Success clears the IP bucket.
+`login-ip`: 5 failures per 15 min per IP key → locked 15 min. The key is the IPv6 /64 (or the exact
+IPv4 address), counted once per attempt **before** the password is checked, under the counter's own
+lock, so a burst of parallel requests cannot slip past it. Each failure sleeps 1 s. Messages: 「密码不对。」,
+「尝试次数太多，请 15 分钟后再试。」. Success clears the IP bucket. There is no site-wide lock (see §18 item
+14: it only let anyone lock the owner out of their own login/setup/reset); setup and password change use
+the same per-IP gate. When the counter cannot be written the attempt is refused with
+「后台暂时登录不了，过一会儿再试。」 (fail closed).
 
 ### 11.5 CSRF and request rules
 
@@ -1599,6 +1602,48 @@ Added by the QA pass (owner end-to-end test `pilot-blog-work/backend/e2e.js`):
    or left (`pagehide`, `visibilitychange`; iOS Safari has no `beforeunload`) and when a save fails.
 12. **Post preview pane.** `preview.post` answers a short framed note (preview headers, no script) when the
    session or its token has expired or the post is gone, instead of a redirect the iframe may not show.
+
+Added by the security-fix pass (2026-10-15; each item re-verified with an exploit, fixed, and the exploit
+re-run; harness in `pilot-blog-work/` scratch, not committed):
+
+13. **Reset signs out every device (§11.1/§11.3).** `setup_complete()` (used by 忘记密码) now starts the new
+   `session_epoch` past any value the old `admin.json` left (or a random one), and deletes every file in
+   `sessions/`, so a session made before a reset is never valid again. `password_change()` also clears the
+   session files (the epoch already invalidated them).
+14. **Login throttling counts before it checks (§11.4).** One `rl_hit('login-ip', …)` is recorded under the
+   counter's own lock before `password_verify`, so parallel requests cannot all pass the check before any is
+   counted. The per-IP key is the IPv6 /64 (or the exact IPv4), so one /64 no longer gets a fresh five tries
+   per address. The site-wide 30-per-hour lock is **removed**: it only ever let anyone shut the owner out of
+   their own login, setup and 忘记密码 reset; per-IP throttling plus the 1 s delay remain. `MSG_LOGIN_LOCKED_ALL`
+   and the `login-global` bucket are gone.
+15. **Passwords are pre-hashed (§11.2).** `pw_hash()`/`pw_verify()` fold the password with HMAC-SHA256 (keyed by
+   a per-install `pw_pepper` in `secrets.json`) before bcrypt, so the whole password counts, not only the first
+   72 bytes (24 Chinese characters). A one-time path still verifies and upgrades any old raw-bcrypt hash.
+16. **No session file for anonymous or forged requests (§11.3).** `admin_session_start_if_needed()` starts the
+   PHP session only when the `pb_admin` cookie names an existing session file; login and setup use a stateless
+   CSRF token (`stateless_csrf()`, HMAC of a 30-minute slot keyed by `csrf_secret` in `secrets.json`), so a
+   cookieless or bogus-cookie request writes nothing to `sessions/`. This closes the inode-exhaustion path.
+17. **Rate-limit counters fail closed (§10.2).** `rl_hit()` returns `allowed=false, error=true` when it cannot
+   create or write the counter file (default; pass `$failOpen` to keep a bucket open). `api/chat.php` answers
+   503 when `chat-ip`/`chat-day` cannot be written, so a full disk never turns into an uncapped spend on the
+   owner's API key.
+18. **Subscribe and chat ordering (§9.1/§10.2).** `subscribe.php` reads the site-wide daily cap first without
+   counting (so a flood leaves no per-IP files and does not inflate the global bucket), checks the per-IP
+   buckets (keyed by /64), then the honeypot/validation, and counts `sub-site-day` only when a genuinely new
+   address is stored. `chat.php` validates the request body before any `rl_hit` (invalid bodies spend no quota),
+   adds the same Origin check `subscribe.php` has, and requires `Content-Type: application/json` (415 otherwise),
+   so another site cannot spend the owner's quota from a visitor's browser.
+19. **Full-list reply is uniform (§5.8).** `sub_add()` checks the cap before the duplicate scan, so a full list
+   answers the same 503 for an address already on it and a new one; membership can no longer be probed.
+20. **Upload resync restores only live-referenced images (§11.8).** `uploads_sync_public()` restores a public
+   copy only for upload paths that live posts (cover + body) or the live site/shelf still reference, so deleting
+   both copies of a photo takes it down for good instead of being undone by the next publish. The image help
+   tells the owner to delete both `blog-data/uploads/…` and `public_html/uploads/…`.
+21. **Data-dir error hides the path (admin).** `admin/index.php` logs the absolute `blog-data` path to
+   `error_log` and shows the visitor only a relative hint, so the hosting account layout is not disclosed.
+22. **HTTPS is forced (§14).** `pilot-blog/.htaccess` redirects plain HTTP to HTTPS (skipping when TLS is on or
+   the host proxy forwarded `X-Forwarded-Proto: https`) and sends HSTS over HTTPS, so readers' emails and the
+   home page never travel in clear text. Deploy note: also turn on hPanel's "Force HTTPS".
 
 ## 19. How to run locally
 

@@ -1,11 +1,26 @@
 # 云底之下: public site rules. The site is static files; PHP runs only in api/ and admin/.
 Options -Indexes
 DirectoryIndex index.html index.php
+# Send plain HTTP to HTTPS, so readers' emails and the home page never travel in clear text (mainland
+# ISPs inject into HTTP pages). Skip when TLS is on, or when the host's proxy already forwarded HTTPS.
+# Also turn on "Force HTTPS" in hPanel; this is the belt-and-suspenders in case it is off.
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteCond %{HTTPS} off
+  RewriteCond %{HTTP:X-Forwarded-Proto} !https
+  RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+</IfModule>
+<IfModule mod_setenvif.c>
+  SetEnvIf X-Forwarded-Proto "^https$" HTTPS_ON=1
+</IfModule>
 <IfModule mod_headers.c>
   Header always set X-Content-Type-Options "nosniff"
   Header always set Referrer-Policy "strict-origin-when-cross-origin"
   Header always set X-Frame-Options "SAMEORIGIN"
   Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  # HSTS only over HTTPS (directly, or forwarded by the host's TLS proxy)
+  Header always set Strict-Transport-Security "max-age=15552000" env=HTTPS
+  Header always set Strict-Transport-Security "max-age=15552000" env=HTTPS_ON
   <FilesMatch "\.html$">
     Header set Cache-Control "no-cache"
   </FilesMatch>

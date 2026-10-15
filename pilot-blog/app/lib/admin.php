@@ -121,8 +121,7 @@ function admin_dispatch(): void
 function admin_csrf_ok(): bool
 {
     $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? ($_POST['_csrf'] ?? '');
-    $want = session_status() === PHP_SESSION_ACTIVE ? ($_SESSION['csrf'] ?? '') : '';
-    return is_string($sent) && is_string($want) && strlen($want) === 64 && hash_equals($want, $sent);
+    return is_string($sent) && csrf_token_ok($sent);
 }
 
 /** A short note shown inside the post preview iframe (framing allowed, no script). */

@@ -66,7 +66,7 @@ $locked = $client['slug_locked'];
       <input type="file" id="cover-file" accept="image/*" class="vh">
       <button type="button" class="btn btn-ghost" id="cover-remove"<?php if (!$cover): ?> hidden<?php endif; ?>>去掉封面图</button>
     </div>
-    <p class="where">JPG、PNG、WebP 或 GIF，最大 <?= h((string) $upload_mb) ?> MB。手机上会先缩小再上传。还没发布的草稿里的图片，只有知道完整网址的人才看得到。</p>
+    <p class="where">JPG、PNG、WebP 或 GIF，最大 <?= h((string) $upload_mb) ?> MB。手机上会先缩小再上传。还没发布的草稿里的图片，只有知道完整网址的人才看得到。想彻底撤下一张传错的图，要在文件管理器里删掉两处：blog-data/uploads 里的原图，和 public_html/uploads 里同名的两个文件。</p>
     <p class="ferr" hidden></p>
     <label for="p-cover-alt">图片说明（读屏软件会读这句）</label>
     <input id="p-cover-alt" type="text" value="<?= h((string) ($cover['alt'] ?? '')) ?>" data-max="120">

@@ -38,14 +38,16 @@ function sub_add(string $email, string $consent, string $source = 'home'): strin
     $result = 'exists';
     json_update(subs_path(), function ($d) use ($email, $consent, $source, &$result) {
         $d = is_array($d) && is_array($d['items'] ?? null) ? $d : ['rev' => 0, 'items' => []];
+        // Check the cap before the duplicate scan, so a full list answers the same way for an address
+        // already on it and a new one; nobody can probe membership by watching for a different reply.
+        if (count($d['items']) >= SUB_CAP) {
+            throw new SubscribersFull('full');
+        }
         foreach ($d['items'] as $it) {
             if ($it['email'] === $email) {
                 $result = 'exists';
                 return $d;
             }
-        }
-        if (count($d['items']) >= SUB_CAP) {
-            throw new SubscribersFull('full');
         }
         $d['items'][] = ['email' => $email, 'created_at' => now_iso(), 'consent' => $consent, 'source' => $source];
         $d['rev'] = (int) ($d['rev'] ?? 0) + 1;

@@ -52,6 +52,29 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     respond(405, ['error' => 'method_not_allowed']);
 }
 
+// A cross-site form or script: the Origin header names another host. A visitor's browser on another
+// site must not be able to spend the owner's API quota from the visitor's own IP.
+$origin = (string) ($_SERVER['HTTP_ORIGIN'] ?? '');
+if ($origin !== '') {
+    $p = parse_url($origin);
+    $scheme = strtolower((string) ($p['scheme'] ?? ''));
+    $originHost = strtolower((string) ($p['host'] ?? ''));
+    $port = (int) ($p['port'] ?? 0);
+    if ($port && !(($scheme === 'https' && $port === 443) || ($scheme === 'http' && $port === 80))) {
+        $originHost .= ':' . $port;
+    }
+    $host = (string) preg_replace('/:(80|443)$/', '', strtolower((string) ($_SERVER['HTTP_HOST'] ?? '')));
+    if ($originHost === '' || $originHost !== $host) {
+        respond(403, ['error' => 'forbidden', 'message' => '这次没有发送成功。请从本站页面提问。']);
+    }
+}
+
+// Require a JSON content type, so a cross-site "simple" request (text/plain, no preflight) is refused.
+$ctype = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
+if (!str_contains($ctype, 'application/json')) {
+    respond(415, ['error' => 'unsupported_media_type', 'message' => '这次没有发送成功。请从本站页面提问。']);
+}
+
 try {
     app_init('api');
     $usageReady = true;
@@ -72,17 +95,8 @@ if ($apiKey === null) {
     respond(503, ['error' => 'not_configured', 'message' => MSG_NOT_CONFIGURED], 'chat.errors.not_configured');
 }
 
-// 限流：每位访客（IP 的加盐哈希）每 10 分钟有上限，全站每天（北京时间）有上限。
-$ip = rl_hit('chat-ip', ip_hash(client_ip()), max(1, (int) $settings['ip_limit']), 60 * (int) $settings['ip_window_min']);
-if (!$ip['allowed']) {
-    respond(429, ['error' => 'rate_limited', 'message' => '问得有点快了，休息几分钟再来。'], 'chat.errors.rate_limited_ip');
-}
-$day = rl_hit('chat-day', local_day(), (int) $settings['daily_limit'], 2 * 86400);
-if (!$day['allowed']) {
-    respond(429, ['error' => 'daily_limit', 'message' => '今天的提问额度用完了，明天再来。'], 'chat.errors.daily_limit');
-}
-
-// 校验输入：{messages: [{role, content}]}，user 开头，user/assistant 交替，最后一条是 user。
+// 先校验输入，格式不对的请求（{messages: [{role, content}]}，user 开头，user/assistant 交替，最后一条是
+// user）直接 400，不占用今天的额度，别人就没法用无效请求刷掉额度。
 $input = json_decode((string) file_get_contents('php://input'), true);
 $raw = is_array($input['messages'] ?? null) ? $input['messages'] : [];
 $raw = array_slice($raw, -MAX_TURNS);
@@ -105,6 +119,23 @@ while ($messages && $messages[0]['role'] !== 'user') {
 }
 if (!$messages || end($messages)['role'] !== 'user') {
     respond(400, ['error' => 'bad_request', 'message' => '没收到问题，请再输入一次。'], 'chat.errors.bad_request');
+}
+
+// 限流：每位访客（IP 的加盐哈希，IPv6 按 /64 归并）每 10 分钟有上限，全站每天（北京时间）有上限。
+// 计数文件写不了时（比如账户 inode 用光）宁可答 503，也不放行付费的 API 调用。
+$ip = rl_hit('chat-ip', ip_hash(client_key()), max(1, (int) $settings['ip_limit']), 60 * (int) $settings['ip_window_min']);
+if (!empty($ip['error'])) {
+    respond(503, ['error' => 'unavailable', 'message' => '助手暂时忙不过来，稍后再试。'], 'chat.errors.unavailable');
+}
+if (!$ip['allowed']) {
+    respond(429, ['error' => 'rate_limited', 'message' => '问得有点快了，休息几分钟再来。'], 'chat.errors.rate_limited_ip');
+}
+$day = rl_hit('chat-day', local_day(), (int) $settings['daily_limit'], 2 * 86400);
+if (!empty($day['error'])) {
+    respond(503, ['error' => 'unavailable', 'message' => '助手暂时忙不过来，稍后再试。'], 'chat.errors.unavailable');
+}
+if (!$day['allowed']) {
+    respond(429, ['error' => 'daily_limit', 'message' => '今天的提问额度用完了，明天再来。'], 'chat.errors.daily_limit');
 }
 
 $system = SYSTEM_PROMPT;

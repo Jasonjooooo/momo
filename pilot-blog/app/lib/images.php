@@ -178,19 +178,58 @@ function image_encode(GdImage $img, string $ext, int $q): string
     return $bytes;
 }
 
-/** Copy any master upload missing from public/uploads/. Returns how many files were copied. */
+/** The set of upload paths (src and og) that live content still references, as rel => true. */
+function uploads_referenced(): array
+{
+    $refs = [];
+    $add = function ($rel) use (&$refs): void {
+        if (is_string($rel) && preg_match('#^uploads/\d{4}/\d{2}/[0-9a-f]{16}\.(?:webp|jpg)$#', $rel)) {
+            $refs[$rel] = true;
+        }
+    };
+    $scan = function (string $text) use ($add): void {
+        if (preg_match_all('#uploads/\d{4}/\d{2}/[0-9a-f]{16}\.(?:webp|jpg)#', $text, $m)) {
+            foreach ($m[0] as $u) {
+                $add($u);
+            }
+        }
+    };
+    // only published or teaser posts contribute: their live cover (src + og) and the images in the live body
+    foreach (posts_all() as $p) {
+        $live = $p['live'] ?? null;
+        if (!is_array($live)) {
+            continue;
+        }
+        $cover = $live['cover'] ?? null;
+        if (is_array($cover)) {
+            $add($cover['src'] ?? '');
+            $add($cover['og'] ?? '');
+        }
+        $scan((string) ($live['body'] ?? ''));
+    }
+    // and anything the live site or shelf fields point at
+    foreach ([site_live(), shelf_live()] as $doc) {
+        $scan((string) json_encode($doc, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+    }
+    return $refs;
+}
+
+/**
+ * Restore the public copy of every upload that live content still references and is missing from
+ * public/uploads/ (self-heal after a deploy wipe). A master that nothing live points at is left alone,
+ * so a photo the owner takes down by deleting both copies stays down and is not quietly re-published.
+ * Returns how many files were copied.
+ */
 function uploads_sync_public(): int
 {
     $n = 0;
     $base = DATA_DIR . '/uploads';
-    foreach (glob($base . '/[0-9][0-9][0-9][0-9]/[0-9][0-9]/*') ?: [] as $f) {
-        $rel = substr($f, strlen($base) + 1);
-        if (!preg_match('/^\d{4}\/\d{2}\/[0-9a-f]{16}\.(webp|jpg)$/', $rel)) {
-            continue;
-        }
-        $dest = PUBLIC_DIR . '/uploads/' . $rel;
-        if (!is_file($dest)) {
-            file_write_atomic($dest, (string) file_get_contents($f), 0644);
+    $refs = uploads_referenced();
+    foreach ($refs as $rel => $_) {
+        $src = $base . '/' . substr($rel, strlen('uploads/'));
+        $dest = PUBLIC_DIR . '/' . $rel;
+        if (is_file($src) && !is_file($dest)) {
+            file_write_atomic($dest, (string) file_get_contents($src), 0644);
             $n++;
         }
     }

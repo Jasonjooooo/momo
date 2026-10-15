@@ -524,14 +524,19 @@ function group_images(): void
     } catch (ValidationError $e) {
         ok(true, 'HEIC refused: ' . $e->getMessage());
     }
-    // public copies are re-synced from the masters
-    unlink(PUBLIC_DIR . '/' . $r['src']);
-    ok(uploads_sync_public() >= 1 && is_file(PUBLIC_DIR . '/' . $r['src']), 'uploads_sync_public restores a missing public copy');
     // a cover makes the post page and og image use it
     $p = make_post('有封面的日志', '正文。', '2026-10-02', ['cover' => ['src' => $r2['src'], 'og' => $r2['og'], 'w' => $r2['w'], 'h' => $r2['h'], 'alt' => '云下的跑道']]);
     $p = post_publish($p['id'], $p['rev'])['post'];
     $page = pub('posts/' . $p['slug'] . '.html');
     ok(str_contains($page, '<img src="../' . $r2['src'] . '" width="2000" height="1000" alt="云下的跑道" loading="eager"') && str_contains($page, $r2['og'] . '">'), 'cover image and og:image on the post page');
+    // uploads_sync_public restores only the images live content still references, so a photo the owner
+    // takes down by deleting both copies is not quietly re-published (security finding F6).
+    unlink(PUBLIC_DIR . '/' . $r2['src']);   // $r2 is the cover of the published post above
+    unlink(PUBLIC_DIR . '/' . $r2['og']);
+    unlink(PUBLIC_DIR . '/' . $r['src']);    // $r belongs to no live post (an orphan master)
+    uploads_sync_public();
+    ok(is_file(PUBLIC_DIR . '/' . $r2['src']) && is_file(PUBLIC_DIR . '/' . $r2['og']), 'uploads_sync_public restores an image a live post references');
+    ok(!is_file(PUBLIC_DIR . '/' . $r['src']), 'a master nothing live references is not restored (a removed photo stays removed)');
 }
 
 function group_subscribers(): void
