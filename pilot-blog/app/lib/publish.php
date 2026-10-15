@@ -23,6 +23,7 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
         'fields' => site_upgrade_fields($site['fields']),
         'faq' => $site['faq'],
         'type_facts' => $site['type_facts'],
+        'album' => site_album($site),
         'shelves' => $shelf['shelves'],
         'legs' => home_legs($posts, (int) $settings['home']['leg_limit']),
         'subscribe_live' => (bool) $settings['subscribe']['enabled'],
@@ -35,10 +36,10 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
     foreach (['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act', 'radio_sby'] as $v) {
         $ctx['values'][$v] = value_render($v, $base);
     }
-    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live'] as $c) {
+    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live', 'has_album'] as $c) {
         $ctx['conds'][$c] = cond_eval($c, $base);
     }
-    foreach (['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css'] as $b) {
+    foreach (['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css', 'about_album'] as $b) {
         $ctx['blocks'][$b] = fn(string $indent) => block_render($b, $base, $indent);
     }
     return $ctx;
@@ -218,7 +219,7 @@ function content_hash(array $site, array $shelf, array $posts): string
     }
     ksort($live);
     return hash('sha256', json_encode([
-        $site['fields'] ?? [], $site['faq'] ?? [], $site['type_facts'] ?? [], $shelf['shelves'] ?? [], $live,
+        $site['fields'] ?? [], $site['faq'] ?? [], $site['type_facts'] ?? [], $shelf['shelves'] ?? [], $live, site_album($site),
     ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 }
 
@@ -438,7 +439,7 @@ function site_status(): array
     $siteL = site_live();
     $shelfD = json_read(data_path('content', 'shelf.draft.json'), []);
     $shelfL = shelf_live();
-    $strip = fn($d) => array_intersect_key($d, array_flip(['fields', 'faq', 'type_facts', 'shelves']));
+    $strip = fn($d) => array_intersect_key($d, array_flip(['fields', 'faq', 'type_facts', 'album', 'shelves']));
     $newest = versions_list()[0] ?? null;
     $index = PUBLIC_DIR . '/index.html';
     $files = $newest['current_files'] ?? $newest['files'] ?? [];

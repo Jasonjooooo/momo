@@ -9,9 +9,9 @@ const TPL_ENCS = ['text', 'attr', 'js', 'wbr', 'lat', 'li'];
 const TPL_VALUES = ['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act', 'radio_sby',
     'post_title', 'post_title_attr', 'post_excerpt', 'post_excerpt_attr', 'post_date_iso', 'post_date_dots', 'post_fix',
     'post_minutes', 'post_slug', 'post_og_image', 'post_url', 'css_href', 'archive_count', 'hit_path'];
-const TPL_BLOCKS = ['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css',
+const TPL_BLOCKS = ['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css', 'about_album',
     'post_cover', 'post_body', 'post_tags', 'post_prevnext', 'post_tag_first', 'archive_list'];
-const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live'];
+const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live', 'has_album'];
 
 const LAT_RE = '/[A-Za-z0-9](?:[A-Za-z0-9.×\- ]*[A-Za-z0-9])?/u';
 

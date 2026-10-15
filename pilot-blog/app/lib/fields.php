@@ -80,8 +80,10 @@ function field_registry(): array
         ['about.fact2', 'about', '座位', '「关于」下面的小表格', ['lat'], '', null],
         ['about.fact3', 'about', '航线', '「关于」下面的小表格', ['lat'], '', null],
         ['about.fact4', 'about', '天气', '「关于」下面的小表格', ['lat'], '', null],
-        ['about.img_alt', 'about', '照片说明（读屏软件读这句）', '「关于」的照片（看不见，读屏软件会读）', ['attr'], '', null],
-        ['about.figcaption', 'about', '照片下方小字', '「关于」的照片下面', ['text'], '', null],
+        // the INSET A photo's alt and caption now live in the album (site.album); these two keys mirror its first photo so
+        // content saved before the album keeps validating and an old version rolls back to the right caption
+        ['about.img_alt', 'about', '照片说明（读屏软件读这句）', '「关于」的照片（看不见，读屏软件会读）', [], '', null],
+        ['about.figcaption', 'about', '照片下方小字', '「关于」的照片下面', [], '', null],
 
         ['type.icao', 'type', '代码条（一行一个）', '「机型」最上面的一排代码', ['li'], 'm', null],
         ['type.gloss', 'type', '代码解释', '代码条下面', ['text'], '', null],
@@ -382,7 +384,69 @@ function site_validate(array $site): array
             }
         }
     }
+    $album = $site['album'] ?? null;
+    if ($album !== null) {
+        if (!is_array($album) || !array_is_list($album) || count($album) < 1 || count($album) > ALBUM_MAX) {
+            $err['album'] = '照片至少要留 1 张，最多 ' . ALBUM_MAX . ' 张。';
+        } else {
+            foreach ($album as $i => $row) {
+                if (!is_array($row)) {
+                    $err["album.$i"] = '这张照片的数据坏了。';
+                    continue;
+                }
+                if (!is_string($row['src'] ?? null) || album_dims($row['src']) === null) {
+                    $err["album.$i.src"] = '这张照片找不到了，请删掉它，再重新上传。';
+                }
+                $p = text_problem($row['caption'] ?? null, ALBUM_CAPTION_MAX);
+                if ($p !== null) {
+                    $err["album.$i.caption"] = $p;
+                }
+                $p = text_problem($row['alt'] ?? null, ALBUM_ALT_MAX, false);
+                if ($p !== null) {
+                    $err["album.$i.alt"] = $p;
+                }
+            }
+        }
+    }
     return $err;
+}
+
+// ---------- 关于 · INSET A photos (the album) ----------
+
+const ALBUM_SEED_SRC = 'assets/about.webp';
+const ALBUM_SEED_DIMS = [1920, 1086];
+const ALBUM_MAX = 8;
+const ALBUM_CAPTION_MAX = 60;
+const ALBUM_ALT_MAX = 150;
+const UPLOAD_REL_RE = '#^uploads/\d{4}/\d{2}/[0-9a-f]{16}\.(?:webp|jpg)$#';
+
+/** The one-photo album a site had before photos were editable: today's picture with the two legacy fields. */
+function album_from_fields(array $fields): array
+{
+    return [['src' => ALBUM_SEED_SRC, 'caption' => (string) ($fields['about.figcaption'] ?? ''), 'alt' => (string) ($fields['about.img_alt'] ?? '')]];
+}
+
+/** The album to render: the saved list, or (content saved before the album existed) the one photo from the fields. */
+function site_album(array $site): array
+{
+    $a = $site['album'] ?? null;
+    if (is_array($a) && array_is_list($a) && $a) {
+        return $a;
+    }
+    return album_from_fields(site_upgrade_fields(is_array($site['fields'] ?? null) ? $site['fields'] : []));
+}
+
+/** [w, h] of a photo the album may show (the bundled one, or an upload in the index); null for anything else. */
+function album_dims(string $src): ?array
+{
+    if ($src === ALBUM_SEED_SRC) {
+        return ALBUM_SEED_DIMS;
+    }
+    if (!preg_match(UPLOAD_REL_RE, $src)) {
+        return null;
+    }
+    $i = uploads_index()['items'][$src] ?? null;
+    return is_array($i) && (int) ($i['w'] ?? 0) > 0 ? [(int) $i['w'], (int) $i['h']] : null;
 }
 
 /**
@@ -455,9 +519,31 @@ function site_normalize(array $input): array
             'line' => is_string($row['line'] ?? null) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $row['line'])) : '',
         ];
     }
+    $album = [];
+    if (is_array($input['album'] ?? null)) {
+        $clean = fn($v) => is_string($v) ? trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', $v)) : '';
+        foreach ($input['album'] as $row) {
+            if (is_array($row)) {
+                $album[] = ['src' => is_string($row['src'] ?? null) ? trim($row['src']) : '', 'caption' => $clean($row['caption'] ?? ''), 'alt' => $clean($row['alt'] ?? '')];
+            }
+        }
+    } else {
+        $album = album_from_fields($fields);
+    }
+    if ($album) {
+        // the first photo's words also sit in the two legacy keys (see the registry note)
+        if ($album[0]['caption'] !== '') {
+            $fields['about.figcaption'] = $album[0]['caption'];
+        }
+        $alt = $album[0]['alt'] !== '' ? $album[0]['alt'] : $album[0]['caption'];
+        if ($alt !== '') {
+            $fields['about.img_alt'] = $alt;
+        }
+    }
     $out = $input;
     $out['fields'] = $fields;
     $out['faq'] = $faq;
     $out['type_facts'] = $facts;
+    $out['album'] = $album;
     return $out;
 }

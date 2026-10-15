@@ -199,6 +199,12 @@ function admin_error_label(string $unit, string $path, array $doc = []): string
     if (preg_match('/^faq\.(\d+)\.(\w+)$/', $path, $m)) {
         return '问答第 ' . ($m[1] + 1) . ' 条的' . ($names[$m[2]] ?? $m[2]);
     }
+    if (preg_match('/^album\.(\d+)(?:\.(\w+))?$/', $path, $m)) {
+        return '第 ' . ($m[1] + 1) . ' 张照片' . (isset($m[2]) ? '的' . (['src' => '图片', 'caption' => '下方小字', 'alt' => '照片说明'][$m[2]] ?? $m[2]) : '');
+    }
+    if ($path === 'album') {
+        return '关于：照片';
+    }
     if (preg_match('/^type_facts\.(\d+)\.(\w+)$/', $path, $m)) {
         return '数据格子第 ' . ($m[1] + 1) . ' 条的' . ($names[$m[2]] ?? $m[2]);
     }
@@ -416,8 +422,12 @@ function admin_site_origin(): void
 
 function unit_strip(array $doc, string $unit): array
 {
-    $keys = $unit === 'site' ? ['fields', 'faq', 'type_facts'] : ['shelves'];
-    return array_intersect_key($doc, array_flip($keys));
+    $keys = $unit === 'site' ? ['fields', 'faq', 'type_facts', 'album'] : ['shelves'];
+    $out = array_intersect_key($doc, array_flip($keys));
+    if ($unit === 'site' && $doc) {
+        $out['album'] = site_album($doc);   // content saved before the album: its one photo
+    }
+    return $out;
 }
 
 function unit_state(string $unit): array
@@ -471,6 +481,7 @@ function admin_unit_input(string $unit, array $in): ?array
     }
     return $unit === 'site'
         ? ['fields' => is_array($doc['fields'] ?? null) ? $doc['fields'] : [], 'faq' => is_array($doc['faq'] ?? null) ? $doc['faq'] : [], 'type_facts' => is_array($doc['type_facts'] ?? null) ? $doc['type_facts'] : []]
+            + (is_array($doc['album'] ?? null) ? ['album' => $doc['album']] : [])
         : ['shelves' => is_array($doc['shelves'] ?? null) ? $doc['shelves'] : []];
 }
 

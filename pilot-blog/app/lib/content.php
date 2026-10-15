@@ -40,7 +40,7 @@ function content_save_draft(string $unit, array $input, int $rev): array
     return with_lock('content-' . $unit, function () use ($unit, $input, $rev) {
         $cur = content_get($unit, 'draft');
         [$doc, $err] = content_check($unit, $input, false);
-        $keep = $unit === 'site' ? ['fields', 'faq', 'type_facts'] : ['shelves'];
+        $keep = $unit === 'site' ? ['fields', 'faq', 'type_facts', 'album'] : ['shelves'];
         if ((int) ($cur['rev'] ?? 0) !== $rev && !$err && content_same($unit, $doc, $cur)) {
             // the same text sent again with an older rev: a retry after the answer was lost on a bad
             // mobile connection (the first try was saved). Nothing to save and nothing to warn about.
@@ -60,6 +60,9 @@ function content_save_draft(string $unit, array $input, int $rev): array
 function content_same(string $unit, array $a, array $b): bool
 {
     if ($unit === 'site') {
+        if (site_album($a) !== site_album($b)) {
+            return false;
+        }
         foreach (['fields', 'faq', 'type_facts'] as $k) {
             if (($a[$k] ?? null) !== ($b[$k] ?? null)) {
                 return false;
