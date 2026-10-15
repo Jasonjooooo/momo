@@ -403,6 +403,12 @@
     function field(row, i, fd) {
       var id = spec.prefix + '-' + row._k + '-' + fd.key;
       var path = spec.path + '.' + i + '.' + fd.key;
+      if (fd.type === 'image') {
+        return el('div', { class: 'field alb-photo', 'data-path': path }, [
+          el('img', { class: 'alb-thumb', src: fd.url(row[fd.key]), alt: '第 ' + (i + 1) + ' 张照片' }),
+          el('p', { class: 'ferr', hidden: true })
+        ]);
+      }
       if (fd.type === 'check') {
         var cb = el('input', { type: 'checkbox', id: id, checked: !!row[fd.key] });
         cb.addEventListener('change', function () { row[fd.key] = cb.checked; onChange(); });
@@ -464,6 +470,10 @@
       });
     }
     function add() {
+      if (spec.onAdd) {
+        spec.onAdd(function (nr) { nr._k = ++seq; rows.push(nr); render(nr._k); onChange(); });
+        return;
+      }
       var r = spec.blank();
       r._k = ++seq;
       rows.push(r);
@@ -489,13 +499,15 @@
     var serverDirty = data.dirty;
     var faq = copy(data.faq);
     var facts = copy(data.type_facts);
+    var album = copy(data.album || []);
     var FAQ_KEYS = ['nid', 'q', 'r', 'a', 'subscribe_note'];
     var FACT_KEYS = ['k', 'val', 'line'];
+    var ALBUM_KEYS = ['src', 'caption', 'alt'];
     var inputs = $$('[data-k]', form);
     function collect() {
       var f = {};
       inputs.forEach(function (i) { f[i.dataset.k] = i.value; });
-      return { fields: f, faq: cleanRows(faq, FAQ_KEYS), type_facts: cleanRows(facts, FACT_KEYS) };
+      return { fields: f, faq: cleanRows(faq, FAQ_KEYS), type_facts: cleanRows(facts, FACT_KEYS), album: cleanRows(album, ALBUM_KEYS) };
     }
     function changed() { setDirty(true); badges(); }
     var faqEd = listEditor($('#faq-list'), faq, {
@@ -518,6 +530,30 @@
         { key: 'line', label: '说明', max: 120, type: 'textarea' }
       ]
     }, changed);
+    // 关于 · INSET A photos: upload adds a photo at the end; order, captions and deletions are saved with the rest
+    var albumFile = $('#album-file');
+    var albumWait = null;
+    var albumEd = listEditor($('#album-list'), album, {
+      prefix: 'alb', path: 'album', label: '照片', add: '加一张照片', min: 1, max: data.album_max || 8,
+      onAdd: function (done) { albumWait = done; albumFile.click(); },
+      fields: [
+        { key: 'src', type: 'image', url: function (src) { return /^(assets|uploads)\//.test(src || '') ? data.site_base + src : ''; } },
+        { key: 'caption', label: '照片下方小字', max: 60, help: '换照片时，这句跟着照片一起换。' },
+        { key: 'alt', label: '照片说明（读屏软件读这句，可以空着）', max: 150, type: 'textarea' }
+      ]
+    }, changed);
+    albumFile.addEventListener('change', async function (e) {
+      var file = e.target.files && e.target.files[0];
+      e.target.value = '';
+      if (!file || !albumWait) return;
+      var done = albumWait;
+      albumWait = null;
+      barStatus('正在上传照片…', '');
+      var r = await upload(file, 'album');
+      if (!r.ok) { barStatus(r.message || '照片没有传上去。', 'err'); return; }
+      done({ src: r.src, caption: '', alt: '' });
+      barStatus('照片已上传。写上照片下方小字，再点「保存草稿」或「保存并发布」。', 'ok');
+    });
     $$('[data-max], textarea', form).forEach(wireField);
     form.addEventListener('input', changed);
     form.addEventListener('change', changed);
@@ -528,6 +564,7 @@
         $$('[data-k]', g).forEach(function (i) { if (i.value !== live.fields[i.dataset.k]) n++; });
         if (g.dataset.group === 'faq' && JSON.stringify(cleanRows(faq, FAQ_KEYS)) !== JSON.stringify(live.faq)) n++;
         if (g.dataset.group === 'type' && JSON.stringify(cleanRows(facts, FACT_KEYS)) !== JSON.stringify(live.type_facts)) n++;
+        if (g.dataset.group === 'about' && JSON.stringify(cleanRows(album, ALBUM_KEYS)) !== JSON.stringify(cleanRows(live.album || [], ALBUM_KEYS))) n++;
         var b = $('.badge', g);
         b.hidden = n === 0;
         b.textContent = '改过 ' + n;
@@ -616,6 +653,7 @@
       inputs.forEach(function (i) { if (typeof s.fields[i.dataset.k] === 'string') { i.value = s.fields[i.dataset.k]; count(i); grow(i); } });
       faqEd.setRows(s.faq || []);
       factEd.setRows(s.type_facts || []);
+      if (s.album && s.album.length) albumEd.setRows(s.album);
       badges();
     });
     if (location.hash && $(location.hash)) { var g = $(location.hash); if (g.tagName === 'DETAILS') g.open = true; }

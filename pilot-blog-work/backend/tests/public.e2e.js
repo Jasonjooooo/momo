@@ -1,6 +1,7 @@
 // Public pages with 0, 1, 3 and 8 published posts (SPEC T6 + T10 for post pages and the archive).
 // Each scenario is built in temp dirs by fixture.php and served by php -S with the dev router.
-// Usage: node pilot-blog-work/backend/tests/public.e2e.js [launch,pub0,pub1,pub3,pub8]
+// Usage: node pilot-blog-work/backend/tests/public.e2e.js [launch,pub0,pub1,pub3,pub8,album1,album3]
+// album1/album3: the 关于 INSET A photo as one uploaded photo and as a three-photo album (screenshots in screens/reorder/).
 // 'launch' also runs the real subscribe flow in the browser (consent, honeypot, stored once).
 const { chromium } = require('/opt/node-tools/node_modules/playwright');
 const { execFileSync, spawn } = require('child_process');
@@ -10,7 +11,8 @@ const net = require('net');
 const path = require('path');
 
 const REPO = path.resolve(__dirname, '../../..');
-const SCEN = (process.argv[2] || 'launch,pub0,pub1,pub3,pub8').split(',');
+const SCEN = (process.argv[2] || 'launch,pub0,pub1,pub3,pub8,album1,album3').split(',');
+const SHOTS = path.join(REPO, 'pilot-blog-work/screens/reorder/');
 const SCR = '/tmp/claude-0/-home-user-momo/9d5abb52-bf47-5e03-b701-f78e1dba1457/scratchpad/';
 const STAND = { portrait: SCR + 'mobile/standin-portrait-vp9.webm', land: SCR + 'standin-vp9.mp4' };
 const VIEWPORTS = [
@@ -77,7 +79,16 @@ async function homeChecks(browser, base, fx, tag, opt) {
     allLink: !!document.querySelector('a.tlink[href="posts/"]'),
     text: document.body.innerText,
     hud: document.getElementById('hud-to').textContent,
+    order: [...document.querySelectorAll('#chart > .sec')].map(e => e.id).join(' '),
+    nav: [...document.querySelectorAll('#nav-links a')].map(a => a.getAttribute('href')).join(' '),
+    navShown: [...document.querySelectorAll('#nav-links li')].sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left || a.getBoundingClientRect().top - b.getBoundingClientRect().top).map(li => li.firstElementChild.getAttribute('href')).join(' '),
+    foot: [...document.querySelectorAll('.foot-links a')].map(a => a.getAttribute('href')).join(' '),
+    kickers: [...document.querySelectorAll('#about .kicker, #type .lg-body .kicker, #log .plate-head .kicker:first-child, #ai .comm-head .kicker, #faq .cl-body .kicker, #subscribe .sub-card .kicker')].map(k => k.textContent.slice(0, 2)).join(' '),
   }));
+  check(R, 'sections in the owner order', st.order === 'about type apch log ai faq subscribe', st.order);
+  check(R, 'nav and footer links follow the page', st.nav === '#about #type #log #ai #faq' && st.foot === '#about #type #log #ai #faq #subscribe', [st.nav, st.foot]);
+  if (opt.viewport.width > 900) check(R, 'nav items appear in page order', st.navShown === '#about #type #log #ai #faq', st.navShown);
+  check(R, 'section numbers 01 to 06 in order', st.kickers === '01 02 03 04 05 06', st.kickers);
   check(R, 'legs on the home page', st.legs === fx.legs, st.legs);
   check(R, 'published titles are links', st.links === Math.min(fx.published.length, fx.legs), st.links);
   check(R, 'every leg course filled by chartBuild', st.crs.every(t => t !== '---°'), st.crs);
@@ -96,6 +107,122 @@ async function homeChecks(browser, base, fx, tag, opt) {
     await Promise.all([p.waitForNavigation({ timeout: 10000 }), p.click('.post h3 a')]);
     check(R, 'published title navigates to its post page', p.url().endsWith('/posts/' + fx.published[0].slug + '.html'), p.url());
   }
+  check(R, 'no console errors, external or failed requests', R.logs.length === 0, R.logs);
+  await ctx.close();
+  return R;
+}
+
+// the runway at the end is lit by the route reaching RW24 (not by the approach game); the game still lands and goes around
+async function runwayFlow(browser, base, opt) {
+  const R = { checks: [] };
+  const ctx = await browser.newContext(opt);
+  await standins(ctx);
+  const p = await ctx.newPage();
+  track(p, R, base);
+  await p.goto(base, { waitUntil: 'load' });
+  await sleep(1500);
+  const H = await p.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0; y < H; y += 600) { await p.evaluate(y => window.scrollTo({ top: y, behavior: 'instant' }), y); await sleep(40); }
+  await p.evaluate(() => { const e = document.getElementById('fly'); window.scrollTo({ top: e.getBoundingClientRect().top + scrollY - 80, behavior: 'instant' }); });
+  await sleep(900);
+  check(R, 'runway dark while the route is still at the approach', await p.evaluate(() => !document.getElementById('subscribe').classList.contains('landed')));
+  await p.focus('#hold');
+  await p.keyboard.down('Space'); await sleep(900); await p.keyboard.up('Space'); await sleep(200);
+  const ga = await p.evaluate(() => document.getElementById('fly-status').textContent);
+  check(R, 'releasing early is a go-around', ga === '复飞是正常操作。再按住，再飞一次。', ga);
+  await sleep(2200);
+  await p.keyboard.down('Space'); await sleep(3300); await p.keyboard.up('Space'); await sleep(300);
+  const st = await p.evaluate(() => [document.getElementById('fly-status').textContent, document.getElementById('fly').classList.contains('done'), document.getElementById('subscribe').classList.contains('landed')]);
+  check(R, 'landing says taxi in and read the log; it does not light the runway', st[0] === '落地，滑行到停机位，看看最近飞了什么。' && st[1] && !st[2], st);
+  await p.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
+  await sleep(900);
+  check(R, 'the runway lights come on when the route reaches RW24', await p.evaluate(() => document.getElementById('subscribe').classList.contains('landed')));
+  await p.evaluate(() => { const e = document.getElementById('about'); window.scrollTo({ top: e.getBoundingClientRect().top + scrollY, behavior: 'instant' }); });
+  await sleep(900);
+  check(R, 'and go out again when the reader scrolls back up', await p.evaluate(() => !document.getElementById('subscribe').classList.contains('landed')));
+  const rc = await browser.newContext({ ...opt, reducedMotion: 'reduce' });
+  const rp = await rc.newPage();
+  await rp.goto(base, { waitUntil: 'load' });
+  await sleep(1500);
+  const rm = await rp.evaluate(() => [document.getElementById('subscribe').classList.contains('landed'), document.getElementById('fly').classList.contains('done')]);
+  check(R, 'reduced motion: runway lit and approach complete from the start', rm[0] && rm[1], rm);
+  await rc.close();
+  check(R, 'no console errors, external or failed requests', R.logs.length === 0, R.logs);
+  await ctx.close();
+  return R;
+}
+
+// 关于 · INSET A: one photo is the plain figure; three photos are a strip with arrows (desktop), swipe (phone), dots and keys
+async function albumFlow(browser, base, fx, tag, opt) {
+  const R = { checks: [] };
+  const ctx = await browser.newContext(opt);
+  await standins(ctx);
+  const p = await ctx.newPage();
+  track(p, R, base);
+  await p.goto(base, { waitUntil: 'load' });
+  await sleep(1200);
+  const at = async () => { await p.evaluate(() => { const e = document.querySelector('.about-fig'); window.scrollTo({ top: e.getBoundingClientRect().top + scrollY - (innerWidth > 900 ? 220 : 160), behavior: 'instant' }); }); await sleep(1800); };
+  await at();
+  const n = fx.album.length;
+  const st = await p.evaluate(() => ({
+    album: !!document.querySelector('[data-album]'),
+    tag: document.querySelector('.about-art .inset-tag').textContent,
+    imgs: [...document.querySelectorAll('.about-art img')].map(i => ({ src: i.getAttribute('src'), lazy: i.loading, w: i.naturalWidth })),
+    cap: (document.querySelector('.alb-cap') || document.querySelector('.about-fig figcaption')).textContent,
+    btn: document.querySelector('.alb-next') ? getComputedStyle(document.querySelector('.alb-next')).display : 'none',
+  }));
+  check(R, 'label stays INSET A', st.tag === 'INSET A');
+  check(R, n > 1 ? 'album markup with one image per photo' : 'one photo: the plain figure, no album', st.album === (n > 1) && st.imgs.length === n && st.imgs.every((im, k) => im.src === fx.album[k].src), st);
+  check(R, 'first photo loaded, every photo lazy', st.imgs[0].w > 0 && st.imgs.every(i => i.lazy === 'lazy'), st.imgs);
+  check(R, 'caption is the first photo\'s', st.cap === fx.album[0].caption, st.cap);
+  await p.screenshot({ path: SHOTS + 'album' + n + '-a-' + tag + '.png' });
+  if (n > 1) {
+    const state = () => p.evaluate(() => { const t = document.querySelector('.alb-track'); return { k: Math.round(t.scrollLeft / t.clientWidth), cap: document.querySelector('.alb-cap').textContent, cur: [...document.querySelectorAll('.alb-dot')].findIndex(d => d.getAttribute('aria-current') === 'true'), prevDis: document.querySelector('.alb-prev').disabled, nextDis: document.querySelector('.alb-next').disabled }; });
+    const s0 = await state();
+    check(R, 'starts on photo 1 with prev disabled', s0.k === 0 && s0.cur === 0 && s0.prevDis && !s0.nextDis, s0);
+    if (opt.viewport.width > 900) {
+      check(R, 'desktop: arrow buttons shown', st.btn === 'flex', st.btn);
+      await p.click('.alb-next'); await sleep(900);
+      const s1 = await state();
+      check(R, 'next shows photo 2 and its caption', s1.k === 1 && s1.cur === 1 && s1.cap === fx.album[1].caption, s1);
+      await p.click('.alb-dot:nth-child(3)'); await sleep(900);
+      const s2 = await state();
+      check(R, 'dot 3 shows photo 3, next disabled', s2.k === 2 && s2.cap === fx.album[2].caption && s2.nextDis, s2);
+      const loaded = await p.evaluate(() => [...document.querySelectorAll('.alb-slide img')].map(i => i.naturalWidth > 0));
+      check(R, 'photo 3 loaded once shown', loaded[2], loaded);
+      await p.screenshot({ path: SHOTS + 'album' + n + '-b-' + tag + '.png' });
+      await p.focus('.alb-track');
+      await p.keyboard.press('Home'); await sleep(900);
+      await p.keyboard.press('ArrowRight'); await sleep(900);
+      const s3 = await state();
+      check(R, 'keyboard: Home then ArrowRight on the strip shows photo 2', s3.k === 1 && s3.cap === fx.album[1].caption, s3);
+      const ring = await p.evaluate(() => getComputedStyle(document.activeElement).outlineStyle);
+      check(R, 'the focused strip shows a focus ring', ring !== 'none', ring);
+    } else {
+      check(R, 'phone: no arrow buttons (swipe)', st.btn === 'none', st.btn);
+      const box = await p.locator('.alb-track').boundingBox();
+      const cdp = await ctx.newCDPSession(p);
+      const y = box.y + box.height / 2;
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: box.x + box.width * 0.85, y }] });
+      for (let k = 1; k <= 8; k++) { await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: box.x + box.width * (0.85 - 0.08 * k), y }] }); await sleep(16); }
+      await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await sleep(1200);
+      let s1 = await state();
+      if (s1.k === 0) {   // headless touch emulation does not always fling a scroller: fall back to a programmatic swipe
+        R.swipeFallback = true;
+        await p.evaluate(() => { const t = document.querySelector('.alb-track'); t.scrollTo({ left: t.clientWidth, behavior: 'instant' }); });
+        await sleep(600);
+        s1 = await state();
+      }
+      check(R, 'swipe to photo 2 updates the caption and dot', s1.k === 1 && s1.cur === 1 && s1.cap === fx.album[1].caption, s1);
+      await p.screenshot({ path: SHOTS + 'album' + n + '-b-' + tag + '.png' });
+      await p.click('.alb-dot:nth-child(3)'); await sleep(900);
+      const s2 = await state();
+      check(R, 'tapping dot 3 shows photo 3', s2.k === 2 && s2.cap === fx.album[2].caption, s2);
+    }
+  }
+  const ov = await overflow(p);
+  check(R, 'no horizontal overflow', ov.sw <= ov.cw, ov);
   check(R, 'no console errors, external or failed requests', R.logs.length === 0, R.logs);
   await ctx.close();
   return R;
@@ -213,6 +340,11 @@ async function statsFlow(browser, base, tmp, fx, opt) {
     try {
       if (sc === 'launch') S['subscribe-390'] = await subscribeFlow(browser, base, tmp, VIEWPORTS[1][1]);
       if (sc === 'pub1') S['stats-390'] = await statsFlow(browser, base, tmp, fx, VIEWPORTS[1][1]);
+      if (sc === 'launch') for (const [tag, opt] of VIEWPORTS) S['runway-' + tag] = await runwayFlow(browser, base, opt);
+      if (fx.album.length) {
+        fs.mkdirSync(SHOTS, { recursive: true });
+        for (const [tag, opt] of VIEWPORTS) S['album-' + tag] = await albumFlow(browser, base, fx, tag, opt);
+      }
       for (const [tag, opt] of VIEWPORTS) {
         S['home-' + tag] = await homeChecks(browser, base, fx, tag, opt);
         for (const pp of fx.published.slice(0, 3)) S[pp.slug + '-' + tag] = await pageChecks(browser, base, 'posts/' + pp.slug + '.html', tag, opt, { title: pp.title, draft: fx.draft_title });

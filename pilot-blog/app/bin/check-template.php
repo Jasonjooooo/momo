@@ -20,8 +20,8 @@ if (($args[0] ?? '') === '--init-hero-reference') {
         exit(1);
     }
     $base = (string) file_get_contents($baselineFile);
-    if (hash('sha256', $base) !== BASELINE_SHA256) {
-        fwrite(STDERR, "baseline-index.html is not the 08da7c1 page\n");
+    if (hash('sha256', $base) !== BASELINE_08DA7C1_SHA256) {
+        fwrite(STDERR, "baseline-index.html is not the 08da7c1 page (the hero reference comes only from that page)\n");
         exit(1);
     }
     json_write_atomic($ref, hero_reference_from($base), 0644);

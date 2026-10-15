@@ -32,7 +32,7 @@ function uploads_index(): array
 /** From a PHP upload ($_FILES['image']). Returns ['ok' => true, 'src', 'og', 'w', 'h']; throws ValidationError. */
 function image_accept_upload(array $file, string $purpose): array
 {
-    if (!in_array($purpose, ['cover', 'body'], true)) {
+    if (!in_array($purpose, ['cover', 'body', 'album'], true)) {
         throw new ValidationError(['image' => '上传用途不对。']);
     }
     $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
@@ -206,6 +206,10 @@ function uploads_referenced(): array
             $add($cover['og'] ?? '');
         }
         $scan((string) ($live['body'] ?? ''));
+    }
+    // the 关于 album photos of the live site (src; their og twin is never shown, so it is not restored)
+    foreach (site_album(site_live()) as $photo) {
+        $add(is_array($photo) ? ($photo['src'] ?? '') : '');
     }
     // and anything the live site or shelf fields point at
     foreach ([site_live(), shelf_live()] as $doc) {

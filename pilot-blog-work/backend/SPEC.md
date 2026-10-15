@@ -382,8 +382,28 @@ Group `about` 关于
 | `about.body` | paras:3 | the three `<p class="rv" style="--i:3..5">` (marker before the first `<p`, after the last `</p>`) | 正文（每段一行） |
 | `about.staccato` | text | `.staccato` | 结尾短句 |
 | `about.fact1`…`about.fact4` | lat | the four `.logbook dd` (contents, including the `.lat` span of fact1) | 机型 / 座位 / 航线 / 天气 |
-| `about.img_alt` | attr | `.about-art img` alt | 照片说明（读屏软件读这句） |
-| `about.figcaption` | text | `.about-fig figcaption` | 照片下方小字 |
+| `about.img_alt` | (none) | mirror of `album[0].alt` since §18 item 25 (was the `.about-art img` alt) | 照片说明（读屏软件读这句） |
+| `about.figcaption` | (none) | mirror of `album[0].caption` since §18 item 25 (was `.about-fig figcaption`) | 照片下方小字 |
+
+Group `type` 机型
+
+| key | enc | where | label |
+|---|---|---|---|
+| `type.icao` | li | `ul.icao` contents | 代码条（一行一个） |
+| `type.gloss` | text | `.icao-gloss` | 代码解释 |
+| `type.kicker` `type.h2` `type.lede` | text | `.lg-body` | 小标签 / 标题 / 导语 |
+| `type.callout1`…`type.callout4` | lat | each `.callouts li`, between `</svg>` and `<span class="lk"` | 图注 1-4（对应线图上的 1-4 号，固定 4 条） |
+| (block) `type_facts` | | `dl.facts` | 数据格子（3 或 6 条最整齐） |
+| `type.fnote` | text | `.fnote` after the `SOURCE` span | 数据来源说明 |
+
+Group `apch` 进近小游戏
+
+| key | enc | where | label |
+|---|---|---|---|
+| `apch.kicker` `apch.h2` `apch.ins` | text | `.fly-ctl` | 小标签 / 标题 / 玩法说明 |
+| `apch.hold_btn` | text, js | `#hold-label` and `T.holdBtn` | 按钮文字 |
+| `apch.idle` | text, js | `#fly-status` and `T.flyIdle` | 等待时的提示 |
+| `apch.holding` `apch.go_around` `apch.done` `apch.again` | js | `T.flyHold`, `T.flyGa`, `T.flyDone`, `T.holdAgain` | 下降中 / 复飞 / 完成 / 再飞一次 |
 
 Group `log` 飞行日志栏
 
@@ -404,17 +424,6 @@ Group `log` 飞行日志栏
 | `log.ete_published` | pattern `{n}` | legs block and post pages, default `{n} 分钟` | 已发布的阅读时间 |
 
 The count kicker becomes `<p class="kicker"><!--{v log_count}-->在写 5 篇<!--{/v}--></p>`.
-
-Group `type` 机型
-
-| key | enc | where | label |
-|---|---|---|---|
-| `type.icao` | li | `ul.icao` contents | 代码条（一行一个） |
-| `type.gloss` | text | `.icao-gloss` | 代码解释 |
-| `type.kicker` `type.h2` `type.lede` | text | `.lg-body` | 小标签 / 标题 / 导语 |
-| `type.callout1`…`type.callout4` | lat | each `.callouts li`, between `</svg>` and `<span class="lk"` | 图注 1-4（对应线图上的 1-4 号，固定 4 条） |
-| (block) `type_facts` | | `dl.facts` | 数据格子（3 或 6 条最整齐） |
-| `type.fnote` | text | `.fnote` after the `SOURCE` span | 数据来源说明 |
 
 Group `ai` AI 超市栏
 
@@ -447,15 +456,6 @@ Group `faq` 问答
 | `faq.kicker` `faq.h2` | text | `.cl-body` | 小标签 / 标题 |
 | (block) `faq_rows` | | `dl.cl-rows` | 问答条目 |
 | `faq.sub_link` | text | `.faq .after .tlink` | 订阅链接文字 |
-
-Group `apch` 进近小游戏
-
-| key | enc | where | label |
-|---|---|---|---|
-| `apch.kicker` `apch.h2` `apch.ins` | text | `.fly-ctl` | 小标签 / 标题 / 玩法说明 |
-| `apch.hold_btn` | text, js | `#hold-label` and `T.holdBtn` | 按钮文字 |
-| `apch.idle` | text, js | `#fly-status` and `T.flyIdle` | 等待时的提示 |
-| `apch.holding` `apch.go_around` `apch.done` `apch.again` | js | `T.flyHold`, `T.flyGa`, `T.flyDone`, `T.holdAgain` | 下降中 / 复飞 / 完成 / 再飞一次 |
 
 Group `sub` 订阅
 
@@ -1446,7 +1446,8 @@ with `BLOG_PUBLIC_DIR`/`BLOG_DATA_DIR` pointing at temp copies (symlink `assets/
 `kill $(pgrep -f "^php -S 127.0.0.1:<port>")`. Headless Chromium may not decode H.264; that is fine.
 
 - **T1 baseline byte identity**: render `home.tpl.html` with the baseline seed (subscribe off, chat off,
-  5 teasers, no published) → sha256 equals `app/seed/baseline-index.html` (= 08da7c1 `index.html`). On
+  5 teasers, no published) → sha256 equals `app/seed/baseline-index.html` (= 08da7c1 `index.html` until the owner-approved
+  reorder of 2026-10-15, now `0f206a8a…`, see §18 item 24). On
   failure print the first differing byte offset with 80 bytes of context from both.
 - **T2 launch render**: `render-launch.php` output equals the committed `pilot-blog/index.html`.
 - **T3 hero untouched**, for the baseline render, the launch render and a "probe" render where every
@@ -1658,6 +1659,46 @@ Added by the visitor-statistics pass (2026-10-15):
    400 kept nowhere. Skipped: bots and missing UA, prefetch, cross-site, the owner's browser (`pb_nostat` cookie set
    by every admin page), unknown paths, previews; 120 counted views per visitor per hour, 200 000 per day. Referrers
    come only from the home page (post pages run no script).
+
+Added by the section-reorder pass (2026-10-15, owner request):
+
+24. **Section order and a deliberate T1 rebaseline.** The owner approved a new home order below the hero: 关于 (01) → 机型 (02)
+   → 进近小游戏 (unnumbered) → 飞行日志 (03) → AI 超市 (04) → 问答 (05) → 订阅 (06) → footer. `home.tpl.html` was edited
+   directly (sections moved, kickers renumbered, chart furniture: `FIX` cell `PILOT · PC12X · LOGBK · AISHP · CHKLT`, missed
+   approach `DIRECT LOGBK · HOLD`, the `IAF` tag moved to PC12X, MEA/MOCA leg figures swapped so they descend; new route
+   bends: two after the approach plate (right lane, then over the LOGBK hold, clear of the log plate) and one after the FAQ;
+   all three hidden on phones where the route is the left rail). After the landing the plate says
+   「落地，滑行到停机位，看看最近飞了什么。」 and the route carries on to LOGBK. The 订阅 runway is no longer lit by the game:
+   `setLanded()` in the chart script lights it when the route reaches RW24 (and unlights it when the reader scrolls back up);
+   reduced motion shows it lit from the start. Go-around is unchanged.
+   Because the old order was frozen by T1, the baseline was regenerated on purpose with
+   `php app/bin/check-template.php --rebaseline "…"` (logged in `app/seed/rebaseline.log`); `lib-checks.php` now holds
+   `BASELINE_SHA256 = 0f206a8a44a744f5c5ccabb510c5270ad8c6135a5a5bb1e6191e559952e5d075` and keeps the 08da7c1 hash as
+   `BASELINE_08DA7C1_SHA256` (only `--init-hero-reference` uses it). T3 is unchanged and passes: the hero regions and the
+   nav skeleton are byte-identical. Because the nav markup is part of the T3 skeleton, the nav order (关于 机型 日志 AI 超市 问答)
+   is set by a CSS `order` rule outside the hero CSS and the chart script moves the 机型 item before 日志 for keyboard and
+   screen-reader order; the footer links were reordered in the markup.
+   Field keys are unchanged. `field_groups()` and the registry rows follow the new order (admin 网站文字: … 关于, 机型,
+   进近小游戏, 飞行日志栏, AI 超市栏 …). `site_upgrade_fields()` (fields.php) turns saved values that still equal an old
+   default into the new one (`log.kicker` 02 / LOG → 03 / LOG, `type.kicker` 03 / TYPE → 02 / TYPE, `apch.done`), applied
+   by `content_get('site')`, `site_normalize()` and the render contexts, so the live site's `blog-data` needs no hand edit;
+   a value the owner wrote is left alone. The §4.8 group tables above are listed in the new order.
+
+25. **关于 photo album (INSET A).** New site-content key `album`: a list (1 to 8) of `{src, caption, alt}`; `src` is the
+   bundled `assets/about.webp` (1920 × 1086) or an upload in `uploads/index.json` (sizes always come from the index). New
+   block `about_album` (the whole `<figure class="about-fig">`) and condition `has_album` (2+ photos). One photo renders
+   exactly the old figure (so T1 holds and an owner with one photo sees no change); 2+ photos render a native scroll-snap
+   strip in the same frame (swipe on phones), with prev/next buttons (desktop), dots, arrow/Home/End keys on the focusable
+   strip, the caption following the photo, every image `loading="lazy"`, no autoplay, label still `INSET A`. Its CSS is in
+   `home-extra.css` (emitted when `has_album`), its script sits inside `<!--{if has_album}-->` outside the hero regions.
+   Content saved before the album (no `album` key) renders one photo built from `about.figcaption` / `about.img_alt`
+   (`site_album()`); those two keys stay in the registry with no template encoding and mirror the first photo, so old
+   versions roll back cleanly. Admin: 网站文字 → 关于 → 照片（INSET A）: 加一张照片 (upload purpose `album`, the same GD
+   re-encode and limits as covers), caption (required, ≤ 60) and alt (optional, ≤ 150) per photo, 上移 / 下移 / 删除, the last
+   photo cannot be deleted. `uploads_referenced()` counts live album photos so `uploads_sync_public()` restores them.
+   Tests: run.php group `album`, public.e2e.js scenarios `album1` / `album3` (390 and 1440, screenshots in
+   `pilot-blog-work/screens/reorder/`), admin.e2e.js album flow, public.e2e.js `runway-*` (go-around, landing copy, runway
+   lit by the route, reduced motion).
 
 ## 19. How to run locally
 

@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'subscribers', 'http', 'stats', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -87,7 +87,7 @@ function pub(string $rel): string
 function group_template(): void
 {
     $baseline = (string) file_get_contents(APP_DIR . '/seed/baseline-index.html');
-    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the 08da7c1 page');
+    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (rebaselined 2026-10-15 for the owner\'s section reorder, SPEC §18 item 24)');
     $r = render_baseline();
     ok($r === $baseline, 'T1 baseline render is byte-identical', $r === $baseline ? '' : first_diff($r, $baseline));
     $launch = render_launch();
@@ -537,6 +537,106 @@ function group_images(): void
     uploads_sync_public();
     ok(is_file(PUBLIC_DIR . '/' . $r2['src']) && is_file(PUBLIC_DIR . '/' . $r2['og']), 'uploads_sync_public restores an image a live post references');
     ok(!is_file(PUBLIC_DIR . '/' . $r['src']), 'a master nothing live references is not restored (a removed photo stays removed)');
+}
+
+/** 关于 · INSET A album and the section reorder migration (SPEC §18 item 24). */
+function group_album(): void
+{
+    app_init('cli');
+    ok(publish_site('初始内容')['ok'], 'seed published');
+    $home = pub('index.html');
+    ok(substr_count($home, '<figure class="about-fig">') === 1 && !str_contains($home, 'data-album') && !str_contains($home, 'function album()'), 'seed: one photo renders as the plain figure, no album markup or script');
+    ok(str_contains($home, '<img src="assets/about.webp" width="1920" height="1086" loading="lazy" decoding="async" alt="日落之后'), 'seed: the bundled photo with its old alt');
+    $order = [];
+    foreach (['id="about"', 'id="type"', 'id="apch"', 'id="log"', 'id="ai"', 'id="faq"', 'id="subscribe"'] as $id) {
+        $order[] = strpos($home, '<section class="sec ' . substr($id, 4, -1)) ?: strpos($home, $id);
+    }
+    $sorted = $order;
+    sort($sorted);
+    ok($order === $sorted && !in_array(false, $order, true), 'sections in the owner order: about, type, apch, log, ai, faq, subscribe');
+    ok(str_contains($home, '02 / TYPE') && str_contains($home, '03 / LOG') && str_contains($home, '落地，滑行到停机位，看看最近飞了什么。'), 'new numbering and post-landing line');
+    ok(!str_contains($home, "subSec.classList.add('landed')"), 'the runway is no longer lit by the approach game');
+
+    // content saved before the reorder and the album: old defaults are upgraded, the owner's own caption is kept
+    $old = content_get('site', 'live');
+    unset($old['album']);
+    $old['fields']['log.kicker'] = '02 / LOG';
+    $old['fields']['type.kicker'] = '03 / TYPE';
+    $old['fields']['apch.done'] = 'MINIMUMS。跑道可见，继续。';
+    $old['fields']['about.figcaption'] = '站长自己写的照片小字';
+    $old['fields']['about.kicker'] = '01 / 关于我';
+    json_write_atomic(data_path('content', 'site.live.json'), $old);
+    json_write_atomic(data_path('content', 'site.draft.json'), $old);
+    ok(site_validate(site_normalize($old)) === [], 'legacy content without an album still validates');
+    publish_site('legacy');
+    $home = pub('index.html');
+    ok(str_contains($home, '03 / LOG') && str_contains($home, '02 / TYPE') && !str_contains($home, 'MINIMUMS。跑道可见'), 'legacy defaults upgraded on publish');
+    ok(str_contains($home, '01 / 关于我') && str_contains($home, '<figcaption>站长自己写的照片小字</figcaption>'), 'owner-written values kept (kicker, caption through the derived album)');
+    ok(content_get('site', 'draft')['fields']['log.kicker'] === '03 / LOG', 'the editor sees the upgraded value');
+    ok(site_album($old)[0]['src'] === ALBUM_SEED_SRC && site_album($old)[0]['caption'] === '站长自己写的照片小字', 'site_album derives the one photo from the fields');
+
+    // three uploads become an album
+    $dir = getenv('TEST_TMP') . '/alb';
+    @mkdir($dir);
+    $ups = [];
+    foreach ([[1600, 900, [200, 40, 40]], [1200, 800, [40, 200, 40]], [900, 1200, [40, 40, 200]]] as $k => [$w, $h, $c]) {
+        $im = imagecreatetruecolor($w, $h);
+        imagefill($im, 0, 0, imagecolorallocate($im, ...$c));
+        imagejpeg($im, "$dir/$k.jpg");
+        $ups[] = image_store_file("$dir/$k.jpg");
+    }
+    $draft = content_get('site', 'draft');
+    $doc = ['fields' => $draft['fields'], 'faq' => $draft['faq'], 'type_facts' => $draft['type_facts'], 'album' => [
+        ['src' => ALBUM_SEED_SRC, 'caption' => 'ON TOP · 云层上方', 'alt' => '云上的 PC-12'],
+        ['src' => $ups[0]['src'], 'caption' => '第二张 <b>小字</b> & "引号"', 'alt' => ''],
+        ['src' => $ups[2]['src'], 'caption' => '竖着拍的第三张', 'alt' => '停机坪'],
+    ]];
+    $saved = content_save_draft('site', $doc, (int) $draft['rev']);
+    ok(count($saved['album']) === 3 && $saved['fields']['about.figcaption'] === 'ON TOP · 云层上方' && $saved['fields']['about.img_alt'] === '云上的 PC-12', 'album saved; the first photo is mirrored into the legacy fields');
+    ok(pub('index.html') === $home, 'saving the album draft does not change the public page');
+    $r = content_publish('site', (int) $saved['rev']);
+    ok(($r['ok'] ?? false) === true, 'album published', json_encode($r['errors'] ?? null, JSON_UNESCAPED_UNICODE));
+    $home = pub('index.html');
+    ok(str_contains($home, '<figure class="about-fig album" data-album>') && substr_count($home, 'class="alb-slide"') === 3 && substr_count($home, 'class="alb-dot"') === 3, 'three slides and three dots');
+    ok(str_contains($home, 'aria-label="照片，共 3 张"') && str_contains($home, '<p class="inset-tag" aria-hidden="true">INSET A</p>'), 'carousel label and the INSET A tag');
+    ok(str_contains($home, 'data-cap="第二张 &lt;b&gt;小字&lt;/b&gt; &amp; &quot;引号&quot;"') && !str_contains($home, '<b>小字'), 'captions are escaped');
+    ok(str_contains($home, 'src="' . $ups[2]['src'] . '" width="' . $ups[2]['w'] . '" height="' . $ups[2]['h'] . '" loading="lazy"'), 'uploaded photo sizes come from the uploads index');
+    ok(substr_count($home, 'loading="lazy"') >= 3 && !preg_match('/class="alb-slide"[^>]*>(?:(?!<\/div>).)*loading="eager"/s', $home), 'every slide image is lazy');
+    ok(str_contains($home, 'function album()') && str_contains($home, '.album .alb-track{') && str_contains($home, '<style id="extra-css">'), 'album script and css are emitted');
+    ok(!preg_match('/setInterval|autoplay/i', (string) substr($home, (int) strpos($home, 'function album()'), 2000)), 'the album never moves on its own');
+    ok(hero_compare($home) === [], 'T3 with an album');
+    $refs = uploads_referenced();
+    ok(isset($refs[$ups[0]['src']], $refs[$ups[2]['src']]) && !isset($refs[$ups[1]['src']]), 'uploads_referenced counts live album photos only');
+    unlink(PUBLIC_DIR . '/' . $ups[2]['src']);
+    uploads_sync_public();
+    ok(is_file(PUBLIC_DIR . '/' . $ups[2]['src']), 'a live album photo is restored by uploads_sync_public');
+
+    // one uploaded photo: the plain figure again, with the new picture
+    $d = content_get('site', 'draft');
+    $one = ['fields' => $d['fields'], 'faq' => $d['faq'], 'type_facts' => $d['type_facts'], 'album' => [['src' => $ups[1]['src'], 'caption' => '只留一张', 'alt' => '跑道']]];
+    $s1 = content_save_draft('site', $one, (int) $d['rev']);
+    content_publish('site', (int) $s1['rev']);
+    $home = pub('index.html');
+    ok(str_contains($home, "<figure class=\"about-fig\">\n      <div class=\"about-art\">\n        <img src=\"" . $ups[1]['src'] . '" width="1200" height="800" loading="lazy" decoding="async" alt="跑道">') && str_contains($home, '<figcaption>只留一张</figcaption>') && !str_contains($home, 'data-album') && !str_contains($home, 'function album()'), 'one uploaded photo renders exactly like the old figure');
+
+    // validation
+    $base = site_normalize($one);
+    $bad = function (array $album) use ($base) { $b = $base; $b['album'] = $album; return site_validate($b); };
+    ok(isset($bad([])['album']), 'an empty album is refused (keep at least one photo)');
+    ok(isset($bad(array_fill(0, ALBUM_MAX + 1, ['src' => ALBUM_SEED_SRC, 'caption' => 'x', 'alt' => '']))['album']), 'more than ' . ALBUM_MAX . ' photos refused');
+    ok(isset($bad([['src' => '../app/lib/bootstrap.php', 'caption' => 'x', 'alt' => '']])['album.0.src']), 'a path outside uploads refused');
+    ok(isset($bad([['src' => 'uploads/2026/10/0123456789abcdef.webp', 'caption' => 'x', 'alt' => '']])['album.0.src']), 'an upload that is not in the index refused');
+    ok(isset($bad([['src' => ALBUM_SEED_SRC, 'caption' => '', 'alt' => '']])['album.0.caption']), 'caption is required');
+    ok(isset($bad([['src' => ALBUM_SEED_SRC, 'caption' => str_repeat('云', ALBUM_CAPTION_MAX + 1), 'alt' => '']])['album.0.caption']), 'caption over ' . ALBUM_CAPTION_MAX . ' refused');
+    ok($bad([['src' => ALBUM_SEED_SRC, 'caption' => 'x', 'alt' => '']]) === [], 'empty alt is allowed');
+    require_once APP_DIR . '/lib/admin.php';   // declarations only
+    ok(admin_error_label('site', 'album.1.caption') === '第 2 张照片的下方小字', 'error label names the photo');
+    try {
+        image_accept_upload(['error' => UPLOAD_ERR_NO_FILE], 'album');
+        ok(false, 'album is an accepted upload purpose');
+    } catch (ValidationError $e) {
+        ok(!str_contains(json_encode($e->fields, JSON_UNESCAPED_UNICODE), '用途'), 'album is an accepted upload purpose (only the missing file is reported)');
+    }
 }
 
 function group_subscribers(): void

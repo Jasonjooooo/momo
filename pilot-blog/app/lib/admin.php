@@ -813,7 +813,8 @@ function admin_upload(): void
         json_out(400, ['ok' => false, 'error' => 'invalid', 'message' => '没有收到图片，再选一次试试。']);
     }
     try {
-        $r = image_accept_upload($file, post_str('purpose', 10) === 'body' ? 'body' : 'cover');
+        $purpose = post_str('purpose', 10);
+        $r = image_accept_upload($file, in_array($purpose, ['body', 'album'], true) ? $purpose : 'cover');
     } catch (ValidationError $e) {
         $msg = (string) reset($e->fields);
         json_out(str_contains($msg, '太大') ? 413 : 400, ['ok' => false, 'error' => str_contains($msg, '太大') ? 'too_large' : 'invalid', 'message' => $msg]);

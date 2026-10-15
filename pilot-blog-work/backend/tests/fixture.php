@@ -2,6 +2,7 @@
 // Builds a test site in temp dirs for the Playwright checks. Never touches the repo's public files.
 // Usage: BLOG_PUBLIC_DIR=… BLOG_DATA_DIR=… php fixture.php <scenario>
 //   scenarios: launch | pub0 (no legs at all) | pub1 | pub3 | pub8   (each adds one private draft too)
+//              album1 (关于 shows one uploaded photo) | album3 (the bundled photo + two uploads)
 // Prints JSON: {legs, published: [{slug, title}], draft_title}
 declare(strict_types=1);
 define('BLOG_APP', true);
@@ -76,6 +77,37 @@ post_save_draft($d['id'], ['title' => $out['draft_title'], 'body' => '私人内�
 $limit = ['pub3' => 8, 'pub8' => 12][$scenario] ?? 6;
 $s = settings_get();
 settings_save(['home' => ['leg_limit' => $limit]], $s['rev']);
+$out['album'] = [];
+if (str_starts_with($scenario, 'album')) {
+    // photos the owner uploads in 网站文字 → 关于 → 照片; each a different colour with a horizon so a screenshot shows which is in view
+    $mk = function (array $sky, array $ground, int $w, int $h): array {
+        $im = imagecreatetruecolor($w, $h);
+        imagefill($im, 0, 0, imagecolorallocate($im, ...$sky));
+        imagefilledrectangle($im, 0, (int) ($h * .62), $w, $h, imagecolorallocate($im, ...$ground));
+        imagefilledellipse($im, (int) ($w * .7), (int) ($h * .4), (int) ($w * .12), (int) ($w * .12), imagecolorallocate($im, 244, 139, 69));
+        $tmp = sys_get_temp_dir() . '/fxa-' . bin2hex(random_bytes(4)) . '.png';
+        imagepng($im, $tmp);
+        $up = image_store_file($tmp);
+        unlink($tmp);
+        return $up;
+    };
+    $a = $mk([40, 70, 130], [30, 40, 60], 1600, 900);
+    $b = $mk([120, 60, 90], [50, 40, 50], 1800, 1200);
+    $album = $scenario === 'album1'
+        ? [['src' => $a['src'], 'caption' => '换上的照片 · 进近灯', 'alt' => '雾里的进近灯']]
+        : [['src' => ALBUM_SEED_SRC, 'caption' => 'ON TOP · 云层上方 · 日落之后', 'alt' => '云层上方的 PC-12'],
+           ['src' => $a['src'], 'caption' => '第二张 · 雾里的进近灯', 'alt' => '雾里的进近灯'],
+           ['src' => $b['src'], 'caption' => '第三张 · 傍晚的停机坪', 'alt' => '傍晚的停机坪']];
+    $sd = content_get('site', 'draft');
+    $sd['album'] = $album;
+    $saved = content_save_draft('site', ['fields' => $sd['fields'], 'faq' => $sd['faq'], 'type_facts' => $sd['type_facts'], 'album' => $album], (int) $sd['rev']);
+    $pr = content_publish('site', (int) $saved['rev']);
+    if (!($pr['ok'] ?? false)) {
+        fwrite(STDERR, json_encode($pr, JSON_UNESCAPED_UNICODE) . "\n");
+        exit(1);
+    }
+    $out['album'] = $album;
+}
 $r = publish_site('fixture ' . $scenario);
 if (!$r['ok']) {
     fwrite(STDERR, json_encode($r['errors'], JSON_UNESCAPED_UNICODE) . "\n");

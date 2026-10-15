@@ -25,6 +25,7 @@ $fields = $draft['fields'];
       <p class="where">每篇日志的页面和「全部日志」页面上用到的文字。</p>
 <?php endif; ?>
 <?php foreach ($byGroup[$g] as $key => $f):
+    if (in_array($key, ['about.img_alt', 'about.figcaption'], true)) { continue; }   // edited per photo in the album below
     $id = 'f-' . str_replace('.', '-', $key);
     $val = (string) ($fields[$key] ?? '');
     $long = $f['multiline'] || $f['max'] > 90 || mb_strlen($val) > 34;
@@ -52,7 +53,13 @@ $fields = $draft['fields'];
         <p class="ferr" hidden></p>
       </div>
 <?php endforeach; ?>
-<?php if ($g === 'type'): ?>
+<?php if ($g === 'about'): ?>
+      <h3 class="sub-h" id="album-h">照片（INSET A）</h3>
+      <p class="where">「关于」右下角的照片框。只有 1 张时和原来一样；2 张以上会变成可以左右切换的小相册，手机上用手指滑。至少留 1 张，最多 <?= h((string) ALBUM_MAX) ?> 张。第一张最先显示。</p>
+      <div class="list album-list" id="album-list" data-path="album"></div>
+      <input type="file" id="album-file" accept="image/jpeg,image/png,image/webp,image/gif" hidden>
+      <p class="hint">照片会自动缩小并重新保存，最大 <?= h((string) intdiv(upload_limit_bytes(), 1048576)) ?> MB。横着拍的照片最合适，框是 16:9。</p>
+<?php elseif ($g === 'type'): ?>
       <h3 class="sub-h" id="facts-h">数据格子</h3>
       <p class="where">机型线图下面的小格子，3 条或 6 条最整齐，最多 9 条。</p>
       <div class="list" id="facts-list" data-path="type_facts"></div>
@@ -86,5 +93,8 @@ $fields = $draft['fields'];
     'dirty' => $state['dirty'],
     'faq' => $draft['faq'],
     'type_facts' => $draft['type_facts'],
+    'album' => $draft['album'],
+    'site_base' => site_base(),
+    'album_max' => ALBUM_MAX,
     'live' => $live,
 ]) ?></script>

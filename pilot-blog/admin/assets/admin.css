@@ -299,3 +299,6 @@ body.has-sheet,body.menu-open{overflow:hidden}
 .msg-err{color:var(--err);font-size:15px;margin:8px 0 0}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important}}
 .shelf-body>.label{margin-top:16px}
+/* 关于 album: one thumbnail per photo in the list editor */
+.alb-photo{margin-bottom:10px}
+.alb-thumb{display:block;width:100%;max-width:360px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;border:1px solid var(--line);background:var(--panel)}

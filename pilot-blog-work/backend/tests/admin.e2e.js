@@ -307,6 +307,55 @@ async function run(browser, W) {
     await hp.close();
     check(`[${W}] hero code untouched by the publish`, require('child_process').spawnSync('php', [__dirname + '/hero-check.php', PUB + '/index.html']).stdout.toString().trim() === 'HERO OK');
 
+    // ----- 关于 · 照片 (INSET A album): upload, caption, reorder, delete, keep one, publish -----
+    await go(page, base, 'site');
+    await openDet(page, '#g-about');
+    const albItems = () => page.locator('#album-list .item');
+    check(`[${W}] album starts with the bundled photo, which cannot be deleted while it is the only one`, await albItems().count() === 1 && await albItems().first().locator('[data-act="del"]').isDisabled() && (await albItems().first().locator('input').first().inputValue()) === 'ON TOP · 云层上方 · 日落之后');
+    check(`[${W}] the legacy alt/caption fields are not shown twice`, await page.locator('#f-about-figcaption, #f-about-img_alt').count() === 0);
+    const addPhoto = async file => {
+      const [fc] = await Promise.all([page.waitForEvent('filechooser'), page.click('#album-list [data-act="add"]')]);
+      await fc.setFiles(file);
+      return barDone(page);
+    };
+    let ast = await addPhoto(FILES + '/not-an-image.jpg');
+    check(`[${W}] album: a file that is not a picture is refused`, ast.cls.includes('is-err') && await albItems().count() === 1, ast);
+    ast = await addPhoto(FILES + '/cover.jpg');
+    check(`[${W}] album: photo uploaded and added with a thumbnail`, ast.text.includes('照片已上传') && await albItems().count() === 2 && await albItems().nth(1).locator('img.alb-thumb').evaluate(i => i.complete && i.naturalWidth > 0), ast);
+    await albItems().nth(1).locator('input').first().fill('后台加的第二张');
+    ast = await addPhoto(FILES + '/photo.png');
+    await albItems().nth(2).locator('input').first().fill('竖着的第三张');
+    await albItems().nth(2).locator('textarea').fill('一张橙色的照片');
+    await albItems().nth(2).locator('[data-act="up"]').click();
+    check(`[${W}] album: 上移 moves the photo`, (await albItems().nth(1).locator('input').first().inputValue()) === '竖着的第三张');
+    check(`[${W}] album: 改过 badge on 关于`, (await page.locator('#g-about .badge').textContent()).startsWith('改过'));
+    await layoutCheck(page, 'site (album)', W);
+    await shot(page, 'site-album', W);
+    await albItems().nth(1).locator('[data-act="del"]').click();
+    await sheetOk(page);
+    check(`[${W}] album: 删除 removes the photo`, await albItems().count() === 2 && (await albItems().nth(1).locator('input').first().inputValue()) === '后台加的第二张');
+    await albItems().nth(1).locator('input').first().fill('');
+    await page.click('#bar [data-act="publish"]');
+    ast = await barDone(page);
+    check(`[${W}] album: an empty caption is refused and named`, ast.cls.includes('is-err') && ast.text.includes('第 2 张照片'), ast);
+    await albItems().nth(1).locator('input').first().fill('后台加的第二张');
+    await page.click('#bar [data-act="publish"]');
+    ast = await barDone(page);
+    check(`[${W}] album: 保存并发布 works`, ast.cls.includes('is-ok'), ast);
+    const homeA = read(PUB + '/index.html');
+    check(`[${W}] album: the public page shows two photos in order`, homeA.includes('data-album') && (homeA.match(/class="alb-slide"/g) || []).length === 2 && homeA.indexOf('assets/about.webp') < homeA.indexOf('data-cap="后台加的第二张"') && !homeA.includes('竖着的第三张'));
+    check(`[${W}] album: hero code untouched`, require('child_process').spawnSync('php', [__dirname + '/hero-check.php', PUB + '/index.html']).stdout.toString().trim() === 'HERO OK');
+    // back to one photo (the uploaded one): the plain figure again
+    await go(page, base, 'site');
+    await openDet(page, '#g-about');
+    await albItems().first().locator('[data-act="del"]').click();
+    await sheetOk(page);
+    check(`[${W}] album: the last photo cannot be deleted`, await albItems().count() === 1 && await albItems().first().locator('[data-act="del"]').isDisabled());
+    await page.click('#bar [data-act="publish"]');
+    ast = await barDone(page);
+    const homeB = read(PUB + '/index.html');
+    check(`[${W}] album: one photo renders the plain figure with the uploaded picture`, ast.cls.includes('is-ok') && !homeB.includes('data-album') && /<figure class="about-fig">\n\s*<div class="about-art">\n\s*<img src="uploads\//.test(homeB) && homeB.includes('<figcaption>后台加的第二张</figcaption>'), ast);
+
     // ----- 飞行日志 -----
     await go(page, base, 'posts');
     await layoutCheck(page, 'posts', W);

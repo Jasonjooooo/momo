@@ -723,7 +723,8 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* ============ APPROACH: the plate, and the one thing you fly by hand (between 02 TYPE and 03 LOG) ============ */
 .apch{padding-bottom:120px}
-.apch .bend{left:calc(100% - var(--lane));bottom:-50px}
+.apch .bend{left:calc(100% - var(--lane));bottom:-30px}
+.apch .bend.to-log{left:calc(100% - 444px);bottom:-150px}   /* over the LOGBK hold (log column + 66px), clear of the log plate */
 .fly{position:relative;margin-right:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
 .brief{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0;border-bottom:1px solid var(--line-strong)}
 .brief>div{padding:10px 14px 11px;border-right:1px solid var(--line)}
@@ -883,6 +884,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .chat{position:relative;top:auto;border-top:1px solid var(--line-strong)}
   .log-grid{grid-template-columns:minmax(0,1fr) 270px;column-gap:170px}
   .faq-grid{grid-template-columns:minmax(0,1fr) 240px;column-gap:32px}
+  .apch .bend.to-log{left:calc(100% - 374px)}
   .brief{grid-template-columns:repeat(3,minmax(0,1fr))}
   .brief>div:nth-child(3){border-right:0}
   .brief>div:nth-child(-n+3){border-bottom:1px solid var(--line)}
@@ -1056,7 +1058,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 </style>
 <style id="extra-css">
-/* home-extra.css: styles for markup that only exists in non-baseline states (published legs, live subscribe form).
+/* home-extra.css: styles for markup that only exists in non-baseline states (published legs, live subscribe form, the 关于 photo album).
    Emitted inside <style id="extra-css"> by the publisher. Never touches hero selectors. */
 .post h3 a{color:inherit;text-decoration:none}
 .post h3 a::after{content:"";position:absolute;inset:0;z-index:1}
@@ -1070,6 +1072,25 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .sub-form .sub-consent input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .sub-hp{position:absolute!important;left:-9999px;width:1px;height:1px;overflow:hidden}
 .sub-form .btn[aria-disabled="true"]{opacity:.7;cursor:progress}
+/* 01 INSET A as an album (2+ photos): a scroll-snap strip inside the same frame; arrows on desktop, swipe on phones */
+.album .alb-track{position:absolute;inset:0;display:flex;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+.album .alb-track::-webkit-scrollbar{display:none}
+.album .alb-track:focus-visible{outline:2px solid var(--accent);outline-offset:-4px}
+.album .alb-slide{position:relative;flex:0 0 100%;scroll-snap-align:start;scroll-snap-stop:always}
+.album .alb-btn,.album .alb-dots{display:none}
+.js .album .alb-btn{position:absolute;top:50%;z-index:2;display:flex;align-items:center;justify-content:center;width:44px;height:44px;margin-top:-22px;padding:0;color:var(--text-primary);background:rgba(10,23,51,.74);border:1px solid var(--line-strong);border-radius:50%;cursor:pointer;transition:opacity .3s var(--ease-out)}
+.album .alb-btn svg{width:18px;height:18px}
+.album .alb-prev{left:12px}
+.album .alb-next{right:12px}
+.js .album .alb-btn:disabled{opacity:0;pointer-events:none}
+.album .alb-btn:focus-visible,.album .alb-dot:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.album figcaption{flex-wrap:wrap}
+.album .alb-cap{min-width:0;flex:1 1 auto}
+.js .album .alb-dots{display:flex;gap:2px;margin-left:auto}
+.album .alb-dot{display:flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;background:none;border:0;cursor:pointer}
+.album .alb-dot::before{content:"";width:8px;height:8px;border-radius:50%;border:1px solid var(--ink-2)}
+.album .alb-dot[aria-current="true"]::before{background:var(--text-primary);border-color:var(--text-primary)}
+@media (max-width:900px){.js .album .alb-btn{display:none}}
 </style>
 <script>(function(){try{var r='';try{var u=new URL(document.referrer);if(u.hostname!==location.hostname)r=u.hostname}catch(e){}var q='api/hit.php?p=%2F'+(r?'&r='+encodeURIComponent(r):'');if(!(navigator.sendBeacon&&navigator.sendBeacon(q))&&window.fetch)fetch(q,{method:'POST',keepalive:true,credentials:'same-origin'}).catch(function(){})}catch(e){}})();</script>
 </head>
@@ -1356,7 +1377,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
         <p><b>MISSED APCH</b> · CLIMB 3000 · DIRECT LOGBK · HOLD</p>
       </div>
     </div>
-    <i class="bend" data-route=""></i>
+    <i class="bend" data-route=""></i><i class="bend to-log" data-route=""></i>
   </div>
 </section>
 
