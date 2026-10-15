@@ -18,3 +18,4 @@
 - 2026-10-14T21:26:31Z QA agent: checkpoint pushed (preview frame note); e2e 390 ALL PASS 449, admin.e2e 386, public.e2e pass, run.php 219. Next: delete+rollback, long Latin title, upload with expired session, 60k body
 - 2026-10-14T21:41:11Z QA agent: e2e.js extended (delete+rollback exact, long Latin title, upload after expiry, 60k body, badges, FAQ delete, link tool, wrong current password); 390 ALL PASS 468; B-chart test.js both: only chat 503 logs
 - 2026-10-14T21:55:14Z QA agent: DONE. e2e.js ALL PASS 805 (1440: 337, 390: 468) twice in a row; admin.e2e 386, public.e2e pass, run.php 219, T1/T2/T3 pass, B-chart test.js only chat 503. SPEC §18 items 9-12 record the QA deviations
+- 2026-10-14T22:22:46Z security-fix agent: started; 13 findings (sessions/epoch, login race, global lock, bcrypt 72, anon sessions, uploads resync, rl fail-open, sub site-day, ipv6 /64, chat order+origin, sub full oracle, data dir path, https)
