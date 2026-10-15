@@ -4,3 +4,4 @@ encode/
 review/*.mp4
 mockups/*/assets
 mockups/*/api
+deploy/*.zip
