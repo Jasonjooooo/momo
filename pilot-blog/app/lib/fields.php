@@ -11,12 +11,12 @@ function field_groups(): array
         'hero' => '开场动画（首页第一屏）',
         'chart' => '航路图标题',
         'about' => '关于',
-        'log' => '飞行日志栏',
         'type' => '机型',
+        'apch' => '进近小游戏',
+        'log' => '飞行日志栏',
         'ai' => 'AI 超市栏',
         'chat' => 'AI 助手对话框',
         'faq' => '问答',
-        'apch' => '进近小游戏',
         'sub' => '订阅',
         'footer' => '页脚',
         'post' => '日志页面',
@@ -44,8 +44,8 @@ function field_registry(): array
 
         ['nav.skip', 'nav', '跳到正文（键盘用户才看得到）', '页面最上面，按 Tab 键才出现', ['text'], 's', null],
         ['nav.about', 'nav', '导航：关于', '顶部导航和页脚链接', ['text'], 's', null],
-        ['nav.log', 'nav', '导航：日志', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.type', 'nav', '导航：机型', '顶部导航和页脚链接', ['text'], 's', null],
+        ['nav.log', 'nav', '导航：日志', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.ai', 'nav', '导航：AI 超市', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.faq', 'nav', '导航：问答', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.subscribe', 'nav', '导航：订阅按钮', '顶部导航右边的按钮和页脚链接', ['text'], 's', null],
@@ -83,6 +83,27 @@ function field_registry(): array
         ['about.img_alt', 'about', '照片说明（读屏软件读这句）', '「关于」的照片（看不见，读屏软件会读）', ['attr'], '', null],
         ['about.figcaption', 'about', '照片下方小字', '「关于」的照片下面', ['text'], '', null],
 
+        ['type.icao', 'type', '代码条（一行一个）', '「机型」最上面的一排代码', ['li'], 'm', null],
+        ['type.gloss', 'type', '代码解释', '代码条下面', ['text'], '', null],
+        ['type.kicker', 'type', '小标签', '「机型」标题上方', ['text'], 's', null],
+        ['type.h2', 'type', '标题', '「机型」', ['text'], 's', null],
+        ['type.lede', 'type', '导语', '「机型」标题下面', ['text'], '', null],
+        ['type.callout1', 'type', '图注 1（对应线图上的 1 号）', '「机型」线图旁的图注', ['lat'], '', null],
+        ['type.callout2', 'type', '图注 2（对应线图上的 2 号）', '「机型」线图旁的图注', ['lat'], '', null],
+        ['type.callout3', 'type', '图注 3（对应线图上的 3 号）', '「机型」线图旁的图注', ['lat'], '', null],
+        ['type.callout4', 'type', '图注 4（对应线图上的 4 号）', '「机型」线图旁的图注', ['lat'], '', null],
+        ['type.fnote', 'type', '数据来源说明', '数据格子下面', ['text'], '', null],
+
+        ['apch.kicker', 'apch', '小标签', '进近小游戏标题上方', ['text'], 's', null],
+        ['apch.h2', 'apch', '标题', '进近小游戏', ['text'], 's', null],
+        ['apch.ins', 'apch', '玩法说明', '进近小游戏标题下面', ['text'], '', null],
+        ['apch.hold_btn', 'apch', '按钮文字', '进近小游戏的按钮', ['text', 'js'], 's', null],
+        ['apch.idle', 'apch', '等待时的提示', '按钮下面', ['text', 'js'], '', null],
+        ['apch.holding', 'apch', '下降中', '按住按钮时', ['js'], '', null],
+        ['apch.go_around', 'apch', '复飞', '中途松手时', ['js'], '', null],
+        ['apch.done', 'apch', '完成', '降到决断高度以后（下面接着是「飞行日志」）', ['js'], '', null],
+        ['apch.again', 'apch', '再飞一次', '完成以后的按钮文字', ['js'], 's', null],
+
         ['log.kicker', 'log', '小标签', '「飞行日志」标题上方', ['text'], 's', null],
         ['log.h2', 'log', '标题', '「飞行日志」', ['text'], 's', null],
         ['log.lede', 'log', '导语', '「飞行日志」标题下面', ['text'], '', null],
@@ -97,17 +118,6 @@ function field_registry(): array
         ['log.teaser_date', 'log', '预告的日期位置显示', '每条预告的日期位置', [], 's', 'DRAFT'],
         ['log.ete_teaser', 'log', '预告的阅读时间', '每条预告右上角', [], 'p:{n}', '预计 {n} 分钟'],
         ['log.ete_published', 'log', '已发布的阅读时间', '每篇已发布日志的右上角和日志页面', [], 'p:{n}', '{n} 分钟'],
-
-        ['type.icao', 'type', '代码条（一行一个）', '「机型」最上面的一排代码', ['li'], 'm', null],
-        ['type.gloss', 'type', '代码解释', '代码条下面', ['text'], '', null],
-        ['type.kicker', 'type', '小标签', '「机型」标题上方', ['text'], 's', null],
-        ['type.h2', 'type', '标题', '「机型」', ['text'], 's', null],
-        ['type.lede', 'type', '导语', '「机型」标题下面', ['text'], '', null],
-        ['type.callout1', 'type', '图注 1（对应线图上的 1 号）', '「机型」线图旁的图注', ['lat'], '', null],
-        ['type.callout2', 'type', '图注 2（对应线图上的 2 号）', '「机型」线图旁的图注', ['lat'], '', null],
-        ['type.callout3', 'type', '图注 3（对应线图上的 3 号）', '「机型」线图旁的图注', ['lat'], '', null],
-        ['type.callout4', 'type', '图注 4（对应线图上的 4 号）', '「机型」线图旁的图注', ['lat'], '', null],
-        ['type.fnote', 'type', '数据来源说明', '数据格子下面', ['text'], '', null],
 
         ['ai.kicker', 'ai', '小标签', '「AI 超市」标题上方', ['text'], 's', null],
         ['ai.h2', 'ai', '标题', '「AI 超市」', ['text'], 's', null],
@@ -144,16 +154,6 @@ function field_registry(): array
         ['faq.kicker', 'faq', '小标签', '「问答」标题上方', ['text'], 's', null],
         ['faq.h2', 'faq', '标题', '「问答」', ['text'], 's', null],
         ['faq.sub_link', 'faq', '订阅链接文字', '问答卡片下面的链接', ['text'], 's', null],
-
-        ['apch.kicker', 'apch', '小标签', '进近小游戏标题上方', ['text'], 's', null],
-        ['apch.h2', 'apch', '标题', '进近小游戏', ['text'], 's', null],
-        ['apch.ins', 'apch', '玩法说明', '进近小游戏标题下面', ['text'], '', null],
-        ['apch.hold_btn', 'apch', '按钮文字', '进近小游戏的按钮', ['text', 'js'], 's', null],
-        ['apch.idle', 'apch', '等待时的提示', '按钮下面', ['text', 'js'], '', null],
-        ['apch.holding', 'apch', '下降中', '按住按钮时', ['js'], '', null],
-        ['apch.go_around', 'apch', '复飞', '中途松手时', ['js'], '', null],
-        ['apch.done', 'apch', '完成', '降到决断高度时', ['js'], '', null],
-        ['apch.again', 'apch', '再飞一次', '完成以后的按钮文字', ['js'], 's', null],
 
         ['sub.kicker', 'sub', '小标签', '订阅卡片最上面', ['text'], 's', null],
         ['sub.h2', 'sub', '标题', '订阅卡片', ['text'], 's', null],
@@ -385,6 +385,27 @@ function site_validate(array $site): array
     return $err;
 }
 
+/**
+ * Section reorder (owner request 2026-10-15, SPEC §18 item 24): saved copy that still holds an old default gets the new
+ * one, so a site installed before the reorder shows the new numbering after the next publish. Keys never change; a value
+ * the owner wrote themselves is left alone.
+ */
+const FIELD_UPGRADED_DEFAULTS = [
+    'log.kicker' => ['02 / LOG' => '03 / LOG'],
+    'type.kicker' => ['03 / TYPE' => '02 / TYPE'],
+    'apch.done' => ['MINIMUMS。跑道可见，继续。' => '落地，滑行到停机位，看看最近飞了什么。'],
+];
+
+function site_upgrade_fields(array $fields): array
+{
+    foreach (FIELD_UPGRADED_DEFAULTS as $k => $map) {
+        if (is_string($fields[$k] ?? null) && isset($map[$fields[$k]])) {
+            $fields[$k] = $map[$fields[$k]];
+        }
+    }
+    return $fields;
+}
+
 /** Canonical shape: line endings, missing keys from the seed or registry defaults, typed rows. Unknown keys are kept for site_validate to reject. */
 function site_normalize(array $input): array
 {
@@ -404,6 +425,7 @@ function site_normalize(array $input): array
         }
         $fields[$k] = $v;
     }
+    $fields = site_upgrade_fields($fields);
     foreach ($in as $k => $v) {
         if (!isset($reg[$k])) {
             $fields[$k] = $v;

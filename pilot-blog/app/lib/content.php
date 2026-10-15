@@ -17,6 +17,9 @@ function content_path(string $unit, string $which): string
 function content_get(string $unit, string $which = 'draft'): array
 {
     $d = json_read(content_path($unit, $which), []);
+    if ($unit === 'site' && is_array($d) && is_array($d['fields'] ?? null)) {
+        $d['fields'] = site_upgrade_fields($d['fields']);
+    }
     return is_array($d) ? $d : [];
 }
 

@@ -20,7 +20,7 @@ function shelf_live(): array
 function build_home_ctx(array $site, array $shelf, array $posts, array $settings, bool $chatKey): array
 {
     $ctx = [
-        'fields' => $site['fields'],
+        'fields' => site_upgrade_fields($site['fields']),
         'faq' => $site['faq'],
         'type_facts' => $site['type_facts'],
         'shelves' => $shelf['shelves'],
@@ -64,7 +64,7 @@ function dots(?string $date): string
 function page_base_ctx(array $site, array $settings): array
 {
     return [
-        'fields' => $site['fields'],
+        'fields' => site_upgrade_fields($site['fields']),
         'values' => ['css_href' => enc_attr(post_css_href())],
         'conds' => ['subscribe_live' => (bool) $settings['subscribe']['enabled'], 'stats_live' => stats_enabled($settings)],
         'blocks' => [],
