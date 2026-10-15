@@ -22,3 +22,4 @@
 - 2026-10-15T01:36:32Z security-fix agent (resumed): nothing from the first attempt was on disk; reading code, then a repro harness, then fixes
 - 2026-10-15T01:40:42Z security-fix agent: exploit harness (scratchpad sec/exploits.js) reproduces F1-F12 on unfixed code; F13 to check on real Apache
 - 2026-10-15T02:01:24Z security-fix agent: all 13 findings fixed, exploit sweep 0 VULNERABLE. Fixed F1-F13 across security.php, ratelimit.php, subscribers.php, images.php, api/subscribe.php, api/chat.php, admin/index.php, app/views/post_edit.php, .htaccess. Running project suites.
+- 2026-10-15T02:19:54Z security-fix agent: DONE. All 13 findings fixed + re-exploited (0 VULNERABLE). run.php 220, e2e.js 805 (1440+390), admin.e2e 386, public.e2e pass, check-template T1/T3/LINT, B-chart test.js both = only chat 503 (expected), no external/overflow. Committed 68fb546, pushed to claude/funny-fermat-v958zd.
