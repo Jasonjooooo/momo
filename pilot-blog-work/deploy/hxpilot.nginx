@@ -1,0 +1,62 @@
+# hxpilot.com on the 野草云 VPS (Ubuntu 24.04, plain Nginx 1.24, PHP 8.3-FPM).
+# Lives at /etc/nginx/sites-available/hxpilot; certbot --nginx adds the 443 part.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name hxpilot.com www.hxpilot.com;
+    root /var/www/hxpilot/public;
+    client_max_body_size 20m;
+    index index.html;
+    charset utf-8;
+
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+
+    # dotfiles, notes, data, templates
+    location ~ /\. { deny all; }
+    location ~* \.(bak|orig|swp|log|lock|md|tpl\.html|json|ini|sh|sql)$ { deny all; }
+
+    # code, templates, seed data: never served
+    location ^~ /app/ { deny all; }
+
+    # the only PHP that may run
+    location = /api/chat.php      { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
+    location = /api/subscribe.php { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
+    location ^~ /api/ { deny all; }
+
+    location = /admin { return 301 /admin/; }
+    location = /admin/ {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        include fastcgi.conf;
+        fastcgi_param SCRIPT_FILENAME $document_root/admin/index.php;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
+    location = /admin/index.php {
+        add_header X-Robots-Tag "noindex, nofollow" always;
+        include fastcgi.conf;
+        fastcgi_pass unix:/run/php/php8.3-fpm.sock;
+    }
+    location ~ ^/admin/.*\.php$ { deny all; }
+    location ^~ /admin/ { add_header X-Robots-Tag "noindex, nofollow" always; }
+
+    # uploaded images: never executed or rendered as pages
+    location ^~ /uploads/ {
+        location ~* \.(php\d*|phtml|phar|pht|cgi|pl|py|sh|shtml|html?|svg|js)$ { deny all; }
+        add_header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # post pages: static, no scripts
+    location ^~ /posts/ {
+        add_header Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'; object-src 'none'" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+
+    # any other .php anywhere: refuse
+    location ~ \.php$ { deny all; }
+
+    location ~* \.html$ { add_header Cache-Control "no-cache"; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; }
+    location ~* \.(mp4|webp|jpg|png|woff2)$ { expires 30d; access_log off; }
+}
