@@ -7,7 +7,8 @@
     "fields": {
         "sub.sub2": "新的一篇写完，我会从订阅名单里手动发到你的邮箱。",
         "sub.micro": "只发飞行日志，不发广告。想退订，回复任意一封邮件就行。",
-        "sub.ok_pre": "已订阅。下一篇日志写完，我会发到 "
+        "sub.ok_pre": "已订阅。下一篇日志写完，我会发到 ",
+        "site.origin": "https://hxpilot.com"
     },
     "faq_patch": [
         {
