@@ -68,9 +68,10 @@ function see_other(string $url): never
     exit;
 }
 
+/** A request field: from the form body on POST, from the URL on GET (never mixed, so no state change by URL). */
 function in_str(string $k, int $max = 2000): string
 {
-    $v = $_POST[$k] ?? $_GET[$k] ?? '';
+    $v = (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST' ? $_POST : $_GET)[$k] ?? '';
     return is_string($v) ? substr($v, 0, $max) : '';
 }
 
@@ -116,7 +117,7 @@ function form_ok(string $purpose): void
 
 function order_id_input(string $raw): string
 {
-    $s = strtoupper(str_replace([' ', '　', '—', '－', '_'], ['', '', '-', '-', '-'], ascii_numbers($raw)));
+    $s = strtoupper(str_replace([' ', "\u{3000}", "\u{2014}", "\u{FF0D}", '_'], ['', '', '-', '-', '-'], ascii_numbers($raw)));
     if (preg_match('/^(\d{8})-?([A-Z0-9]{6})$/', $s, $m)) {
         return $m[1] . '-' . $m[2];
     }
@@ -213,6 +214,10 @@ try {
         $msg = in_str('m', 10) === 'claimed' && $o['status'] === 'claimed' ? '已记下：你付了款。我核对到账后会确认。' : '';
         shop_out(200, '付款 ' . $o['id'], shop_pay_html($o, $ss, $msg));
     }
+    if ($a === 'paid' && $method !== 'POST') {
+        header('Allow: POST');
+        shop_msg(405, '打不开', '这个地址只能从付款页的按钮提交。', 'shop.php?a=lookup', '查订单');
+    }
     if ($a === 'paid') {
         limit('shop-paid', visitor(), RL_PAID_HOUR, 3600);
         form_ok('paid');
@@ -235,18 +240,22 @@ try {
         limit('shop-lookup-day', $v, RL_LOOKUP_DAY, 86400);
         form_ok('lookup');
         $id = order_id_input(in_str('o', 40));
-        $secret = shop_verify_input(in_str('v', 200));
+        $cands = shop_verify_candidates(in_str('v', 200));
         $o = preg_match(ORDER_ID_RE, $id) ? shop_order_get($id) : null;
-        if ($o !== null) {
-            // every guess against one order counts, from any address: four digits are not much of a secret
+        if (preg_match(ORDER_ID_RE, $id)) {
+            // every guess against one order number counts, from any address: four digits are not much of a
+            // secret. Numbers that do not exist are counted the same way, so the lock reveals nothing.
             $gate = rl_hit('shop-lookup-order', $id, RL_LOOKUP_ORDER_HOUR, 3600);
             if (!$gate['allowed']) {
                 shop_out(429, '查订单', shop_lookup_form_html($id, '这个订单号查询的次数太多了，请一小时后再试。'));
             }
         }
         $want = $o !== null ? (string) $o['verify'] : str_repeat('0', 64);
-        $got = shop_verify_hash($id, $secret);
-        if ($o === null || $secret === '' || !hash_equals($want, $got)) {
+        $match = false;
+        foreach (array_pad($cands, 2, '') as $c) {   // always two hashes: same work whether or not the order exists
+            $match = (hash_equals($want, shop_verify_hash($id, $c)) && $c !== '') || $match;
+        }
+        if ($o === null || !$match) {
             shop_out(400, '查订单', shop_lookup_form_html($id, MSG_LOOKUP_BAD));
         }
         rl_clear('shop-lookup-order', $id);

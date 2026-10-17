@@ -1080,6 +1080,7 @@ function group_shop(): void
     ok(shop_parse_money('99.999') === null && shop_parse_money('-1') === null && shop_parse_money('1e3') === null && shop_parse_money('') === null, 'money: odd input refused');
     ok(shop_phone_normalize('+86 138-0013-8000') === '13800138000' && shop_phone_normalize('１３８００１３８０００') === '13800138000' && shop_phone_normalize('12345') === null && shop_phone_normalize('23456789') === '23456789', 'phone: mainland (with +86, dashes, full width) and HK; junk refused');
     ok(shop_verify_input(' Reader.Pilot@Example.com ') === 'reader.pilot' && shop_verify_input('１２３４') === '1234', 'lookup secret normalized (email part, full width digits)');
+    ok(in_array('8000', shop_verify_candidates('138 0013 8000'), true) && shop_verify_candidates('12345678@qq.com')[0] === '12345678' && shop_verify_candidates('  ') === [], 'lookup accepts the whole phone number; an all-digit QQ mailbox still matches itself');
     $prodErr = shop_order_input(['type' => 'physical'], ['qty' => '0', 'name' => '', 'phone' => 'abc', 'address' => '北京', 'consent' => ''])[1];
     ok(isset($prodErr['qty'], $prodErr['name'], $prodErr['phone'], $prodErr['address'], $prodErr['consent']), 'order form: every bad field gets its own message');
     [$cl] = shop_order_input(['type' => 'physical'], ['qty' => '2', 'name' => "张\x00三\u{202E}", 'phone' => '13800138000', 'address' => "上海市\n浦东新区 100 号", 'note' => '<b>x</b>', 'consent' => '1']);
@@ -1267,12 +1268,21 @@ function shop_http_tests(array $ph, array $dg): void
     ok($r['status'] === 404 && !str_contains($r['body'], $id), 'pay page with a wrong token: 404, nothing about the order shown');
     $r = shop_post('paid', ['o' => $id, 'k' => str_repeat('a', 32), 'payer' => 'x']);
     ok($r['status'] === 404 && shop_order_get($id)['status'] === 'pending', '我已付款 needs the pay token');
+    $r = http('GET', "/api/shop.php?a=paid&o=$id&k=$k&tok=" . shop_form_token('paid', time() - 5) . '&website=');
+    ok($r['status'] === 405 && shop_order_get($id)['status'] === 'pending', '我已付款 cannot be triggered by a URL (GET → 405)');
     $r = shop_post('paid', ['o' => $id, 'k' => $k, 'payer' => '尾号 8888']);
     ok($r['status'] === 303 && shop_order_get($id)['status'] === 'claimed' && shop_order_get($id)['payer'] === '尾号 8888', '我已付款 marks the order (303 back to the pay page)');
     // lookup
     clear_rl();
     $r = shop_post('lookup', ['o' => $id, 'v' => 'buyer']);
     ok($r['status'] === 200 && str_contains($r['body'], '已付款，等站长确认') && !str_contains($r['body'], 'buyer@example.com'), 'lookup with the email part works; the email is not echoed');
+    $r0 = shop_post('lookup', ['o' => '20261017-ZZZZZZ', 'v' => 'x']);
+    for ($i = 0; $i < 8; $i++) {
+        $r0 = shop_post('lookup', ['o' => '20261017-ZZZZZZ', 'v' => 'x' . $i]);
+        exec('rm -rf ' . escapeshellarg(DATA_DIR . '/ratelimit/shop-lookup') . ' ' . escapeshellarg(DATA_DIR . '/ratelimit/shop-lookup-day'));
+    }
+    ok($r0['status'] === 429, 'an order number that does not exist locks the same way (the lock reveals nothing)');
+    clear_rl();
     $r1 = shop_post('lookup', ['o' => $id, 'v' => 'nobody']);
     $r2 = shop_post('lookup', ['o' => '20261017-ZZZZZZ', 'v' => 'buyer']);
     ok($r1['status'] === 400 && $r2['status'] === 400 && str_contains($r1['body'], '订单号或验证信息不对') && str_contains($r2['body'], '订单号或验证信息不对'), 'wrong secret and unknown order number get the same answer (no enumeration)');
@@ -1354,7 +1364,8 @@ function group_admin(): void
     ok(!$ext, 'admin pages load nothing from other hosts', implode(', ', $ext));
     ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
     $copy = '';
-    foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php']) as $f) {
+    foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php',
+        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
         $copy .= (string) file_get_contents($f);
     }
     ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');

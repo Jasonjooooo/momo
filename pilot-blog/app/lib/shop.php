@@ -323,6 +323,19 @@ function shop_verify_input(string $s): string
     return $s;
 }
 
+/** What the typed lookup secret may stand for: itself, and the last 4 digits when a whole phone number was typed
+ *  (a QQ mailbox like 12345678@qq.com keeps its all-digit local part as the first candidate). */
+function shop_verify_candidates(string $typed): array
+{
+    $s = shop_verify_input($typed);
+    $c = [$s];
+    $digits = (string) preg_replace('/[\s\-]/', '', $s);
+    if (preg_match('/^\+?\d{5,15}$/', $digits)) {
+        $c[] = substr($digits, -4);
+    }
+    return array_values(array_unique(array_filter($c, fn($v) => $v !== '')));
+}
+
 /** A signed, short-lived download link for an order's file. */
 function shop_dl_sig(string $orderId, int $exp, string $fileId): string
 {

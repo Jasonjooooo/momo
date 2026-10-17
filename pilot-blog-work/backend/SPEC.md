@@ -1700,6 +1700,100 @@ Added by the section-reorder pass (2026-10-15, owner request):
    `pilot-blog-work/screens/reorder/`), admin.e2e.js album flow, public.e2e.js `runway-*` (go-around, landing copy, runway
    lit by the route, reduced motion).
 
+Added by the shop pass (2026-10-17, owner request):
+
+26. **The AI 超市 shelf became the 商城 (shop), and a second deliberate T1 rebaseline.** The owner approved removing the
+   recommended-tools shelf. The `#ai` section (fix AISHP, nav `href="#ai"` unchanged because the nav markup is in the T3
+   skeleton) now holds the shop counter: a status head (`SHOP · OPEN 营业中` / `CLSD 暂停营业`, item count, 查订单), the
+   goods grid (blocks `shop_status`, `shop_grid`, rendered from live products) and, next to it, the old AI chat relabelled
+   店铺客服. The shelf JSON, the radio/tab markup, its script and CSS are gone from `home.tpl.html`; `blocks.php` keeps
+   `render_shelf_json()` and the extractor only for old versions. Shelf data and `app/seed/shelf.baseline.json` stay on
+   disk (unused); `content.php` still saves/publishes the `shelf` unit, but the admin page, menu entry and routes
+   (`shelf`, `shelf.*`) were removed, and `render_site()` no longer validates the shelf. Field keys never change:
+   `nav.ai`, `ai.kicker`, `ai.h2`, `ai.lede`, `ai.shelf_note` (now 商城底部说明), `chat.h3`, `chat.lede`, `chat.caution`,
+   `chat.chip2`, `chat.chip3`, `chat.welcome_inop`, `chat.welcome_live`, `chat.msg_inop`, `chat.msg_down` got new defaults
+   and `FIELD_UPGRADED_DEFAULTS` turns the old defaults in saved content into the new ones on read; a value the owner wrote
+   is left alone. New key `ai.find` (查订单); `site_upgrade_fields()` now also fills any registry key missing from saved
+   content with its seed value, so the live `blog-data` renders the new template without a hand edit. `ai.card_open` stays
+   in the registry with no template encoding (hidden in 网站文字). `api/chat.php`'s system prompt now describes the shop
+   (manual payment confirmation, 查订单) and appends `shop_catalog_text()` (products on sale, prices, shipping).
+   Rebaselined with `check-template.php --rebaseline` (logged in `app/seed/rebaseline.log`):
+   `BASELINE_SHA256 = 31c740bc08e56f5451a5788d62ddd2597cf6ec01c0fe2fe4a7c42ff8cabac8fb`. T3 unchanged and passing.
+   `template.php` now only calls a block that is a `Closure` (a string block is never called as a function name).
+27. **Shop pages are not versioned.** Products, stock, orders and shop settings are live data: product edits republish
+   without a version entry (`version => false`), versions never store or hash `shop/*.html`, and a rollback re-renders the
+   product pages from the current products. Deleting a product that has orders is refused (take it off sale instead).
+28. **CSV cells.** `csv_cell()` (subscribers and orders) also defuses a formula that follows leading spaces or an
+   ideographic space.
+
+## 20. 商城 (shop, 2026-10-17)
+
+Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
+owner's personal WeChat Pay / Alipay 收款码, confirmed by hand. No payment API, no mail.
+
+**Code.** `app/lib/shop.php` (data, orders, money, tokens, maintenance, files, QR, CSV), `app/lib/shop_pages.php`
+(product pages and the buyer pages), `app/lib/admin_shop.php` (admin controllers), `api/shop.php` (the one new public
+endpoint), `app/templates/shop.tpl.html` + `shop.htaccess`, `assets/shop.css`, admin views `shop`, `shop_edit`, `orders`,
+`order`, `pay`. Tests: `tests/run.php` group `shop`, `tests/shop.e2e.js` (+ `shop-fixture.php`).
+
+**Data** (`blog-data/shop/`, dirs 0700, files 0600): `products.json` `{rev, items:[{id g+10hex, slug, name ≤40, type
+physical|digital, price fen, stock int|null (null = unlimited, digital only), on_sale, summary ≤60, body (Markdown subset,
+≤5000), photos [{src, alt}] ≤8, delivery {text ≤2000, link http(s) ≤500, file {id 32hex, name, bytes, at}|null}, rev}]}`
+(item order = shop order); `orders.json` `{items:[order]}`; `files/<32hex>.bin` (digital files, ≤20 MB, whitelisted
+extensions); `qr/{wechat|alipay}-<16hex>.png` (masters; public copies in `uploads/shop/`). Settings key `shop`:
+`{enabled, shipping fen (≤¥1000), free_over fen (0 = off), cancel_hours 1..168 (default 24), notice ≤200, qr {wechat,
+alipay}}`; `settings_page_state()` republishes on everything but `qr`. Missing keys get defaults on read.
+
+**Order** `{id YYYYMMDD-XXXXXX (Beijing date + 6 of ABCDEFGHJKMNPQRSTUVWXYZ23456789, random_int), status pending |
+claimed | confirmed | shipped | completed | cancelled, product snapshot (product_id, slug, name, type, price), qty 1..20,
+subtotal, shipping, offset, amount, buyer {name, phone, address, email}, note ≤100, payer ≤20, verify (HMAC of id +
+lookup secret), held (stock reserved), expires_at, history [{t, s, by buyer|owner|auto, note}], courier, tracking,
+cancel_reason, cancel_auto, refunds [{t, note}], closed_at, redacted_at}`.
+
+**Money.** Integers in fen, computed only on the server: subtotal = price × qty; shipping = flat per physical order
+(0 when subtotal ≥ free_over > 0); offset = random free value in 1..99 fen (then 100..199) so that `amount` differs from
+every unpaid (pending or claimed) order; none free → 「现在等待付款的订单太多了」. Posted price/amount fields are ignored.
+
+**Stock.** Reserved when the order is created, under `with_lock('shop')` (products written before orders, so a crash can
+only lose a unit, never sell one twice); released when an order is cancelled (owner, or automatically). Unpaid
+(`pending`) orders expire after `cancel_hours`; `claimed` ones never expire on their own. Lazy maintenance
+(`shop_maintain()`, on every `api/shop.php` request and on the admin 概览/商品/订单 pages): expiry, shipped → completed after
+30 days, and redaction 180 days after `closed_at` (buyer name/phone/address/email, note, payer, tracking erased; amounts,
+items, dates and the lookup hash kept). The static pages show 有货 / 仅剩 N 件 (≤5) / 售罄; the site is regenerated (no
+version) whenever that label or on-sale state changes (`shop_page_signature()`).
+
+**Owner transitions.** 确认收款 (pending/claimed → confirmed; digital → completed at once; also restores an auto-cancelled
+order and takes the stock again if it is still there), 填快递并发货 (confirmed → shipped, or edit; courier ≤20, tracking
+`[A-Za-z0-9-]{4,40}`), 完成 (shipped → completed), 取消 with a reason the buyer sees (pending/claimed/confirmed; releases
+stock; refused once shipped), 记录退款 note (any status but pending). Audit lines carry the order id only.
+
+**Public pages** (`api/shop.php`, server-rendered, no script, CSP `script-src 'none'`, `frame-ancestors 'none'`,
+`no-store`, `noindex`, `Referrer-Policy: no-referrer`): `GET a=order&p=` form (数量; physical 收货人/手机号/地址; digital
+邮箱; 备注; consent with the purpose), `POST a=order` → 303 to `a=pay&o=&k=` (k = HMAC pay token; the page shows the amount
+big, 「付款时请付这个金额，备注订单号」, both 收款码 as CSS-only tabs with app-specific instructions, the deadline, 我已付款
+with an optional payer note, save-this-page note), `POST a=paid` (needs k; GET → 405), `GET/POST a=lookup` (order number +
+phone last 4 or email part before @; whole phone or email also accepted; one generic error; result: timeline, masked
+buyer data, courier + tracking, digital text/link and a download link), `GET a=dl&o=&e=&s=` (HMAC of order, expiry and file
+id, 30 minutes, only for confirmed/completed digital orders; `application/octet-stream`, attachment, CSP sandbox).
+Every POST: same-origin check (Origin, else Referer), a stateless form token (issue time + HMAC, valid 2 s to 6 h) and a
+honeypot. Limits per visitor (IPv6 /64 or IPv4, `rl_hit`, fail closed): order posts 12/h, orders made 10/day, lookups
+10 per 10 min and 60/day, 我已付款 20/h, downloads 30/h; site-wide 300 orders/day and 200 unpaid orders; every
+well-formed order number (existing or not) 8 lookups per hour from anywhere.
+
+**Static pages.** `shop/<slug>.html` per product on sale with a photo (gallery as a scroll-snap strip on phones and a
+column on desktop, Markdown body, price, shipping, 购买 or 售罄/暂停营业, how-to-buy), counted by `api/hit.php`
+(`/shop/<slug>.html`). Nginx: `location = /api/shop.php` (fastcgi) and `location ^~ /shop/` with the posts CSP; Apache:
+`api/.htaccess` allows `shop.php`, `shop/.htaccess` (written by the publisher if missing). Store closed → home shows
+「CLSD · 暂停营业」, product pages say so, `a=order` refuses; existing orders, pay pages and lookups keep working.
+
+**Admin.** Menu 商品 / 订单 (badge = 买家已付款 + 待发货) / 收款设置; 概览 card 商城 with 待确认收款 / 待发货 / 待付款.
+Plain POST forms with confirm sheets; photo, file and 收款码 pickers upload as soon as a file is chosen
+(`data-autosubmit`). 商品: list with up/down; editor (photos via the GD pipeline, purpose `product`; name, type, price in
+yuan, stock with an optimistic `stock_seen` check against concurrent orders, 上架, summary, Markdown body, slug, photo alts,
+digital text/link, one file); delete only without orders. 订单: filters 要处理 / 买家已付款 / 待付款 / 待发货 / 已发货 / 已完成 /
+已取消 / 全部, search by number, phone, name, email or amount, 30 per page, CSV export (BOM, CRLF, quoted, formula-safe).
+收款设置: 营业 switch, 收款码 upload (re-encoded to PNG ≤1200 px on white), shipping, free-over, auto-cancel hours, notice.
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -1719,6 +1813,9 @@ php pilot-blog-work/backend/tests/run.php            # or name groups: ... run.p
 
 # public pages in Chromium: launch page + browser subscribe flow, then 0, 1, 3 and 8 published posts at 1440 and 390
 node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub3
+
+# the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, screenshots in screens/shop/
+node pilot-blog-work/backend/tests/shop.e2e.js         # or: ... shop.e2e.js 390
 
 # the owner's end-to-end QA: every admin flow at 1440 and 390 on a throwaway site (~2.5 min)
 PORT=9300 node pilot-blog-work/backend/e2e.js         # or: ... e2e.js 390   (add keep to leave the temp dirs)

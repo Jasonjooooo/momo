@@ -469,57 +469,26 @@ async function run(browser, W) {
     await Promise.all([page.waitForNavigation(), page.locator('form[action*="posts.limit"] button').click()]);
     check(`[${W}] 首页最多显示 saves and republishes`, (await flashText(page)).includes('首页最多显示 4 篇') && (read(PUB + '/index.html').match(/data-route/g) || []).length > 0);
 
-    // ----- AI 超市 -----
-    await go(page, base, 'shelf');
-    await page.click('#shelf-add');
-    const S = () => page.locator('#shelves > details.shelf').filter({ has: page.locator('.shelf-t', { hasText: '测试货架' }) });
-    await page.locator('#shelves > details.shelf').last().locator('input').first().fill('测试货架');
-    await S().locator('textarea').first().fill('给后台测试用的货架。');
-    for (const [name, url] of [['甲工具', 'https://a.example.com/x'], ['乙工具', 'https://b.example.com'], ['临时工具', 'https://c.example.com']]) {
-      await S().locator('[data-act="add-tool"]').click();
-      const T = S().locator('details.tool').last();
-      await T.locator('input').nth(0).fill(name);
-      await T.locator('input').nth(1).fill(name + '的一句话介绍');
-      await T.locator('input').nth(2).fill(url);
-    }
-    check(`[${W}] new tools default to 还没确认`, (await S().locator('details.tool').first().locator('select[id$="-cn"]').inputValue()) === '' && (await S().locator('details.tool .chip').first().textContent()) === '还没确认');
-    await S().locator('details.tool').nth(1).locator('select[id$="-cn"]').selectOption('需要国际网络');
-    await S().locator('details.tool').first().locator('[data-act="down"]').click();
-    check(`[${W}] tool 下移 reorders`, (await S().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具,临时工具');
-    await S().locator('details.tool').last().locator('[data-act="del"]').click();
-    await sheetOk(page);
-    check(`[${W}] tool 删除 asks and removes`, (await S().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具');
-    await S().locator('button', { hasText: '上移货架' }).click();
-    const order = await page.locator('#shelves .shelf-t').allTextContents();
-    check(`[${W}] shelf 上移货架 reorders`, order.indexOf('测试货架') === order.length - 2, order);
-    // move a tool from the first shelf into the test shelf
-    const first = page.locator('#shelves > details.shelf').first();
-    await openDet(page, first);
-    const firstName = await first.locator('.tool-n').first().textContent();
-    await openDet(page, first.locator('details.tool').first());
-    const mv = first.locator('details.tool').first().locator('.move-row select');
-    await mv.selectOption({ label: '测试货架' });
-    await first.locator('details.tool').first().locator('[data-act="move"]').click();
-    check(`[${W}] 移到别的货架 moves a tool`, (await S().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具,' + firstName);
-    await layoutCheck(page, 'shelf (open)', W);
-    await shot(page, 'shelf', W);
-    const tool0 = S().locator('details.tool').first();
-    await openDet(page, tool0);
-    await tool0.locator('textarea').fill('心得里有 ' + XSS);
-    await page.click('#bar [data-act="publish"]');
-    st = await barDone(page);
-    check(`[${W}] shelf 保存并发布 works`, st.text.includes('已发布'), st);
-    const shelf = shelfJson(read(PUB + '/index.html'));
-    const ts = shelf && (shelf.shelves || shelf).find(s => s.title === '测试货架');
-    check(`[${W}] published shelf JSON is valid and holds the new shelf in order`, !!ts && ts.tools.map(t => t.name).join(',') === '乙工具,甲工具,' + firstName, ts);
-    check(`[${W}] 还没确认 publishes as null, 需要国际网络 as set`, ts && ts.tools[1].cn_access === null && ts.tools[0].cn_access === '需要国际网络', ts && ts.tools.map(t => t.cn_access));
+    // ----- 商城 (the AI shelf became the shop, SPEC §18 item 26; the buyer flow is in shop.e2e.js) -----
+    await go(page, base, 'shop');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.new"] button')]);
+    check(`[${W}] 加一件商品 opens the product editor`, page.url().includes('r=shop.edit'), page.url());
+    await page.fill('#s-name', '后台测试商品 ' + XSS);
+    await page.fill('#s-price', '12.5');
+    await page.fill('#s-stock', '3');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.save"] button[type=submit]')]);
+    check(`[${W}] product saves while not on sale`, (await flashText(page)).includes('已保存'), await flashText(page));
+    await layoutCheck(page, 'product editor', W);
+    await page.check('input[name=on_sale]');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.save"] button[type=submit]')]);
+    check(`[${W}] 上架 without a photo is refused in plain Chinese`, (await flashText(page)).includes('一张照片'), await flashText(page));
+    for (const r of ['shop', 'orders', 'pay']) { await go(page, base, r); await layoutCheck(page, r, W); }
     const sp = await ctx.newPage();
     track(sp, R, base);
     await sp.goto(base + '/', { waitUntil: 'domcontentloaded' });
     await sleep(800);
-    const shelfOnPage = await sp.evaluate(() => { try { const d = JSON.parse(document.getElementById('shelf-data').textContent); return (d.shelves || d).map(s => s.title); } catch (e) { return String(e); } });
-    check(`[${W}] visitor page parses the new shelf`, Array.isArray(shelfOnPage) && shelfOnPage.includes('测试货架'), shelfOnPage);
-    check(`[${W}] no script runs from shelf text`, await sp.evaluate(() => document.querySelectorAll('[onerror]').length === 0));
+    check(`[${W}] visitor page: no AI shelf left, the shop is there, an unsold product is not shown`, await sp.evaluate(() => !document.getElementById('shelf-data') && !!document.getElementById('shop') && !document.body.innerText.includes('后台测试商品')));
+    check(`[${W}] no script runs from shop text`, await sp.evaluate(() => document.querySelectorAll('[onerror]').length === 0));
 
     // ----- 订阅 from the public page, then the admin list -----
     await sp.evaluate(() => document.getElementById('subscribe').scrollIntoView({ block: 'center', behavior: 'instant' }));
@@ -746,10 +715,9 @@ async function narrow(browser) {
     await page.fill('#password', PW1);
     await page.fill('#password2', PW1);
     await Promise.all([page.waitForNavigation(), page.click('button[type=submit]')]);
-    for (const r of ['dashboard', 'site', 'posts', 'shelf', 'subs', 'stats', 'ai', 'versions', 'password']) {
+    for (const r of ['dashboard', 'site', 'posts', 'shop', 'orders', 'pay', 'subs', 'stats', 'ai', 'versions', 'password']) {
       await go(page, base, r);
       if (r === 'site') { await openDet(page, '#g-faq'); await openDet(page, '#g-type'); }
-      if (r === 'shelf') { await openDet(page, page.locator('#shelves > details.shelf').first()); await openDet(page, page.locator('details.tool').first()); }
       await layoutCheck(page, r, 360);
     }
     await go(page, base, 'posts');

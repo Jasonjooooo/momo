@@ -316,7 +316,7 @@ async function sweepAdmin(T, label) {
   const page = T.page;
   const pages = [
     ['dashboard', '', '概览'], ['site', '', '网站文字'], ['posts', '', '飞行日志'], ['posts', '&f=published', '飞行日志 已发布'],
-    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shelf', '', 'AI 超市'], ['subs', '', '订阅者'], ['stats', '', '访问统计'],
+    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shop', '', '商品'], ['orders', '', '订单'], ['orders', '&f=all', '订单 全部'], ['pay', '', '收款设置'], ['subs', '', '订阅者'], ['stats', '', '访问统计'],
     ['ai', '', 'AI 助手'], ['versions', '', '版本记录'], ['password', '', '修改密码'],
     ['no-such-page', '', '404 页'], ['post.edit', '&id=p000000000000', '找不到的日志'], ['versions.view', '&id=19990101-000000-abcdef', '找不到的版本'],
     ['logout', '', '用 GET 打开 POST 地址（405）'],
@@ -324,7 +324,7 @@ async function sweepAdmin(T, label) {
   for (const [r, q, name] of pages) {
     const mark = T.R.console.length;
     await go(T, page, r, q);
-    if (r === 'site' || r === 'shelf') await openAllDetails(page);
+    if (r === 'site') await openAllDetails(page);
     await layoutCheck(T, page, `${label} ${name}`);
     check(T, `${label} ${name}: no console errors`, consoleSince(T, mark).length === 0, consoleSince(T, mark));
   }
@@ -424,9 +424,6 @@ async function flows(T, browser, SEED) {
     check(T, '网站文字 保存并发布 without changes reports 已发布', st.ok && st.text.includes('已发布'), st);
     check(T, '... and index.html is byte-identical to the seed', sha(PUB + '/index.html') === SEED);
     check(T, '... and no new version entry for an unchanged site', versionsCount(T) === 1, versionsCount(T));
-    await go(T, page, 'shelf');
-    st = await barAct(page, () => page.click('#bar [data-act="publish"]'));
-    check(T, 'AI 超市 保存并发布 without changes: index.html byte-identical', st.ok && sha(PUB + '/index.html') === SEED, st);
     await go(T, page, 'posts', '&f=teaser');
     await page.locator('.plist a.prow').first().click();
     await page.waitForSelector('#p-title');
@@ -865,76 +862,48 @@ async function flows(T, browser, SEED) {
     await Promise.all([page.waitForNavigation(), page.locator('form[action*="posts.limit"] button').click()]);
   });
 
-  // ---------------- AI 超市 ----------------
-  await section(T, 'AI 超市：货架和工具，网址填错，发布，放弃草稿', async () => {
-    await go(T, page, 'shelf');
-    await page.click('#shelf-add');
-    const shelfEl = () => page.locator('#shelves > details.shelf').last();
-    await shelfEl().locator('input').first().fill('夜航工具 🌙');
-    await shelfEl().locator('textarea').first().fill('夜里飞之前我会看的几个网站。');
-    for (const [name, url] of [['甲', 'www.example.com'], ['乙', 'https://b.example.com'], ['丙', 'https://c.example.com']]) {
-      await shelfEl().locator('[data-act="add-tool"]').click();
-      const t = shelfEl().locator('details.tool').last();
-      await t.locator('input').nth(0).fill(name + '工具');
-      await t.locator('input').nth(1).fill(name + '工具的一句话介绍');
-      await t.locator('input').nth(2).fill(url);
-    }
-    let st = await barAct(page, () => page.click('#bar [data-act="publish"]'));
-    check(T, 'a tool address without https:// is refused, naming the tool', !st.ok && st.text.includes('甲工具') && st.text.includes('网址'), st);
-    check(T, '... the field is marked', await page.locator('.field.has-err [id$="-url"], .field.has-err input[type=url]').count() >= 1);
-    await shelfEl().locator('details.tool').first().locator('input').nth(2).fill('https://www.example.com/night');
-    await shelfEl().locator('details.tool').nth(1).locator('select[id$="-cn"]').selectOption('能直接访问');
-    await shelfEl().locator('details.tool').first().locator('[data-act="down"]').click();
-    check(T, 'tool 下移', (await shelfEl().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具,丙工具');
-    await shelfEl().locator('details.tool').last().locator('[data-act="del"]').click();
-    await sheetOk(page);
-    check(T, 'tool 删除 (confirmed)', (await shelfEl().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具');
-    // a tool from the first shelf moves into the new one
-    const first = page.locator('#shelves > details.shelf').first();
-    await openDet(page, first);
-    const movedName = await first.locator('.tool-n').first().textContent();
-    await openDet(page, first.locator('details.tool').first());
-    await first.locator('details.tool').first().locator('.move-row select').selectOption({ label: '夜航工具 🌙' });
-    await first.locator('details.tool').first().locator('[data-act="move"]').click();
-    check(T, '移到别的货架', (await shelfEl().locator('.tool-n').allTextContents()).join(',') === '乙工具,甲工具,' + movedName);
-    await shelfEl().locator('button', { hasText: '上移货架' }).click();
-    // a shelf with tools asks before it goes
-    await page.click('#shelf-add');
-    await shelfEl().locator('input').first().fill('临时货架');
-    await shelfEl().locator('[data-act="add-tool"]').click();
-    await shelfEl().locator('button', { hasText: '删除货架' }).click();
-    await page.waitForSelector('.sheet');
-    check(T, '删除货架 with tools asks 「这个货架里还有 1 个工具，一起删除吗？」', (await page.textContent('.sheet')).includes('这个货架里还有 1 个工具，一起删除吗？'));
-    await sheetOk(page);
-    await layoutCheck(T, page, 'AI 超市（展开编辑）');
-    const [pv] = await Promise.all([T.ctx.waitForEvent('page'), page.click('#bar [data-act="preview"]')]);
-    track(T, pv);
-    await pv.waitForLoadState('load');
-    const pvShelf = shelfJson(await pv.content());
-    check(T, '预览 shows the new shelf', pvShelf && (pvShelf.shelves || pvShelf).some(s => s.title === '夜航工具 🌙'), pvShelf && typeof pvShelf);
-    await pv.close();
-    st = await barAct(page, () => page.click('#bar [data-act="publish"]'));
-    check(T, 'AI 超市 保存并发布', st.ok && st.text.includes('已发布'), st);
-    const sj = shelfJson(read(PUB + '/index.html'));
-    const ns = sj && (sj.shelves || sj).find(s => s.title === '夜航工具 🌙');
-    check(T, 'published shelf JSON parses and holds the shelf in order', ns && ns.tools.map(t => t.name).join(',') === '乙工具,甲工具,' + movedName, ns);
-    check(T, '还没确认 → null, 能直接访问 kept', ns && ns.tools[0].cn_access === '能直接访问' && ns.tools[1].cn_access === null, ns && ns.tools.map(t => t.cn_access));
-    check(T, 'hero regions untouched after a shelf publish (T3)', heroOk(PUB + '/index.html'));
+  // ---------------- 商城 ----------------
+  await section(T, '商城：加商品，填错价格，没照片不能上架，收款设置，暂停营业', async () => {
+    await go(T, page, 'shop');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.new"] button')]);
+    await page.fill('#s-name', '夜航航路图海报 🌙');
+    await page.fill('#s-price', '九十九');
+    await page.fill('#s-stock', '５');
+    await page.check('input[name=on_sale]');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.save"] button[type=submit]')]);
+    check(T, 'a price in words is refused in plain Chinese, the typed name is kept', (await flashText(page)).includes('价格') && (await page.inputValue('#s-name')) === '夜航航路图海报 🌙');
+    check(T, '... and 上架 without a photo is refused too', (await page.textContent('main')).includes('一张照片'));
+    await Promise.all([page.waitForNavigation(), page.setInputFiles('#ph-file', FILES + '/photo.png')]);
+    check(T, 'choosing a photo uploads it right away', (await flashText(page)).includes('照片已上传') && (await page.locator('.ph-item').count()) === 1, await flashText(page));
+    await page.fill('#s-name', '夜航航路图海报 🌙');
+    await page.fill('#s-price', '９９.５');
+    await page.fill('#s-stock', '５');
+    await page.check('input[name=on_sale]');
+    await Promise.all([page.waitForNavigation(), page.click('form[action*="shop.save"] button[type=submit]')]);
+    check(T, 'full-width price and stock are understood; 上架 publishes', (await flashText(page)).includes('网站已经更新') && read(PUB + '/index.html').includes('99.50'), await flashText(page));
+    await layoutCheck(T, page, '商品编辑');
     const vmark = T.R.console.length;
     await anon.goto(T.base + '/', { waitUntil: 'load' });
     await sleep(700);
-    const titles = await anon.evaluate(() => { try { const d = JSON.parse(document.getElementById('shelf-data').textContent); return (d.shelves || d).map(s => s.title); } catch (e) { return String(e); } });
-    check(T, 'visitor page reads the new shelf', Array.isArray(titles) && titles.includes('夜航工具 🌙'), titles);
-    check(T, 'visitor page: no console errors', consoleSince(T, vmark).length === 0, consoleSince(T, vmark));
-    // 放弃草稿
-    await go(T, page, 'shelf');
-    await openDet(page, page.locator('#shelves > details.shelf').first());
-    await page.locator('#shelves > details.shelf').first().locator('input').first().fill('要放弃');
-    st = await barAct(page, () => page.click('#bar [data-act="save"]'));
-    await page.click('#bar [data-act="more"]');
-    await sheetAct(page, '放弃草稿');
+    check(T, 'visitor home shows the product card', (await anon.textContent('#shop')).includes('夜航航路图海报 🌙'));
+    await Promise.all([anon.waitForNavigation(), anon.click('#shop .good-a')]);
+    check(T, 'product page opens with no console errors', (await anon.textContent('h1')).includes('夜航航路图海报') && consoleSince(T, vmark).length === 0, consoleSince(T, vmark));
+    // 收款设置
+    await go(T, page, 'pay');
+    await page.fill('#p-ship', '十块');
+    await Promise.all([page.waitForNavigation(), page.click('form:has(input[value=rules]) button[type=submit]')]);
+    check(T, 'shipping fee in words refused, form kept', (await flashText(page)).includes('运费') && (await page.inputValue('#p-ship')) === '十块');
+    await page.fill('#p-ship', '10');
+    await Promise.all([page.waitForNavigation(), page.click('form:has(input[value=rules]) button[type=submit]')]);
+    check(T, 'shipping fee saved', (await flashText(page)).includes('已保存') && read(PUB + '/shop/' + (read(PUB + '/index.html').match(/href="shop\/([a-z0-9-]+)\.html"/) || [])[1] + '.html').includes('运费每单 ¥10.00'));
+    await Promise.all([page.waitForNavigation(), page.setInputFiles('#qr-wechat', FILES + '/photo.png')]);
+    check(T, '微信收款码 uploads right away', (await flashText(page)).includes('收款码已更新') && (await page.locator('.qr-img').count()) === 1, await flashText(page));
+    await page.click('form:has(input[value=switch]) button');
     await Promise.all([page.waitForNavigation(), sheetOk(page)]);
-    check(T, 'AI 超市 放弃草稿', !(await page.locator('.shelf-t').allTextContents()).includes('要放弃'));
+    check(T, '暂停营业 asks first, then the home page says 暂停营业', read(PUB + '/index.html').includes('CLSD · 暂停营业'));
+    await Promise.all([page.waitForNavigation(), page.click('form:has(input[value=switch]) button')]);
+    check(T, '开门营业 brings the shop back', read(PUB + '/index.html').includes('class="goods"'));
+    await layoutCheck(T, page, '收款设置');
   });
 
   // ---------------- 订阅 ----------------
@@ -1247,11 +1216,11 @@ async function flows(T, browser, SEED) {
     await thief.addCookies([{ name: 'pb_admin', value: old, url: T.base + '/admin/' }]);
     const tp = await newPage(T, thief);
     const leaks = [];
-    for (const [u, needle] of [['dashboard', '上次发布'], ['subs', 'night.reader'], ['subs.export', 'night.reader'], ['versions', '回滚到这个版本'], ['site', 'editor-data'], [`post.edit&id=p000000000001`, 'p-title'], ['ai', 'key-status']]) {
+    for (const [u, needle] of [['dashboard', '上次发布'], ['subs', 'night.reader'], ['subs.export', 'night.reader'], ['versions', '回滚到这个版本'], ['site', 'editor-data'], [`post.edit&id=p000000000001`, 'p-title'], ['ai', 'key-status'], ['orders.export', '订单号'], ['pay', '收款码']]) {
       const res = await thief.request.get(T.base + '/admin/?r=' + u, { failOnStatusCode: false });
       if ((await res.text()).includes(needle)) leaks.push(u);
     }
-    for (const u of ['post.save', 'site.save', 'upload', 'shelf.publish']) {
+    for (const u of ['post.save', 'site.save', 'upload', 'shop.save', 'order.act', 'pay.save']) {
       const res = await thief.request.post(T.base + '/admin/?r=' + u, { data: {}, headers: { Accept: 'application/json' }, failOnStatusCode: false });
       if (res.status() < 400) leaks.push(u + ' ' + res.status());
     }

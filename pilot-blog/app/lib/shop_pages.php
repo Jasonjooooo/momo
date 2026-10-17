@@ -74,7 +74,7 @@ function render_product_page(array $p, int $k, array $site, array $settings): st
     $slides = [];
     foreach ($p['photos'] as $i => $ph) {
         [$w, $h] = album_dims($ph['src']) ?? [1200, 1200];
-        $slides[] = '<figure class="gal-slide"><img src="../' . enc_attr($ph['src']) . '" width="' . $w . '" height="' . $h . '" alt="' . enc_attr($ph['alt'] !== '' ? $ph['alt'] : $p['name']) . '" loading="' . ($i === 0 ? 'eager' : 'lazy') . '" decoding="async"></figure>';
+        $slides[] = '<figure class="gal-slide"><img src="../' . enc_attr($ph['src']) . '" width="' . $w . '" height="' . $h . '" alt="' . enc_attr($ph['alt'] !== '' ? $ph['alt'] : $p['name']) . '" loading="' . ($i < 3 ? 'eager' : 'lazy') . '" decoding="async"></figure>';
     }
     $label = shop_avail_label($p);
     $avail = shop_avail($p);

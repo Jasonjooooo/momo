@@ -265,6 +265,8 @@ function publish_site(string $reason, array $opts = []): array
             file_write_atomic($ht, (string) file_get_contents(app_path('templates', 'posts.htaccess')), 0644);
         }
         $versionId = null;
+        // shop product pages follow live stock and settings, not the versioned content: versions never hold them
+        $files = array_filter($files, fn($rel) => !str_starts_with($rel, 'shop/'), ARRAY_FILTER_USE_KEY);
         if (($opts['version'] ?? true) !== false) {
             $hash = content_hash($site, $shelf, $posts);
             $newest = versions_list()[0] ?? null;
@@ -278,7 +280,7 @@ function publish_site(string $reason, array $opts = []): array
             version_touch_files($files);
         }
         audit('publish', $reason);
-        return ['ok' => true, 'version_id' => $versionId, 'files' => array_keys($files)];
+        return ['ok' => true, 'version_id' => $versionId, 'files' => array_keys($r['files'])];
     });
 }
 
