@@ -10,5 +10,7 @@ node_modules/
 !/pilot-blog/posts/.htaccess
 /pilot-blog/uploads/*
 !/pilot-blog/uploads/.htaccess
+/pilot-blog/shop/*
+!/pilot-blog/shop/.htaccess
 chat-config.php
 *.tmp-*

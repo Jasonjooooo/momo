@@ -27,10 +27,24 @@ const ADMIN_ROUTES = [
     'post.delete' => ['admin_post_delete', ['POST'], 'auth', false],
     'preview.post' => ['admin_preview_post', ['POST'], 'auth', false],
     'upload' => ['admin_upload', ['POST'], 'auth', true],
-    'shelf' => ['admin_shelf', ['GET'], 'auth', false],
-    'shelf.save' => ['admin_unit_save', ['POST'], 'auth', true],
-    'shelf.publish' => ['admin_unit_publish', ['POST'], 'auth', true],
-    'shelf.discard' => ['admin_unit_discard', ['POST'], 'auth', true],
+    'shop' => ['admin_shop', ['GET'], 'auth', false],
+    'shop.new' => ['admin_shop_new', ['POST'], 'auth', false],
+    'shop.edit' => ['admin_shop_edit', ['GET'], 'auth', false],
+    'shop.save' => ['admin_shop_save', ['POST'], 'auth', false],
+    'shop.photo' => ['admin_shop_photo', ['POST'], 'auth', false],
+    'shop.photo_op' => ['admin_shop_photo_op', ['POST'], 'auth', false],
+    'shop.file' => ['admin_shop_file', ['POST'], 'auth', false],
+    'shop.file_del' => ['admin_shop_file_del', ['POST'], 'auth', false],
+    'shop.move' => ['admin_shop_move', ['POST'], 'auth', false],
+    'shop.delete' => ['admin_shop_delete', ['POST'], 'auth', false],
+    'orders' => ['admin_orders', ['GET'], 'auth', false],
+    'order' => ['admin_order', ['GET'], 'auth', false],
+    'order.act' => ['admin_order_act', ['POST'], 'auth', false],
+    'orders.export' => ['admin_orders_export', ['GET'], 'auth', false],
+    'pay' => ['admin_pay', ['GET'], 'auth', false],
+    'pay.save' => ['admin_pay_save', ['POST'], 'auth', false],
+    'pay.qr' => ['admin_pay_qr', ['POST'], 'auth', false],
+    'pay.qr_del' => ['admin_pay_qr_del', ['POST'], 'auth', false],
     'subs' => ['admin_subs', ['GET'], 'auth', false],
     'subs.delete' => ['admin_subs_delete', ['POST'], 'auth', false],
     'subs.toggle' => ['admin_subs_toggle', ['POST'], 'auth', false],
@@ -53,7 +67,9 @@ const ADMIN_MENU = [
     'dashboard' => '概览',
     'site' => '网站文字',
     'posts' => '飞行日志',
-    'shelf' => 'AI 超市',
+    'shop' => '商品',
+    'orders' => '订单',
+    'pay' => '收款设置',
     'subs' => '订阅者',
     'stats' => '访问统计',
     'ai' => 'AI 助手',
@@ -147,6 +163,8 @@ function admin_menu_active(string $page): string
 {
     return match ($page) {
         'post_edit' => 'posts',
+        'shop_edit' => 'shop',
+        'order' => 'orders',
         default => $page,
     };
 }
@@ -345,6 +363,7 @@ function admin_password(): void
 
 function admin_dashboard(): void
 {
+    admin_shop_maintain();
     $heal = null;
     $healError = null;
     try {
@@ -387,6 +406,10 @@ function admin_dashboard(): void
         'stats_on' => stats_enabled($settings),
         'stats_today' => stats_day(local_day()),
         'origin_missing' => str_contains($origin, 'DEPLOY-DOMAIN'),
+        'shop' => shop_counts(shop_orders()),
+        'shop_open' => (bool) $settings['shop']['enabled'],
+        'shop_selling' => count(array_filter(shop_products(), fn($p) => $p['on_sale'])),
+        'shop_qr' => count(array_filter($settings['shop']['qr'])),
         'origin_suggest' => field_problem('site.origin', $suggest) === null ? $suggest : null,
     ]);
 }
@@ -418,7 +441,7 @@ function admin_site_origin(): void
     redirect('dashboard');
 }
 
-// ---------- 网站文字 and AI 超市 (draft/live units) ----------
+// ---------- 网站文字 (draft/live unit; the AI 超市 unit left the admin with the shop, SPEC §18 item 26) ----------
 
 function unit_strip(array $doc, string $unit): array
 {
@@ -454,17 +477,6 @@ function admin_site(): void
         'reg' => field_registry(),
         'groups' => field_groups(),
         'warnings' => site_warnings(site_normalize($draft)),
-    ]);
-}
-
-function admin_shelf(): void
-{
-    $draft = content_get('shelf', 'draft');
-    view('shelf', [
-        'title' => 'AI 超市',
-        'draft' => unit_strip($draft, 'shelf'),
-        'live' => unit_strip(content_get('shelf', 'live'), 'shelf'),
-        'state' => unit_state('shelf'),
     ]);
 }
 
@@ -892,6 +904,9 @@ function admin_stats(): void
         if (($p['live']['mode'] ?? null) === 'full') {
             $titles['/posts/' . $p['slug'] . '.html'] = (string) $p['live']['title'];
         }
+    }
+    foreach (shop_products() as $p) {
+        $titles['/shop/' . $p['slug'] . '.html'] = '商品：' . $p['name'];
     }
     $settings = settings_get();
     view('stats', [

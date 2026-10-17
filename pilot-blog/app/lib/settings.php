@@ -14,6 +14,7 @@ function settings_defaults(): array
         'subscribe' => ['enabled' => true],
         'home' => ['leg_limit' => 6],
         'stats' => ['enabled' => true],
+        'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'qr' => ['wechat' => null, 'alipay' => null]],
     ];
 }
 
@@ -29,6 +30,19 @@ function settings_normalize(array $s): array
     $out['subscribe']['enabled'] = (bool) $out['subscribe']['enabled'];
     $out['home']['leg_limit'] = (int) $out['home']['leg_limit'];
     $out['stats']['enabled'] = (bool) $out['stats']['enabled'];
+    $out['shop']['enabled'] = (bool) $out['shop']['enabled'];
+    foreach (['shipping', 'free_over', 'cancel_hours'] as $k) {
+        $out['shop'][$k] = (int) $out['shop'][$k];
+    }
+    $out['shop']['notice'] = trim(str_replace(["\r\n", "\r", "\n", "\t"], ' ', (string) $out['shop']['notice']));
+    if (!is_array($out['shop']['qr'])) {
+        $out['shop']['qr'] = [];
+    }
+    foreach (['wechat', 'alipay'] as $k) {
+        $q = $out['shop']['qr'][$k] ?? null;
+        $out['shop']['qr'][$k] = is_string($q) && preg_match(SHOP_QR_RE, $q) && str_contains($q, '/' . $k . '-') ? $q : null;
+    }
+    $out['shop']['qr'] = ['wechat' => $out['shop']['qr']['wechat'], 'alipay' => $out['shop']['qr']['alipay']];
     $out['rev'] = (int) $out['rev'];
     return $out;
 }
@@ -50,6 +64,20 @@ function settings_validate(array $s): array
     if ($s['home']['leg_limit'] < 3 || $s['home']['leg_limit'] > 12) {
         $e['home.leg_limit'] = '首页显示的日志篇数填 3 到 12。';
     }
+    if ($s['shop']['shipping'] < 0 || $s['shop']['shipping'] > SHOP_SHIPPING_MAX) {
+        $e['shop.shipping'] = '运费填 0 到 1000 元。';
+    }
+    if ($s['shop']['free_over'] < 0 || $s['shop']['free_over'] > SHOP_PRICE_MAX) {
+        $e['shop.free_over'] = '包邮门槛填 0（不包邮）到 99999 元。';
+    }
+    if ($s['shop']['cancel_hours'] < 1 || $s['shop']['cancel_hours'] > 168) {
+        $e['shop.cancel_hours'] = '自动取消时间填 1 到 168 小时。';
+    }
+    if (mb_strlen($s['shop']['notice']) > 200) {
+        $e['shop.notice'] = '公告最多 200 个字。';
+    } elseif (!mb_check_encoding($s['shop']['notice'], 'UTF-8') || preg_match('/[\x00-\x1F\x7F]/', $s['shop']['notice'])) {
+        $e['shop.notice'] = '公告里有看不见的特殊字符，请删掉后再保存。';
+    }
     return $e;
 }
 
@@ -62,7 +90,9 @@ function settings_get(): array
 /** Things in the settings that change the public page. */
 function settings_page_state(array $s): array
 {
-    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled']];
+    $shop = $s['shop'];
+    unset($shop['qr']);   // the 收款码 only appear on the pay page (served live), not on the static pages
+    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled'], $shop];
 }
 
 /**

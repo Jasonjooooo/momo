@@ -23,6 +23,10 @@ function block_render(string $name, array $ctx, string $indent): string
             return render_shelf_json($ctx['shelves']);
         case 'about_album':
             return render_about_album($ctx['album'], $indent);
+        case 'shop_status':
+            return render_shop_status($ctx['shop'] ?? shop_ctx_empty());
+        case 'shop_grid':
+            return render_shop_grid($ctx['shop'] ?? shop_ctx_empty(), $indent);
         case 'extra_css':
             if (!cond_eval('subscribe_live', $ctx) && !cond_eval('has_published', $ctx) && !cond_eval('has_album', $ctx)) {
                 return '';
@@ -287,6 +291,53 @@ function extract_about_album(string $inner, string $ind): array
     return $album;
 }
 
+// ---------- 商城 (the home counter; product pages are rendered in publish.php) ----------
+
+/** The shop part of the home context: open/closed, notice, the products on sale (owner order), shipping. */
+function shop_ctx_empty(): array
+{
+    return ['open' => true, 'notice' => '', 'products' => []];
+}
+
+function render_shop_status(array $shop): string
+{
+    $n = count($shop['products']);
+    if (!$shop['open']) {
+        return '<p class="lamp shop-lamp" data-state="clsd"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code">CLSD</span><span>暂停营业</span></p>';
+    }
+    return '<p class="lamp shop-lamp" data-state="on"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code">OPEN</span><span>营业中</span></p>'
+        . ($n > 0 ? '<span class="shop-n">' . $n . ' 件在卖</span>' : '');
+}
+
+function render_shop_grid(array $shop, string $ind): string
+{
+    $notice = $shop['notice'] !== '' ? '<p class="shop-notice">' . enc_text($shop['notice']) . '</p>' . "\n" . $ind : '';
+    if (!$shop['open']) {
+        return $notice . '<p class="shop-closed"><b>CLSD · 暂停营业</b>商城暂时不接新订单。已经下的订单照常处理，可以在「查订单」里看进度。</p>';
+    }
+    if (!$shop['products']) {
+        return $notice . '<p class="shop-empty">还没有上架的商品，过几天再来看看。</p>';
+    }
+    $ind2 = $ind . '  ';
+    $items = [];
+    foreach ($shop['products'] as $k => $p) {
+        $ph = $p['photos'][0] ?? null;
+        $dims = $ph ? album_dims($ph['src']) : null;
+        [$w, $h] = $dims ?? [800, 800];
+        $avail = shop_avail($p);
+        $label = shop_avail_label($p);
+        $img = $ph ? '<img src="' . enc_attr($ph['src']) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async" alt="' . enc_attr($ph['alt'] !== '' ? $ph['alt'] : $p['name']) . '">' : '';
+        $items[] = '<li class="good' . ($avail === 'out' ? ' out' : '') . '"><a class="good-a" href="shop/' . enc_attr($p['slug']) . '.html">'
+            . '<span class="good-ph">' . $img . '<span class="good-ix" aria-hidden="true">S-' . sprintf('%02d', $k + 1) . '</span></span>'
+            . '<div class="good-body"><span class="good-tag' . ($p['type'] === 'digital' ? ' dg' : '') . '">' . SHOP_TYPES[$p['type']] . '</span>'
+            . '<h3 class="good-n">' . enc_text($p['name']) . '</h3>'
+            . ($p['summary'] !== '' ? '<p class="good-sum">' . enc_text($p['summary']) . '</p>' : '')
+            . '<p class="good-row"><b class="good-p"><small>¥</small>' . shop_money($p['price']) . '</b>'
+            . ($label !== null ? '<span class="good-s' . ($avail === 'low' ? ' low' : '') . '">' . enc_text($label) . '</span>' : '') . '</p></div></a></li>';
+    }
+    return $notice . '<ul class="goods">' . "\n" . $ind2 . implode("\n" . $ind2, $items) . "\n" . $ind . '</ul>';
+}
+
 // ---------- shelf JSON ----------
 
 function render_shelf_json(array $shelves): string
@@ -348,7 +399,7 @@ function block_extract_all(array $nodes): array
             throw new TemplateError('no default for ' . $k);
         }
     }
-    foreach (['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css'] as $b) {
+    foreach (['legs', 'faq_rows', 'type_facts', 'extra_css', 'shop_status', 'shop_grid'] as $b) {
         if (!isset($ex['blocks'][$b])) {
             throw new TemplateError('block missing: ' . $b);
         }
@@ -363,7 +414,9 @@ function block_extract_all(array $nodes): array
         'type_facts' => extract_type_facts($ex['blocks']['type_facts'][0], $ex['blocks']['type_facts'][1]),
         'album' => $album,
     ];
-    $shelf = ['shelves' => extract_shelf_json($ex['blocks']['shelf_json'][0])];
+    // The AI shelf left the page for the shop (owner request 2026-10-17, SPEC §18 item 26). Its seed file stays as it
+    // was (unused, kept for old versions and rollbacks); nothing is extracted for it any more.
+    $shelf = json_read(APP_DIR . '/seed/shelf.baseline.json', ['shelves' => []]);
     return ['site' => $site, 'shelf' => $shelf, 'posts' => $posts, 'values' => $ex['values']];
 }
 

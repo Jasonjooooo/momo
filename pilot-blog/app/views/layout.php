@@ -39,7 +39,7 @@ $brand = admin_brand();
   </div>
   <ul class="menu-list">
 <?php foreach (ADMIN_MENU as $r => $label): ?>
-    <li><a href="<?= h(url($r)) ?>"<?php if ($active === $r): ?> aria-current="page"<?php endif; ?>><?= h($label) ?></a></li>
+    <li><a href="<?= h(url($r)) ?>"<?php if ($active === $r): ?> aria-current="page"<?php endif; ?>><?= h($label) ?><?php if ($r === 'orders' && ($n = shop_attention_count()) > 0): ?> <span class="badge-n" aria-label="<?= h($n . ' 个要处理') ?>"><?= h((string) $n) ?></span><?php endif; ?></a></li>
 <?php endforeach; ?>
   </ul>
   <a class="menu-site" href="<?= h(site_base()) ?>" target="_blank" rel="noopener">查看网站</a>

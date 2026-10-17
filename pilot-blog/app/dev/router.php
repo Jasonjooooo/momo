@@ -53,7 +53,7 @@ if ($top === 'app') {
     return deny();
 }
 if ($top === 'api') {
-    if (count($segments) === 2 && in_array($name, ['chat.php', 'subscribe.php', 'hit.php'], true)) {
+    if (count($segments) === 2 && in_array($name, ['chat.php', 'subscribe.php', 'hit.php', 'shop.php'], true)) {
         $_SERVER['SCRIPT_NAME'] = $path;
         $_SERVER['SCRIPT_FILENAME'] = $root . '/api/' . $name;
         require $root . '/api/' . $name;
@@ -99,6 +99,16 @@ if ($top === 'posts') {
         return deny(404);
     }
     return serve($file, 'text/html; charset=utf-8', [
+        'Cache-Control: no-cache',
+        "Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'; object-src 'none'",
+    ]);
+}
+if ($top === 'shop') {
+    // product pages: static, no scripts (same CSP as posts/)
+    if (count($segments) !== 2 || !preg_match('/^[a-z0-9-]+\.html$/', $name) || !is_file($root . '/shop/' . $name)) {
+        return deny(404);
+    }
+    return serve($root . '/shop/' . $name, 'text/html; charset=utf-8', [
         'Cache-Control: no-cache',
         "Content-Security-Policy: default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'; object-src 'none'",
     ]);

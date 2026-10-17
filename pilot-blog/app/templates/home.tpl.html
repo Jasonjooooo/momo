@@ -605,48 +605,38 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .radio{display:flex;flex-direction:column;gap:18px;padding:24px 28px 28px;border-right:1px solid var(--line);min-width:0}
 .radio-head{display:flex;align-items:center;gap:16px;padding:12px 16px;border:1px solid var(--line-strong);border-radius:6px;background:#071026}
 .rh-l{font:700 11px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
-.rh-f{display:grid;gap:5px;min-width:0}
-.rh-f i{font:400 10px/1 var(--font-mono);font-style:normal;letter-spacing:.14em;color:var(--text-secondary)}
-.rh-f b{display:block;font:700 26px/1 var(--font-mono);letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
-.rh-f .nm{font:400 12px/1.2 var(--font-head);color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rh-sby b{font-size:18px;color:var(--cyan)}
-.rh-act b.flip{animation:flip .5s var(--ease-out)}
-@keyframes flip{from{opacity:0;transform:translateY(.45em)}to{opacity:1;transform:none}}
-.rh-swap{flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:40px;padding:0;background:transparent;border:1px solid var(--line-strong);border-radius:6px;cursor:pointer;color:var(--text-primary);transition:transform .35s var(--ease-out)}
-.rh-swap svg{width:20px;height:20px}
-.rh-swap:hover{transform:translateY(-1px)}
-.rh-swap:active{transform:translateY(1px)}
-.tune{display:flex;gap:8px;margin:0;padding:2px;overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:none;-webkit-overflow-scrolling:touch}
-.tune::-webkit-scrollbar{display:none}
-.tab{position:relative;flex:1 0 128px;scroll-snap-align:start;display:grid;justify-items:start;gap:5px;padding:10px 12px 11px;text-align:left;background:rgba(10,23,51,.5);border:1px solid var(--line-strong);border-radius:6px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.tab::after{content:"";position:absolute;inset:-1px;border:1.5px solid var(--cyan);border-radius:inherit;opacity:0;transition:opacity .35s var(--ease-out);pointer-events:none}
-.tab[aria-selected="true"]::after{opacity:1}
-.tab .tc{font:700 11px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
-.tab .tf{font:700 17px/1 var(--font-mono);letter-spacing:.02em;color:var(--text-primary)}
-.tab[aria-selected="true"] .tf{color:var(--cyan)}
-.tab .tn{font:400 13px/1.3 var(--font-head);color:var(--text-secondary);white-space:nowrap}
-.tab[aria-selected="true"] .tn{color:var(--text-primary)}
-.shelf.tuned .shelf-in{animation:tune-in .55s var(--ease-out)}
-@keyframes tune-in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
-.aisle{display:flex;align-items:stretch;margin-bottom:10px;border:1px solid var(--line-strong);border-radius:3px;width:max-content;max-width:100%;overflow:hidden}
-.aisle b{display:flex;align-items:center;padding:6px 10px;font:700 13px/1 var(--font-mono);letter-spacing:.08em;background:var(--text-primary);color:var(--canvas)}
-.aisle h3{display:flex;align-items:center;padding:6px 14px;font-size:17px;line-height:1.4}
-.aisle .af{display:flex;align-items:center;padding:6px 12px;border-left:1px solid var(--line);font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--cyan)}
-.shelf-blurb{margin:0 0 16px;font-size:15px;color:var(--text-secondary)}
-.cards{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
-.card{position:relative;display:flex;flex-direction:column;gap:8px;padding:30px 16px 14px;border:1px solid var(--line);border-radius:3px;background:rgba(18,36,82,.5);transition:transform .35s var(--ease-out)}
-.card::before{content:"";position:absolute;inset:-1px;border:1px solid var(--line-strong);border-radius:inherit;opacity:0;transition:opacity .35s var(--ease-out);pointer-events:none}
-.card:hover::before{opacity:1}
-.card:hover{transform:translateY(-2px)}
-.card .ix{position:absolute;left:16px;top:11px;font:400 10px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
-.card h4{font-size:17px;line-height:1.4}
-.card .desc{margin:0;font-size:14.5px;line-height:1.75;color:var(--text-primary)}
-.badge{align-self:flex-start;padding:3px 8px;font:400 12px/1.4 var(--font-head);color:var(--text-secondary);border:1px solid var(--line-strong);border-radius:999px}
-.card .note{margin:0;font-size:13.5px;line-height:1.75;color:var(--text-secondary);border-left:2px solid var(--line);padding-left:10px}
-.card .open{margin-top:auto;padding-top:4px;display:inline-flex;align-items:baseline;gap:8px;font:600 14px/1.6 var(--font-head);text-decoration:none;color:var(--text-primary)}
-.card .open .dom{font:400 12px/1 var(--font-mono);letter-spacing:0;color:var(--text-secondary);text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:4px;transition:color .3s var(--ease-out)}
-.card .open:hover .dom{color:var(--text-primary)}
-.shelf-note{font-size:14px;color:var(--text-secondary);margin:16px 0 0}
+/* the shop counter: a status head like a COM box (OPEN / CLSD lamp), then the goods as chart insets */
+.shop-lamp{flex:1 1 auto;min-width:0}
+.shop-lamp .lamp-code{letter-spacing:.12em}
+.shop-lamp[data-state="clsd"] .lamp-dot{background:var(--signal)}
+.shop-lamp[data-state="clsd"] .lamp-code{color:var(--signal)}
+.shop-n{font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap}
+.shop-find{flex:none;display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border:1px solid var(--line-strong);border-radius:6px;font:600 14px/1 var(--font-head);text-decoration:none;color:var(--text-primary);transition:border-color .3s var(--ease-out)}
+.shop-find:hover{border-color:var(--text-primary)}
+.shop-notice{margin:0;padding:10px 14px;font-size:14.5px;line-height:1.7;border:1px solid var(--signal);border-left-width:3px;border-radius:3px;background:rgba(230,169,72,.08);max-inline-size:none}
+.shop-empty,.shop-closed{margin:0;padding:28px 18px;font-size:15px;line-height:1.8;text-align:center;color:var(--text-secondary);border:1px dashed var(--line-strong);border-radius:3px;max-inline-size:none}
+.shop-closed b{display:block;margin-bottom:6px;font:700 13px/1.4 var(--font-mono);letter-spacing:.14em;color:var(--signal)}
+.goods{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px}
+.good{position:relative;min-width:0}
+.good-a{position:relative;display:flex;flex-direction:column;height:100%;text-decoration:none;color:inherit;border:1px solid var(--line);border-radius:3px;background:rgba(18,36,82,.5);overflow:hidden;transition:transform .35s var(--ease-out),border-color .35s var(--ease-out)}
+.good-a:hover{transform:translateY(-2px);border-color:var(--line-strong)}
+.good-a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.good-ph{position:relative;display:block;aspect-ratio:1/1;background:#071026;border-bottom:1px solid var(--line)}
+.good-ph img{width:100%;height:100%;object-fit:cover}
+.good-ix{position:absolute;left:0;top:0;padding:5px 8px;font:700 10px/1 var(--font-mono);letter-spacing:.14em;color:var(--canvas);background:var(--text-primary);border-radius:0 0 3px 0}
+.good-body{display:flex;flex-direction:column;gap:6px;flex:1;padding:12px 14px 14px}
+.good-tag{align-self:flex-start;padding:2px 7px;font:400 12px/1.5 var(--font-head);color:var(--text-secondary);border:1px solid var(--line-strong);border-radius:999px}
+.good-tag.dg{color:var(--cyan);border-color:rgba(92,211,230,.5)}
+.good-n{margin:0;font-size:16.5px;line-height:1.45;overflow-wrap:anywhere}
+.good-sum{margin:0;font-size:13.5px;line-height:1.65;color:var(--text-secondary)}
+.good-row{margin:0;display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:auto;padding-top:4px}
+.good-p{font:700 18px/1 var(--font-mono);letter-spacing:.02em;font-variant-numeric:tabular-nums;color:var(--text-primary)}
+.good-p small{font-size:12px;margin-right:2px;font-weight:400}
+.good-s{font-size:12.5px;color:var(--threshold);white-space:nowrap}
+.good-s.low{color:var(--signal)}
+.good.out .good-s{color:var(--text-secondary)}
+.good.out .good-ph img{opacity:.45;filter:grayscale(.6)}
+.shelf-note{font-size:14px;color:var(--text-secondary);margin:0}
 
 .chat{position:sticky;top:84px;align-self:start;display:flex;flex-direction:column;background:transparent}
 .twr{display:flex;align-items:center;gap:10px;margin:0;padding:12px 20px;border-bottom:1px solid var(--line);font:400 11px/1 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
@@ -966,15 +956,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .radio{padding:18px 14px 0;gap:14px}
   .radio-head{gap:10px;padding:10px 12px}
   .rh-l{display:none}
-  .rh-f b{font-size:22px}
-  .rh-sby b{font-size:15px}
-  .rh-f .nm{max-width:9em}
-  /* the frequency bar is the thumb bar: after the list, sticky to the bottom of the screen while the shelf is in view */
-  .shelves{order:2}
-  .tune{order:3;position:sticky;bottom:0;z-index:6;margin:0 -14px;padding:10px 14px max(10px,env(safe-area-inset-bottom));background:rgba(7,16,38,.95);border-top:1px solid var(--line-strong);-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);scroll-padding-inline:14px}
-  .tab{flex:0 0 118px;padding:9px 10px 10px}
-  .tab .tf{font-size:15px}
-  .cards{grid-template-columns:1fr}
+  .goods{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .good-body{padding:10px 10px 12px}
+  .good-n{font-size:15px}
+  .good-sum{display:none}
+  .good-p{font-size:16px}
   .chat-log{max-height:300px}
   .chat-form textarea{font-size:16px}
   .chat-form{flex-direction:column;align-items:stretch}
@@ -1029,13 +1015,11 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .chh-cells>div{border-right:0!important;border-bottom:1px solid var(--line)!important}
   .chh-cells>div:last-child{border-bottom:0!important}
   .logbook{grid-template-columns:1fr}
-  .tab{flex-basis:108px}
 }
 @media (pointer:coarse){
-  .btn,.nav-links a,.chips button,.foot-links a,.card .open{min-height:44px;display:inline-flex;align-items:center}
+  .btn,.nav-links a,.chips button,.foot-links a,.shop-find{min-height:44px;display:inline-flex;align-items:center}
   .btn{justify-content:center}
   .nav-toggle{min-height:44px}
-  .tab{min-height:44px}
 }
 
 /* ============ REDUCED MOTION (complete, final states) ============ */
@@ -1051,7 +1035,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .als-row .rab{opacity:0}
   .nav-links{transform:none}
   .hud{display:none}
-  .post:hover,.card:hover{transform:none}
+  .post:hover,.good-a:hover{transform:none}
 }
 
 /* hero diagnostics panel (hidden; five taps on the wordmark) */
@@ -1071,7 +1055,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     <li><a href="#about"><!--{t nav.about}-->关于<!--{/t}--></a></li>
     <li><a href="#log"><!--{t nav.log}-->日志<!--{/t}--></a></li>
     <li><a href="#type"><!--{t nav.type}-->机型<!--{/t}--></a></li>
-    <li><a href="#ai"><!--{t nav.ai}-->AI 超市<!--{/t}--></a></li>
+    <li><a href="#ai"><!--{t nav.ai}-->商城<!--{/t}--></a></li>
     <li><a href="#faq"><!--{t nav.faq}-->问答<!--{/t}--></a></li>
   </ul>
   <a class="btn btn-ghost nav-cta" href="#subscribe"><!--{t nav.subscribe}-->订阅<!--{/t}--></a>
@@ -1416,7 +1400,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   </div>
 </section>
 
-<!-- ============ 04 AI 超市 · fix AISHP, the communications panel ============ -->
+<!-- ============ 04 商城 · fix AISHP, the shop counter (the AI shelf until 2026-10-17) and the shop assistant ============ -->
 <section class="sec ai" id="ai" aria-labelledby="ai-h" data-io data-live>
   <div class="cw">
     <span class="fix wpt lane" data-route="AISHP" data-leg="Y12|4900|3600T" aria-hidden="true"><svg class="fx" viewBox="-13 -13 26 26"><circle class="ring" r="15"/><path class="f0" d="M0,-11 L2.8,-2.8 L11,0 L2.8,2.8 L0,11 L-2.8,2.8 L-11,0 L-2.8,-2.8 Z"/><path class="f1" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/><path class="f2" d="M0,-6 L1.5,-1.5 L6,0 L1.5,1.5 L0,6 L-1.5,1.5 L-6,0 L-1.5,-1.5 Z"/></svg><span class="fx-tag"><b>AISHP</b><i class="fx-co" data-co="AISHP"></i></span></span>
@@ -1429,38 +1413,34 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
           <i style="--x:59%;--t:6.8s;--dl:-0.6s;--o:.12"></i><i style="--x:67%;--t:8.8s;--dl:-4.4s;--o:.15"></i><i style="--x:76%;--t:6s;--dl:-2.2s;--o:.11"></i><i style="--x:85%;--t:7.9s;--dl:-7.3s;--o:.17"></i><i style="--x:94%;--t:6.6s;--dl:-3.3s;--o:.13"></i>
         </div>
         <p class="comm-tag" aria-hidden="true">COMM · AISHP</p>
-        <p class="kicker rv" style="--i:0"><!--{t ai.kicker}-->04 / AI 超市<!--{/t}--></p>
-        <h2 id="ai-h" class="rv" style="--i:1"><!--{t ai.h2}-->AI 超市<!--{/t}--></h2>
+        <p class="kicker rv" style="--i:0"><!--{t ai.kicker}-->04 / 商城<!--{/t}--></p>
+        <h2 id="ai-h" class="rv" style="--i:1"><!--{t ai.h2}-->商城<!--{/t}--></h2>
       </div>
-      <p class="lede rv" style="--i:2"><!--{t ai.lede}-->按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。<!--{/t}--></p>
+      <p class="lede rv" style="--i:2"><!--{t ai.lede}-->这里卖一些我自己做的和挑过的东西：实物寄快递，教程、资料这类数字商品在线发送。付款扫我的微信或支付宝收款码，我本人核对到账以后再发货。<!--{/t}--></p>
       <div class="comm-grid">
-        <div class="radio" id="radio">
-          <div class="radio-head">
-            <span class="rh-l" aria-hidden="true">COM1</span>
-            <span class="rh-f rh-act" aria-hidden="true"><i>ACT</i><b id="f-act">118.250</b><span class="nm" id="f-act-n"><!--{v radio_act}-->A1 对话与写作<!--{/v}--></span></span>
-            <button class="rh-swap" id="f-swap" type="button" aria-label="切换到备用频率"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M3 7h13m-4-4 4 4-4 4M17 13H4m4-4-4 4 4 4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-            <span class="rh-f rh-sby" aria-hidden="true"><i>STBY</i><b id="f-sby">121.650</b><span class="nm" id="f-sby-n"><!--{v radio_sby}-->A2 图像与视频<!--{/v}--></span></span>
+        <div class="radio shop" id="shop">
+          <div class="radio-head shop-head">
+            <span class="rh-l" aria-hidden="true">SHOP</span>
+            <!--{block shop_status}--><p class="lamp shop-lamp" data-state="on"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code">OPEN</span><span>营业中</span></p><!--{/block}-->
+            <a class="shop-find" href="api/shop.php?a=lookup"><!--{t ai.find}-->查订单<!--{/t}--></a>
           </div>
-          <div class="tune" id="tune" role="tablist" aria-label="货架"></div>
-          <div class="shelves" id="shelves">
-            <!-- Shelves render from the #shelf-data JSON below, one tab (a frequency) per shelf. -->
-            <p class="shelf-note"><!--{t ai.shelf_note}-->货架上的工具与本站没有合作关系，链接直达官网。<!--{/t}--></p>
-          </div>
+          <!--{block shop_grid}--><p class="shop-empty">还没有上架的商品，过几天再来看看。</p><!--{/block}-->
+          <p class="shelf-note"><!--{t ai.shelf_note}-->付款由我本人对照手机收款记录确认，不是自动到账，可能要等几个小时。下单以后可以在「查订单」里看进度。<!--{/t}--></p>
         </div>
 
         <aside class="chat" aria-labelledby="chat-h">
           <p class="twr" aria-hidden="true"><b>TWR</b> <!--{t chat.twr}-->塔台频率<!--{/t}--><span class="twf">118.100</span></p>
           <div class="chat-head">
-            <h3 id="chat-h"><!--{t chat.h3}-->AI 助手<!--{/t}--></h3>
+            <h3 id="chat-h"><!--{t chat.h3}-->店铺客服<!--{/t}--></h3>
             <p class="lamp" id="lamp" data-state="inop"><span class="lamp-dot" aria-hidden="true"></span><span class="lamp-code" id="lamp-code">INOP</span><span id="lamp-txt"><!--{t chat.lamp_inop}-->接入中<!--{/t}--></span></p>
           </div>
-          <p class="chat-lede"><!--{t chat.lede}-->问飞行常识、PC-12，或者货架上哪样工具适合你。<!--{/t}--></p>
-          <p class="chat-caution"><!--{t chat.caution}-->它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。<!--{/t}--></p>
+          <p class="chat-lede"><!--{t chat.lede}-->问商品、下单和付款的事，也可以聊飞行常识和 PC-12。<!--{/t}--></p>
+          <p class="chat-caution"><!--{t chat.caution}-->它会答错，也看不到订单。订单进度以「查订单」为准；飞行相关的数字以飞机飞行手册和公司程序为准。<!--{/t}--></p>
           <div class="chat-log" id="chat-log" role="log" aria-live="polite"></div>
           <div class="chips" id="chips">
             <button type="button"><!--{t chat.chip1}-->决断高度和决断高有什么区别？<!--{/t}--></button>
-            <button type="button"><!--{t chat.chip2}-->PC-12 为什么用 T 型尾翼？<!--{/t}--></button>
-            <button type="button"><!--{t chat.chip3}-->读英文资料用哪个工具？<!--{/t}--></button>
+            <button type="button"><!--{t chat.chip2}-->怎么付款？多久能确认？<!--{/t}--></button>
+            <button type="button"><!--{t chat.chip3}-->数字商品付款后在哪里看？<!--{/t}--></button>
           </div>
           <form class="chat-form" id="chat-form">
             <label class="sr" for="chat-in"><!--{t chat.label}-->你的问题<!--{/t}--></label>
@@ -1571,7 +1551,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     </div>
     <nav aria-label="页脚导航">
       <ul class="foot-links">
-        <li><a href="#about"><!--{t nav.about}-->关于<!--{/t}--></a></li><li><a href="#type"><!--{t nav.type}-->机型<!--{/t}--></a></li><li><a href="#log"><!--{t nav.log}-->日志<!--{/t}--></a></li><li><a href="#ai"><!--{t nav.ai}-->AI 超市<!--{/t}--></a></li><li><a href="#faq"><!--{t nav.faq}-->问答<!--{/t}--></a></li><li><a href="#subscribe"><!--{t nav.subscribe}-->订阅<!--{/t}--></a></li>
+        <li><a href="#about"><!--{t nav.about}-->关于<!--{/t}--></a></li><li><a href="#type"><!--{t nav.type}-->机型<!--{/t}--></a></li><li><a href="#log"><!--{t nav.log}-->日志<!--{/t}--></a></li><li><a href="#ai"><!--{t nav.ai}-->商城<!--{/t}--></a></li><li><a href="#faq"><!--{t nav.faq}-->问答<!--{/t}--></a></li><li><a href="#subscribe"><!--{t nav.subscribe}-->订阅<!--{/t}--></a></li>
       </ul>
     </nav>
     <div class="foot-notes">
@@ -1582,195 +1562,6 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
     </div>
   </div>
 </footer>
-
-<!-- AI shelf data: copied verbatim from ai-shelf.json. Restock by editing this block only.
-     cn_access null = not yet checked from a mainland connection: the card shows no badge, and launch waits until every card has one.
-     The same mainland check confirms 文心 (yiyan.baidu.com opens the chat) and 千问 (qianwen.com); edit ai-shelf.json first, then copy it here. -->
-<script type="application/json" id="shelf-data">
-<!--{block shelf_json}-->{
-  "shelves": [
-    {
-      "id": "chat",
-      "title": "对话与写作",
-      "blurb": "日常问答、改稿子、写东西，先从这几个聊起。",
-      "tools": [
-        {
-          "name": "DeepSeek",
-          "category": "对话与写作",
-          "desc": "免费的国产大模型，推理和写作都在行。",
-          "url": "https://chat.deepseek.com",
-          "cn_access": "能直接访问",
-          "note": "写博客卡住的时候，我会让它先帮我列个提纲，正文还是自己一句句写。"
-        },
-        {
-          "name": "豆包",
-          "category": "对话与写作",
-          "desc": "字节出品，能聊天、写东西、看图。",
-          "url": "https://www.doubao.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "Kimi",
-          "category": "对话与写作",
-          "desc": "擅长读长文档，资料一多就找它。",
-          "url": "https://www.kimi.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "Claude",
-          "category": "对话与写作",
-          "desc": "写长文、改稿子很细，语气比较自然。",
-          "url": "https://claude.ai",
-          "cn_access": "需要国际网络"
-        },
-        {
-          "name": "ChatGPT",
-          "category": "对话与写作",
-          "desc": "OpenAI 的对话助手，问答和写作都能用。",
-          "url": "https://chatgpt.com",
-          "cn_access": "需要国际网络"
-        }
-      ]
-    },
-    {
-      "id": "image-video",
-      "title": "图像与视频",
-      "blurb": "一句话出图、做短片，做配图和封面时用得上。",
-      "tools": [
-        {
-          "name": "即梦",
-          "category": "图像与视频",
-          "desc": "中文描述就能出图，也能做短视频。",
-          "url": "https://jimeng.jianying.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "可灵",
-          "category": "图像与视频",
-          "desc": "快手的视频生成，也能让图片动起来。",
-          "url": "https://klingai.kuaishou.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "Midjourney",
-          "category": "图像与视频",
-          "desc": "出图质感好，适合做封面和氛围图。",
-          "url": "https://www.midjourney.com",
-          "cn_access": "需要国际网络"
-        }
-      ]
-    },
-    {
-      "id": "learn",
-      "title": "学习与研究",
-      "blurb": "查资料、啃手册、复习理论，答案带出处才放心。",
-      "tools": [
-        {
-          "name": "秘塔 AI 搜索",
-          "category": "学习与研究",
-          "desc": "AI 搜索，每个答案都附来源。",
-          "url": "https://metaso.cn",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "Perplexity",
-          "category": "学习与研究",
-          "desc": "边搜边答，每段话都标了出处。",
-          "url": "https://www.perplexity.ai",
-          "cn_access": "需要国际网络"
-        },
-        {
-          "name": "NotebookLM",
-          "category": "学习与研究",
-          "desc": "上传自己的资料，只按资料回答你。",
-          "url": "https://notebooklm.google.com",
-          "cn_access": "需要国际网络",
-          "note": "复习理论时，我把自己整理的笔记放进去提问，它会标出答案在原文哪一段。数字我还是回手册核对。"
-        },
-        {
-          "name": "文心",
-          "category": "学习与研究",
-          "desc": "百度的 AI 助手，查中文资料顺手。",
-          "url": "https://yiyan.baidu.com",
-          "cn_access": "能直接访问"
-        }
-      ]
-    },
-    {
-      "id": "office",
-      "title": "效率与办公",
-      "blurb": "总结文档、做 PPT、读英文资料，琐事少花点时间。",
-      "tools": [
-        {
-          "name": "千问",
-          "category": "效率与办公",
-          "desc": "阿里的 AI 助手，能总结网页、做 PPT。",
-          "url": "https://www.qianwen.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "智谱清言",
-          "category": "效率与办公",
-          "desc": "问答之外，还能读表格做分析。",
-          "url": "https://chatglm.cn",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "沉浸式翻译",
-          "category": "效率与办公",
-          "desc": "网页和 PDF 双语对照，读英文资料用。",
-          "url": "https://immersivetranslate.com",
-          "cn_access": "能直接访问"
-        }
-      ]
-    },
-    {
-      "id": "aviation",
-      "title": "航空工具",
-      "blurb": "查天气、看航迹、翻航图的几个网站。不算 AI，顺手放在这里。",
-      "tools": [
-        {
-          "name": "Windy",
-          "category": "航空工具",
-          "desc": "风、云、降水预报图，一眼看清趋势。",
-          "url": "https://www.windy.com",
-          "cn_access": null,
-          "note": "飞之前我先在这里看风和云的走势，心里有个底。正式决策还是以官方气象资料为准。"
-        },
-        {
-          "name": "aviationweather.gov",
-          "category": "航空工具",
-          "desc": "美国航空气象中心，查 METAR 和 TAF。",
-          "url": "https://aviationweather.gov",
-          "cn_access": null,
-          "note": "查 METAR 和 TAF 时，输入机场的四字代码就行。放行用的天气，以公司提供的官方资料为准。"
-        },
-        {
-          "name": "Flightradar24",
-          "category": "航空工具",
-          "desc": "全球航班的实时位置和飞行轨迹。",
-          "url": "https://www.flightradar24.com",
-          "cn_access": "需要国际网络"
-        },
-        {
-          "name": "飞常准",
-          "category": "航空工具",
-          "desc": "国内航班动态，还能看 ADS-B 航迹。",
-          "url": "https://www.variflight.com",
-          "cn_access": "能直接访问"
-        },
-        {
-          "name": "SkyVector",
-          "category": "航空工具",
-          "desc": "在线航路图，看航路结构用，不能代替正式航图。",
-          "url": "https://skyvector.com",
-          "cn_access": null
-        }
-      ]
-    }
-  ]
-}<!--{/block}-->
-</script>
 
 <script>
 (() => {
@@ -1797,10 +1588,10 @@ const T = {
   flyDone: '<!--{t apch.done|js}-->落地，滑行到停机位，看看最近飞了什么。<!--{/t}-->',
   holdBtn: '<!--{t apch.hold_btn|js}-->按住下降<!--{/t}-->',
   holdAgain: '<!--{t apch.again|js}-->再飞一次<!--{/t}-->',
-  welcomeInop: '<!--{t chat.welcome_inop|js}-->你好。助手还在接入中（INOP），接通以后可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。<!--{/t}-->',
-  welcomeLive: '<!--{t chat.welcome_live|js}-->你好。我可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。<!--{/t}-->',
-  chatInop: '<!--{t chat.msg_inop|js}-->助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。<!--{/t}-->',   // always shown after an INOP placard
-  chatDown: '<!--{t chat.msg_down|js}-->助手暂时连不上，稍后再试。<!--{/t}-->',                                           // network failure or a 5xx without a message (same words as api/chat.php's 502)
+  welcomeInop: '<!--{t chat.welcome_inop|js}-->你好。客服还在接入中（INOP），接通以后可以问商品、下单和付款的事，也能聊飞行常识。订单进度可以先在「查订单」里看。<!--{/t}-->',
+  welcomeLive: '<!--{t chat.welcome_live|js}-->你好。我是店铺客服，可以回答商品、下单和付款的问题，也能聊飞行常识。我看不到订单，订单进度请在「查订单」里看。先说一句：我不替任何人做飞行决断。<!--{/t}-->',
+  chatInop: '<!--{t chat.msg_inop|js}-->客服还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。<!--{/t}-->',   // always shown after an INOP placard
+  chatDown: '<!--{t chat.msg_down|js}-->客服暂时连不上，稍后再试。<!--{/t}-->',                                           // network failure or a 5xx without a message (same words as api/chat.php's 502)
   chatTimeout: '<!--{t chat.msg_timeout|js}-->等了 60 秒没有回应。稍后再试一次。<!--{/t}-->',
   chatRate: '<!--{t chat.msg_rate|js}-->问得有点快。请过一会儿再问。<!--{/t}-->',
   chatLimit: '<!--{t chat.msg_limit|js}-->最多 500 字，超出的部分不会收进来。<!--{/t}-->',
@@ -2554,99 +2345,7 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
   show(0);
 })();
 
-<!--{/if}-->/* ============ 04: AI shelf as a COM radio, one frequency per shelf (from the inline JSON) ============ */
-/* Tabs (role=tablist) tune a shelf: the tuned frequency goes to ACT, the one before it drops to STBY, and the swap button
-   flips back, like a real COM head. Every card stays in the DOM; inactive shelves are hidden panels. */
-const FREQ = ['118.250', '121.650', '124.350', '127.850', '132.450'];
-let tuneTo = () => {};
-(function renderShelves() {
-  const host = $('#shelves');
-  const note = $('.shelf-note', host);
-  const bar = $('#tune');
-  const fAct = $('#f-act'), fSby = $('#f-sby'), fActN = $('#f-act-n'), fSbyN = $('#f-sby-n'), swap = $('#f-swap');
-  let data;
-  try { data = JSON.parse($('#shelf-data').textContent); } catch (_) { return; }
-  const mk = (tag, cls, text) => { const el = document.createElement(tag); if (cls) el.className = cls; if (text != null) el.textContent = text; return el; };
-  const tabs = [], panels = [], names = [];
-  data.shelves.forEach((shelf, i) => {
-    const code = 'A' + (i + 1), fq = FREQ[i % FREQ.length];
-    names.push(code + ' ' + shelf.title);
-    const tab = mk('button', 'tab');
-    tab.type = 'button'; tab.id = 'tab-' + shelf.id;
-    tab.setAttribute('role', 'tab'); tab.setAttribute('aria-controls', 'panel-' + shelf.id); tab.setAttribute('aria-selected', 'false'); tab.tabIndex = -1;
-    tab.append(mk('span', 'tc', code), document.createTextNode(' '), mk('span', 'tf', fq.slice(0, 6)), document.createTextNode(' '), mk('span', 'tn', shelf.title));
-    bar.append(tab); tabs.push(tab);
-
-    const sec = mk('section', 'shelf');
-    sec.id = 'panel-' + shelf.id;
-    sec.setAttribute('role', 'tabpanel'); sec.setAttribute('aria-labelledby', 'shelf-' + shelf.id);
-    sec.hidden = true;
-    const inner = mk('div', 'shelf-in');
-    const aisle = mk('div', 'aisle');
-    aisle.append(mk('b', null, code));
-    const h = mk('h3', null, shelf.title); h.id = 'shelf-' + shelf.id;
-    const af = mk('span', 'af', fq); af.setAttribute('aria-hidden', 'true');
-    aisle.append(h, af);
-    inner.append(aisle, mk('p', 'shelf-blurb', shelf.blurb));
-    const ul = mk('ul', 'cards');
-    shelf.tools.forEach((tool, j) => {
-      const li = mk('li', 'card');
-      const ix = mk('span', 'ix', code + '-' + String(j + 1).padStart(2, '0')); ix.setAttribute('aria-hidden', 'true');
-      li.append(ix, mk('h4', null, tool.name), mk('p', 'desc', tool.desc));
-      if (tool.cn_access === '能直接访问' || tool.cn_access === '需要国际网络') li.append(mk('span', 'badge', tool.cn_access));
-      if (tool.note) li.append(mk('p', 'note', tool.note));
-      const a = mk('a', 'open');
-      a.href = tool.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
-      let host2 = tool.url;
-      try { host2 = new URL(tool.url).hostname.replace(/^www\./, ''); } catch (_) { /* keep raw */ }
-      a.append(document.createTextNode('<!--{t ai.card_open|js}-->打开<!--{/t}-->'), mk('span', 'dom', host2));
-      li.append(a);
-      ul.append(li);
-    });
-    inner.append(ul);
-    sec.append(inner);
-    host.insertBefore(sec, note);
-    panels.push(sec);
-  });
-  if (!tabs.length) return;
-  let cur = -1, sby = Math.min(1, tabs.length - 1);
-  function select(i, o) {
-    o = o || {};
-    if (i === cur) return;
-    if (cur >= 0) sby = cur;
-    cur = i;
-    tabs.forEach((t, k) => { const on = k === i; t.setAttribute('aria-selected', String(on)); t.tabIndex = on ? 0 : -1; });
-    panels.forEach((p, k) => { p.hidden = k !== i; p.classList.toggle('tuned', k === i && !!o.user); });
-    fAct.textContent = FREQ[i % FREQ.length]; fActN.textContent = names[i];
-    fSby.textContent = FREQ[sby % FREQ.length]; fSbyN.textContent = names[sby];
-    swap.setAttribute('aria-label', '切换到备用频率：' + names[sby]);
-    if (o.focus) tabs[i].focus({ preventScroll: true });          // focus first: a focus scroll would cancel the bar's smooth scroll
-    if (o.user) {
-      fAct.classList.remove('flip'); void fAct.offsetWidth; fAct.classList.add('flip');
-      const t = tabs[i], bl = bar.scrollLeft, bw = bar.clientWidth;   // keep the tuned tab in view inside the bar, never scroll the page sideways
-      if (t.offsetLeft < bl + 8 || t.offsetLeft + t.offsetWidth > bl + bw - 8) bar.scrollTo({ left: t.offsetLeft - 14, behavior: RM.matches ? 'auto' : 'smooth' });
-      const top = panels[i].getBoundingClientRect().top;          // phones: a shorter shelf must not leave the reader below it
-      if (top < 72) scrollTo({ top: scrollY + top - 88, behavior: RM.matches ? 'auto' : 'smooth' });
-    }
-  }
-  tuneTo = select;
-  tabs.forEach((t, i) => t.addEventListener('click', () => select(i, { user: true })));
-  bar.addEventListener('keydown', e => {
-    const n = tabs.length;
-    let k = null;
-    if (e.key === 'ArrowRight' || e.key === 'ArrowDown') k = (cur + 1) % n;
-    else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') k = (cur - 1 + n) % n;
-    else if (e.key === 'Home') k = 0;
-    else if (e.key === 'End') k = n - 1;
-    if (k === null) return;
-    e.preventDefault();
-    select(k, { user: true, focus: true });
-  });
-  swap.addEventListener('click', () => select(sby, { user: true }));
-  select(0);
-})();
-
-/* ============ NAV: the 机型 item goes before 日志, the page order (CSS order already shows it; this fixes tab order) ============ */
+<!--{/if}-->/* ============ NAV: the 机型 item goes before 日志, the page order (CSS order already shows it; this fixes tab order) ============ */
 (function navOrder() {
   const t = $('#nav-links a[href="#type"]'), l = $('#nav-links a[href="#log"]');
   if (t && l) l.parentElement.before(t.parentElement);

@@ -8,10 +8,11 @@ final class TemplateError extends RuntimeException {}
 const TPL_ENCS = ['text', 'attr', 'js', 'wbr', 'lat', 'li'];
 const TPL_VALUES = ['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act', 'radio_sby',
     'post_title', 'post_title_attr', 'post_excerpt', 'post_excerpt_attr', 'post_date_iso', 'post_date_dots', 'post_fix',
-    'post_minutes', 'post_slug', 'post_og_image', 'post_url', 'css_href', 'archive_count', 'hit_path'];
+    'post_minutes', 'post_slug', 'post_og_image', 'post_url', 'css_href', 'archive_count', 'hit_path',
+    'shop_title', 'shop_title_attr', 'shop_desc_attr', 'shop_css_href', 'shop_og_image', 'shop_url'];
 const TPL_BLOCKS = ['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css', 'about_album',
-    'post_cover', 'post_body', 'post_tags', 'post_prevnext', 'post_tag_first', 'archive_list'];
-const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live', 'has_album'];
+    'post_cover', 'post_body', 'post_tags', 'post_prevnext', 'post_tag_first', 'archive_list', 'shop_status', 'shop_grid', 'shop_main'];
+const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live', 'has_album', 'shop_private'];
 
 const LAT_RE = '/[A-Za-z0-9](?:[A-Za-z0-9.×\- ]*[A-Za-z0-9])?/u';
 
@@ -166,7 +167,7 @@ function tpl_render(array $nodes, array $ctx): string
                     throw new TemplateError('no block ' . $node[1]);
                 }
                 $b = $ctx['blocks'][$node[1]];
-                $out .= is_callable($b) ? (string) $b($node[3]) : (string) $b;
+                $out .= $b instanceof Closure ? (string) $b($node[3]) : (string) $b;   // never call a string (it could name a function)
                 break;
             case 'if':
                 if (!array_key_exists($node[1], $ctx['conds'] ?? [])) {
@@ -385,7 +386,7 @@ function dec_js(string $s): string
 
 function tpl_source(string $name): string
 {
-    if (!preg_match('/^(home|post|archive)$/', $name)) {
+    if (!preg_match('/^(home|post|archive|shop)$/', $name)) {
         throw new TemplateError('unknown template ' . $name);
     }
     $src = file_get_contents(app_path('templates', $name . '.tpl.html'));
@@ -407,9 +408,10 @@ function tpl_load(string $name): array
 function template_hash(): string
 {
     $h = hash_init('sha256');
-    foreach (['home.tpl.html', 'post.tpl.html', 'archive.tpl.html', 'home-extra.css'] as $f) {
+    foreach (['home.tpl.html', 'post.tpl.html', 'archive.tpl.html', 'shop.tpl.html', 'home-extra.css'] as $f) {
         hash_update($h, $f . "\0" . (string) @file_get_contents(app_path('templates', $f)) . "\0");
     }
     hash_update($h, 'post.css' . "\0" . (string) @file_get_contents(PUBLIC_DIR . '/assets/post.css'));
+    hash_update($h, 'shop.css' . "\0" . (string) @file_get_contents(PUBLIC_DIR . '/assets/shop.css'));
     return hash_final($h);
 }

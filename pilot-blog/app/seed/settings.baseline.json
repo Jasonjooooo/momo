@@ -14,5 +14,16 @@
     },
     "stats": {
         "enabled": false
+    },
+    "shop": {
+        "enabled": true,
+        "shipping": 0,
+        "free_over": 0,
+        "cancel_hours": 24,
+        "notice": "",
+        "qr": {
+            "wechat": null,
+            "alipay": null
+        }
     }
 }

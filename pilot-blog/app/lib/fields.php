@@ -14,8 +14,8 @@ function field_groups(): array
         'type' => '机型',
         'apch' => '进近小游戏',
         'log' => '飞行日志栏',
-        'ai' => 'AI 超市栏',
-        'chat' => 'AI 助手对话框',
+        'ai' => '商城栏',
+        'chat' => '店铺客服对话框',
         'faq' => '问答',
         'sub' => '订阅',
         'footer' => '页脚',
@@ -46,7 +46,7 @@ function field_registry(): array
         ['nav.about', 'nav', '导航：关于', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.type', 'nav', '导航：机型', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.log', 'nav', '导航：日志', '顶部导航和页脚链接', ['text'], 's', null],
-        ['nav.ai', 'nav', '导航：AI 超市', '顶部导航和页脚链接', ['text'], 's', null],
+        ['nav.ai', 'nav', '导航：商城', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.faq', 'nav', '导航：问答', '顶部导航和页脚链接', ['text'], 's', null],
         ['nav.subscribe', 'nav', '导航：订阅按钮', '顶部导航右边的按钮和页脚链接', ['text'], 's', null],
         ['nav.menu', 'nav', '手机菜单按钮', '手机上顶部右边的按钮', ['text'], 's', null],
@@ -121,11 +121,13 @@ function field_registry(): array
         ['log.ete_teaser', 'log', '预告的阅读时间', '每条预告右上角', [], 'p:{n}', '预计 {n} 分钟'],
         ['log.ete_published', 'log', '已发布的阅读时间', '每篇已发布日志的右上角和日志页面', [], 'p:{n}', '{n} 分钟'],
 
-        ['ai.kicker', 'ai', '小标签', '「AI 超市」标题上方', ['text'], 's', null],
-        ['ai.h2', 'ai', '标题', '「AI 超市」', ['text'], 's', null],
-        ['ai.lede', 'ai', '导语', '「AI 超市」标题下面', ['text'], '', null],
-        ['ai.shelf_note', 'ai', '货架底部声明', '货架最下面的小字', ['text'], '', null],
-        ['ai.card_open', 'ai', '工具卡片上的「打开」', '每张工具卡片的链接', ['js'], 's', null],
+        ['ai.kicker', 'ai', '小标签', '「商城」标题上方', ['text'], 's', null],
+        ['ai.h2', 'ai', '标题', '「商城」', ['text'], 's', null],
+        ['ai.lede', 'ai', '导语', '「商城」标题下面', ['text'], '', null],
+        ['ai.find', 'ai', '查订单按钮', '商城顶部右边的按钮，商品页顶部的链接', ['text'], 's', null],
+        ['ai.shelf_note', 'ai', '商城底部说明', '商品下面的小字（付款怎么确认）', ['text'], '', null],
+        // the AI shelf's card button; the shelf left the page (SPEC §18 item 26), the key stays so old content still loads
+        ['ai.card_open', 'ai', '（已不用）工具卡片上的「打开」', '已经不在网页上', [], 's', '打开'],
 
         ['chat.twr', 'chat', '塔台频率字样', '对话框最上面', ['text'], 's', null],
         ['chat.h3', 'chat', '标题', '对话框标题', ['text'], 's', null],
@@ -458,10 +460,43 @@ const FIELD_UPGRADED_DEFAULTS = [
     'log.kicker' => ['02 / LOG' => '03 / LOG'],
     'type.kicker' => ['03 / TYPE' => '02 / TYPE'],
     'apch.done' => ['MINIMUMS。跑道可见，继续。' => '落地，滑行到停机位，看看最近飞了什么。'],
+    // the AI 超市 section became the shop (owner request 2026-10-17, SPEC §18 item 26)
+    'nav.ai' => ['AI 超市' => '商城'],
+    'ai.kicker' => ['04 / AI 超市' => '04 / 商城'],
+    'ai.h2' => ['AI 超市' => '商城'],
+    'ai.lede' => ['按用途上架的 AI 工具，每样写清它擅长什么、在国内能不能直接打开。本站的 AI 助手也在这一栏。' => '这里卖一些我自己做的和挑过的东西：实物寄快递，教程、资料这类数字商品在线发送。付款扫我的微信或支付宝收款码，我本人核对到账以后再发货。'],
+    'chat.h3' => ['AI 助手' => '店铺客服'],
+    'chat.lede' => ['问飞行常识、PC-12，或者货架上哪样工具适合你。' => '问商品、下单和付款的事，也可以聊飞行常识和 PC-12。'],
+    'chat.caution' => ['它会答错。涉及运行的数字，请以飞机飞行手册和公司程序为准。' => '它会答错，也看不到订单。订单进度以「查订单」为准；飞行相关的数字以飞机飞行手册和公司程序为准。'],
+    'chat.chip2' => ['PC-12 为什么用 T 型尾翼？' => '怎么付款？多久能确认？'],
+    'chat.chip3' => ['读英文资料用哪个工具？' => '数字商品付款后在哪里看？'],
+    'chat.welcome_inop' => ['你好。助手还在接入中（INOP），接通以后可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。' => '你好。客服还在接入中（INOP），接通以后可以问商品、下单和付款的事，也能聊飞行常识。订单进度可以先在「查订单」里看。'],
+    'chat.welcome_live' => ['你好。我可以聊飞行常识、PC-12，也能帮你在货架上挑工具。先说一句：我不替任何人做飞行决断。' => '你好。我是店铺客服，可以回答商品、下单和付款的问题，也能聊飞行常识。我看不到订单，订单进度请在「查订单」里看。先说一句：我不替任何人做飞行决断。'],
+    'chat.msg_inop' => ['助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。' => '客服还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。'],
+    'chat.msg_down' => ['助手暂时连不上，稍后再试。' => '客服暂时连不上，稍后再试。'],
+    'ai.shelf_note' => ['货架上的工具与本站没有合作关系，链接直达官网。' => '付款由我本人对照手机收款记录确认，不是自动到账，可能要等几个小时。下单以后可以在「查订单」里看进度。'],
 ];
 
 function site_upgrade_fields(array $fields): array
 {
+    // a key added after the owner's content was saved (ai.find, 2026-10-17) gets its seed value, so old
+    // live content renders with the new template without a hand edit (migrate on read; keys never change)
+    static $fill = null;
+    if ($fill === null) {
+        $fill = [];
+        $seed = is_file(APP_DIR . '/seed/site.baseline.json') ? (json_read(APP_DIR . '/seed/site.baseline.json', [])['fields'] ?? []) : [];
+        foreach (field_registry() as $k => $f) {
+            $v = $seed[$k] ?? $f['default'];
+            if (is_string($v)) {
+                $fill[$k] = $v;
+            }
+        }
+    }
+    foreach ($fill as $k => $v) {
+        if (!array_key_exists($k, $fields)) {
+            $fields[$k] = $v;
+        }
+    }
     foreach (FIELD_UPGRADED_DEFAULTS as $k => $map) {
         if (is_string($fields[$k] ?? null) && isset($map[$fields[$k]])) {
             $fields[$k] = $map[$fields[$k]];

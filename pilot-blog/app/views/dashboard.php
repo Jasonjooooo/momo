@@ -32,7 +32,7 @@ $asked = (int) $today['chat']['requests'];
   <dl class="kv">
     <div><dt>上次发布</dt><dd class="mono"><?= h($st['last_publish'] ? cn_time($st['last_publish']) : '还没有发布过') ?></dd></div>
   </dl>
-<?php $pending = []; if ($st['site_dirty']) { $pending[] = ['site', '网站文字有没发布的修改']; } if ($st['shelf_dirty']) { $pending[] = ['shelf', 'AI 超市有没发布的修改']; } if ($st['posts_dirty'] > 0) { $pending[] = ['posts', $st['posts_dirty'] . ' 篇日志有没发布的修改']; } ?>
+<?php $pending = []; if ($st['site_dirty']) { $pending[] = ['site', '网站文字有没发布的修改']; } if ($st['posts_dirty'] > 0) { $pending[] = ['posts', $st['posts_dirty'] . ' 篇日志有没发布的修改']; } ?>
 <?php if ($pending): ?>
   <ul class="pending">
 <?php foreach ($pending as [$r, $label]): ?>
@@ -48,6 +48,26 @@ $asked = (int) $today['chat']['requests'];
       <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
       <button class="btn btn-ghost" type="submit">重新发布全部</button>
     </form>
+  </div>
+</section>
+
+<section class="card<?php if ($shop['claimed'] + $shop['to_ship'] > 0): ?> card-hot<?php endif; ?>" aria-labelledby="c-shop">
+  <h2 class="card-h" id="c-shop">商城</h2>
+  <dl class="kv kv-3">
+    <div><dt>待确认收款</dt><dd class="num<?php if ($shop['claimed'] > 0): ?> num-hot<?php endif; ?>"><?= h((string) $shop['claimed']) ?></dd></div>
+    <div><dt>待发货</dt><dd class="num<?php if ($shop['to_ship'] > 0): ?> num-hot<?php endif; ?>"><?= h((string) $shop['to_ship']) ?></dd></div>
+    <div><dt>待付款</dt><dd class="num"><?= h((string) $shop['pending']) ?></dd></div>
+  </dl>
+<?php if ($shop['claimed'] > 0): ?>
+  <p class="where">有买家说已经付款了。打开微信或支付宝的收款记录，按金额对一下，再在订单里点「确认收款」。</p>
+<?php endif; ?>
+  <p class="muted"><?= h(($shop_open ? '营业中' : '暂停营业') . '，' . $shop_selling . ' 件商品在卖' . ($shop_qr === 0 ? '。还没有上传收款码，买家付不了款。' : '。')) ?></p>
+  <div class="row-btns">
+    <a class="btn btn-primary" href="<?= h(url('orders')) ?>">处理订单</a>
+    <a class="btn" href="<?= h(url('shop')) ?>">商品</a>
+<?php if ($shop_qr === 0): ?>
+    <a class="btn" href="<?= h(url('pay')) ?>">上传收款码</a>
+<?php endif; ?>
   </div>
 </section>
 

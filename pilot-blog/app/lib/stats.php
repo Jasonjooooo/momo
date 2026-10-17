@@ -87,7 +87,7 @@ function stats_is_wechat(string $ua): bool
     return stripos($ua, 'MicroMessenger') !== false;
 }
 
-/** '/', '/posts/' or '/posts/<slug>.html' of a page that exists; anything else null. */
+/** '/', '/posts/', '/posts/<slug>.html' or '/shop/<slug>.html' of a page that exists; anything else null. */
 function stats_path(string $p): ?string
 {
     if ($p === '' || strlen($p) > 100) {
@@ -101,6 +101,11 @@ function stats_path(string $p): ?string
     }
     if (preg_match('#^/posts/([a-z0-9-]{1,60})\.html$#', $p, $m) && preg_match(SLUG_RE, $m[1]) && $m[1] !== 'index'
         && is_file(PUBLIC_DIR . '/posts/' . $m[1] . '.html')) {
+        return $p;
+    }
+    // shop product pages (the buyer's order, pay and lookup pages are private and never counted)
+    if (preg_match('#^/shop/([a-z0-9-]{1,40})\.html$#', $p, $m) && preg_match(SLUG_RE, $m[1]) && $m[1] !== 'index'
+        && is_file(PUBLIC_DIR . '/shop/' . $m[1] . '.html')) {
         return $p;
     }
     return null;

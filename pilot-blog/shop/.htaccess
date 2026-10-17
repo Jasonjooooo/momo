@@ -1,0 +1,6 @@
+# Product pages of the shop are static HTML without scripts: a strict CSP. Generated pages live next to this file.
+Options -Indexes
+DirectoryIndex index.html
+<IfModule mod_headers.c>
+  Header always set Content-Security-Policy "default-src 'self'; img-src 'self' data:; style-src 'self'; font-src 'self'; script-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'self'; object-src 'none'"
+</IfModule>

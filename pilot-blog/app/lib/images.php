@@ -32,7 +32,7 @@ function uploads_index(): array
 /** From a PHP upload ($_FILES['image']). Returns ['ok' => true, 'src', 'og', 'w', 'h']; throws ValidationError. */
 function image_accept_upload(array $file, string $purpose): array
 {
-    if (!in_array($purpose, ['cover', 'body', 'album'], true)) {
+    if (!in_array($purpose, ['cover', 'body', 'album', 'product'], true)) {
         throw new ValidationError(['image' => '上传用途不对。']);
     }
     $err = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
@@ -210,6 +210,18 @@ function uploads_referenced(): array
     // the 关于 album photos of the live site (src; their og twin is never shown, so it is not restored)
     foreach (site_album(site_live()) as $photo) {
         $add(is_array($photo) ? ($photo['src'] ?? '') : '');
+    }
+    // shop product photos (src for the pages, og for the share card); unsold products keep theirs for the editor
+    try {
+        $idx = uploads_index()['items'];
+        foreach (shop_products() as $prod) {
+            foreach ($prod['photos'] as $ph) {
+                $add($ph['src']);
+                $add($idx[$ph['src']]['og'] ?? '');
+            }
+        }
+    } catch (Throwable $e) {
+        error_log('uploads_referenced shop: ' . get_class($e));
     }
     // and anything the live site or shelf fields point at
     foreach ([site_live(), shelf_live()] as $doc) {

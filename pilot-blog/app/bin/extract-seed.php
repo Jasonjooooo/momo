@@ -10,7 +10,6 @@ date_default_timezone_set('UTC');
 $ex = block_extract_all(tpl_parse(tpl_source('home')));
 $seed = APP_DIR . '/seed';
 json_write_atomic($seed . '/site.baseline.json', $ex['site'], 0644);
-json_write_atomic($seed . '/shelf.baseline.json', $ex['shelf'], 0644);
 foreach (glob($seed . '/posts/*.json') ?: [] as $f) {
     unlink($f);
 }
@@ -23,5 +22,5 @@ $settings['subscribe']['enabled'] = false;   // baseline = today's page: Mode A,
 $settings['chat']['enabled'] = false;
 $settings['stats']['enabled'] = false;     // the visitor counter is off in the baseline (T1)
 json_write_atomic($seed . '/settings.baseline.json', $settings, 0644);
-printf("seed written: %d fields, %d faq rows, %d type facts, %d shelves, %d posts\n",
-    count($ex['site']['fields']), count($ex['site']['faq']), count($ex['site']['type_facts']), count($ex['shelf']['shelves']), count($ex['posts']));
+printf("seed written: %d fields, %d faq rows, %d type facts, %d posts (shelf.baseline.json kept as it is, unused)\n",
+    count($ex['site']['fields']), count($ex['site']['faq']), count($ex['site']['type_facts']), count($ex['posts']));

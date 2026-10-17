@@ -17,7 +17,7 @@ function shelf_live(): array
     return json_read(data_path('content', 'shelf.live.json'), []);
 }
 
-function build_home_ctx(array $site, array $shelf, array $posts, array $settings, bool $chatKey): array
+function build_home_ctx(array $site, array $shelf, array $posts, array $settings, bool $chatKey, array $products = []): array
 {
     $ctx = [
         'fields' => site_upgrade_fields($site['fields']),
@@ -31,15 +31,20 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
         'stats_live' => stats_enabled($settings),
         'site_published_at' => (string) ($site['published_at'] ?? $site['updated_at'] ?? now_iso()),
         'extra_css' => (string) file_get_contents(app_path('templates', 'home-extra.css')),
+        'shop' => [
+            'open' => (bool) $settings['shop']['enabled'],
+            'notice' => (string) $settings['shop']['notice'],
+            'products' => array_values(array_filter($products, fn($p) => $p['on_sale'] && $p['photos'])),
+        ],
     ];
     $base = $ctx;
-    foreach (['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act', 'radio_sby'] as $v) {
+    foreach (['chat_live', 'subscribe_endpoint', 'log_count'] as $v) {
         $ctx['values'][$v] = value_render($v, $base);
     }
     foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live', 'has_album'] as $c) {
         $ctx['conds'][$c] = cond_eval($c, $base);
     }
-    foreach (['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css', 'about_album'] as $b) {
+    foreach (['legs', 'faq_rows', 'type_facts', 'extra_css', 'about_album', 'shop_status', 'shop_grid'] as $b) {
         $ctx['blocks'][$b] = fn(string $indent) => block_render($b, $base, $indent);
     }
     return $ctx;
@@ -158,12 +163,9 @@ function render_archive(array $ctx, array $published = []): string
 }
 
 /** Render everything from the given snapshots. ['ok' => bool, 'errors' => [], 'files' => [rel => bytes]] */
-function render_site(array $site, array $shelf, array $posts, array $settings, bool $chatKey): array
+function render_site(array $site, array $shelf, array $posts, array $settings, bool $chatKey, array $products = []): array
 {
     $errors = site_validate($site);
-    foreach (shelf_validate($shelf['shelves'] ?? [], true) as $k => $v) {
-        $errors[$k] = $v;
-    }
     if ($errors) {
         return ['ok' => false, 'errors' => $errors];
     }
@@ -178,7 +180,14 @@ function render_site(array $site, array $shelf, array $posts, array $settings, b
             $files['posts/' . $p['slug'] . '.html'] = render_post_page($p, $base, $published[$i + 1] ?? null, $published[$i - 1] ?? null);
         }
         $files['posts/index.html'] = render_archive($base, $published);
-        $home = render_home(build_home_ctx($site, $shelf, $posts, $settings, $chatKey));
+        $shown = array_values(array_filter($products, fn($p) => $p['on_sale'] && $p['photos']));
+        foreach ($shown as $k => $p) {
+            if (!preg_match(SLUG_RE, $p['slug']) || $p['slug'] === 'index') {
+                return ['ok' => false, 'errors' => ['shop' => '商品《' . $p['name'] . '》的网址不对。']];
+            }
+            $files['shop/' . $p['slug'] . '.html'] = render_product_page($p, $k, $site, $settings);
+        }
+        $home = render_home(build_home_ctx($site, $shelf, $posts, $settings, $chatKey, $products));
     } catch (TemplateError $e) {
         return ['ok' => false, 'errors' => ['template' => '页面模板出错：' . $e->getMessage()]];
     }
@@ -195,16 +204,13 @@ function home_sanity(string $home): ?string
     if (!str_starts_with($home, '<!doctype html>') || !str_ends_with($home, "</html>\n")) {
         return '首页的开头或结尾不完整。';
     }
-    foreach (['id="hero-video"', 'id="shelf-data"', 'id="chart"'] as $needle) {
+    foreach (['id="hero-video"', 'id="shop"', 'id="chart"'] as $needle) {
         if (!str_contains($home, $needle)) {
             return '首页缺少 ' . $needle . '。';
         }
     }
     if (strlen($home) < 150000) {
         return '首页比正常短很多，没有发布。';
-    }
-    if (!preg_match('/<script type="application\/json" id="shelf-data">\n(.*?)\n<\/script>/s', $home, $m) || !is_array(json_decode($m[1], true))) {
-        return 'AI 超市的数据不完整。';
     }
     return null;
 }
@@ -230,22 +236,29 @@ function publish_site(string $reason, array $opts = []): array
         $shelf = shelf_live();
         $posts = posts_all();
         $settings = settings_get();
-        $r = render_site($site, $shelf, $posts, $settings, chat_key() !== null);
+        $r = render_site($site, $shelf, $posts, $settings, chat_key() !== null, shop_products());
         if (!$r['ok']) {
             return ['ok' => false, 'errors' => $r['errors']];
         }
         uploads_sync_public();
+        shop_sync_public();
         $files = $r['files'];
         $order = array_keys($files);
         usort($order, fn($a, $b) => ($a === 'index.html') <=> ($b === 'index.html') ?: (($a === 'posts/index.html') <=> ($b === 'posts/index.html')));
         foreach ($order as $rel) {
             file_write_atomic(PUBLIC_DIR . '/' . $rel, $files[$rel], 0644);
         }
-        foreach (glob(PUBLIC_DIR . '/posts/*.html') ?: [] as $f) {
-            $name = basename($f);
-            if (preg_match('/^[a-z0-9-]+\.html$/', $name) && !isset($files['posts/' . $name])) {
-                @unlink($f);
+        foreach (['posts', 'shop'] as $dir) {
+            foreach (glob(PUBLIC_DIR . '/' . $dir . '/*.html') ?: [] as $f) {
+                $name = basename($f);
+                if (preg_match('/^[a-z0-9-]+\.html$/', $name) && !isset($files[$dir . '/' . $name])) {
+                    @unlink($f);
+                }
             }
+        }
+        $ht = PUBLIC_DIR . '/shop/.htaccess';
+        if (!is_file($ht)) {
+            file_write_atomic($ht, (string) file_get_contents(app_path('templates', 'shop.htaccess')), 0644);
         }
         $ht = PUBLIC_DIR . '/posts/.htaccess';
         if (!is_file($ht)) {
@@ -485,13 +498,13 @@ function inject_preview(string $html, string $base, string $banner): string
 function preview_home(array $siteDraft, array $shelfDraft): string
 {
     $site = site_normalize($siteDraft);
-    $err = site_validate($site) + shelf_validate($shelfDraft['shelves'] ?? [], true);
+    $err = site_validate($site);
     if ($err) {
         throw new ValidationError($err);
     }
     $settings = settings_get();
     $settings['stats']['enabled'] = false;   // a preview is not a visit
-    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), $settings, chat_key() !== null));
+    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), $settings, chat_key() !== null, shop_products()));
     return inject_preview($html, '../', PREVIEW_BANNER_HOME);
 }
 

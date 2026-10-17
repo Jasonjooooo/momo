@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title><!--{v shop_title}--><!--{/v}--> · <!--{t site.brand}--><!--{/t}--></title>
+<meta name="description" content="<!--{v shop_desc_attr}--><!--{/v}-->">
+<meta name="theme-color" content="#0A1733">
+<meta name="color-scheme" content="dark">
+<!--{if shop_private}--><meta name="robots" content="noindex,nofollow">
+<meta name="referrer" content="no-referrer">
+<!--{else}--><meta property="og:type" content="product">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:title" content="<!--{v shop_title_attr}--><!--{/v}--> · <!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:site_name" content="<!--{t site.brand|attr}--><!--{/t}-->">
+<meta property="og:description" content="<!--{v shop_desc_attr}--><!--{/v}-->">
+<meta property="og:image" content="<!--{v shop_og_image}--><!--{/v}-->">
+<meta property="og:url" content="<!--{v shop_url}--><!--{/v}-->">
+<!--{/if}--><link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cpath d='M5 8 L22 22' stroke='%23A9A8C0' stroke-width='2' stroke-linecap='round'/%3E%3Cpath d='M19 24 H29' stroke='%23ECE9F1' stroke-width='2.6' stroke-linecap='round'/%3E%3Ccircle cx='11' cy='12.9' r='2.8' fill='%23EA4C22'/%3E%3C/svg%3E">
+<link rel="preload" href="../assets/fonts/b612-mono-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="../assets/fonts/b612-mono-latin-700-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="<!--{v css_href}--><!--{/v}-->">
+<link rel="stylesheet" href="<!--{v shop_css_href}--><!--{/v}-->">
+</head>
+<body class="page-shop">
+<a class="skip" href="#main"><!--{t nav.skip}--><!--{/t}--></a>
+<header class="pbar">
+  <a class="wordmark" href="../"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L</span></a>
+  <nav class="pbar-links" aria-label="商城导航">
+    <a class="pbar-link" href="../#ai"><!--{t nav.ai}--><!--{/t}--></a>
+    <a class="pbar-sub" href="../api/shop.php?a=lookup"><!--{t ai.find}--><!--{/t}--></a>
+  </nav>
+</header>
+
+<main class="pmain smain" id="main" tabindex="-1">
+<!--{block shop_main}--><!--{/block}-->
+</main>
+
+<footer class="foot">
+  <div class="foot-in">
+    <p class="foot-mark"><span class="brand-name"><!--{t site.brand}--><!--{/t}--></span><span class="mono">PC12/L · L1T</span></p>
+    <p class="foot-tag"><!--{t footer.tag}--><!--{/t}--></p>
+    <div class="foot-notes">
+      <p><!--{t footer.note1}--><!--{/t}--></p>
+      <p><!--{t footer.note2}--><!--{/t}--></p>
+      <p>© <!--{t site.footer_year}--><!--{/t}--> <span class="brand-name"><!--{t site.brand}--><!--{/t}--></span></p>
+      <p class="foot-chart" aria-hidden="true">CHART 10-1 · ENROUTE · NIGHT<br><!--{t chart.disclaimer}--><!--{/t}--></p>
+    </div>
+  </div>
+</footer>
+<!--{if stats_live}--><img class="hit-px" src="../api/hit.php?p=<!--{v hit_path}--><!--{/v}-->" alt="" width="1" height="1" decoding="async">
+<!--{/if}--></body>
+</html>

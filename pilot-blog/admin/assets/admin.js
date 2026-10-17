@@ -1232,6 +1232,16 @@
     });
   }
 
+  // ---------- file pickers (photos, 收款码, files) upload as soon as a file is chosen ----------
+  $$('form[data-autosubmit] input[type="file"]').forEach(function (inp) {
+    inp.addEventListener('change', function () {
+      if (!inp.files || !inp.files.length) return;
+      var f = inp.form;
+      if (f.requestSubmit) f.requestSubmit();
+      else { markBusy(f); f.submit(); }
+    });
+  });
+
   // ---------- page start ----------
   var page = d.body.getAttribute('data-page');
   var dataEl = $('#editor-data');

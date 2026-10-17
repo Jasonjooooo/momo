@@ -5,6 +5,7 @@ declare(strict_types=1);
 define('BLOG_APP', true);
 require __DIR__ . '/../app/lib/bootstrap.php';
 require __DIR__ . '/../app/lib/admin.php';
+require __DIR__ . '/../app/lib/admin_shop.php';
 
 try {
     app_init('admin');

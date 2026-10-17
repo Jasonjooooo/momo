@@ -25,7 +25,7 @@ $fields = $draft['fields'];
       <p class="where">每篇日志的页面和「全部日志」页面上用到的文字。</p>
 <?php endif; ?>
 <?php foreach ($byGroup[$g] as $key => $f):
-    if (in_array($key, ['about.img_alt', 'about.figcaption'], true)) { continue; }   // edited per photo in the album below
+    if (in_array($key, ['about.img_alt', 'about.figcaption', 'ai.card_open'], true)) { continue; }   // edited per photo in the album below
     $id = 'f-' . str_replace('.', '-', $key);
     $val = (string) ($fields[$key] ?? '');
     $long = $f['multiline'] || $f['max'] > 90 || mb_strlen($val) > 34;
