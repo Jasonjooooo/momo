@@ -9,7 +9,13 @@ const VERSIONS_KEEP = 10;
 
 function site_live(): array
 {
-    return json_read(data_path('content', 'site.live.json'), []);
+    // live content saved before a template gained new keys (or restored from an older version) gets
+    // them filled on read, like the draft does, so publish and rollback never fail on a missing key
+    $d = json_read(data_path('content', 'site.live.json'), []);
+    if (is_array($d) && is_array($d['fields'] ?? null)) {
+        $d['fields'] = site_upgrade_fields($d['fields']);
+    }
+    return is_array($d) ? $d : [];
 }
 
 function shelf_live(): array
