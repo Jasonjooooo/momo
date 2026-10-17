@@ -341,3 +341,5 @@ fieldset.field .check{margin:6px 0}
 .hist li{padding:6px 0;border-top:1px solid var(--line);font-size:15px}
 .hist li:first-child{border-top:0}
 .pager{display:flex;gap:10px;margin:0 0 16px}
+.card form+form,.card form+p+form{margin-top:12px}
+.check input[type=radio]{align-self:center}

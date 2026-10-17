@@ -113,7 +113,9 @@ function sub_all_emails(): array
 
 function csv_cell(string $v): string
 {
-    if ($v !== '' && (str_contains('=+-@', $v[0]) || $v[0] === "\t" || $v[0] === "\r")) {
+    $t = ltrim($v, " \t\r\n\u{3000}");
+    // a spreadsheet would read these as a formula (also after leading spaces or a tab): make them plain text
+    if ($v !== '' && (($t !== '' && str_contains('=+-@', $t[0])) || $v[0] === "\t" || $v[0] === "\r")) {
         $v = "'" . $v;
     }
     return '"' . str_replace('"', '""', $v) . '"';

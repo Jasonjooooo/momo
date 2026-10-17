@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -87,7 +87,7 @@ function pub(string $rel): string
 function group_template(): void
 {
     $baseline = (string) file_get_contents(APP_DIR . '/seed/baseline-index.html');
-    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (rebaselined 2026-10-15 for the owner\'s section reorder, SPEC §18 item 24)');
+    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (rebaselined 2026-10-17 for the owner\'s shop, SPEC §18 item 26)');
     $r = render_baseline();
     ok($r === $baseline, 'T1 baseline render is byte-identical', $r === $baseline ? '' : first_diff($r, $baseline));
     $launch = render_launch();
@@ -418,9 +418,7 @@ function group_publish(): void
     $sh = content_save_draft('shelf', $sh, (int) $sh['rev']);
     ok(preg_match('/^s[0-9a-f]{6}$/', $sh['shelves'][0]['id']) === 1 && $sh['shelves'][0]['tools'][0]['cn_access'] === null, 'new shelf gets an id; 还没确认 stored as null');
     content_publish('shelf', (int) $sh['rev']);
-    preg_match('/<script type="application\/json" id="shelf-data">\n(.*?)\n<\/script>/s', pub('index.html'), $m);
-    $j = json_decode($m[1] ?? '', true);
-    ok(($j['shelves'][0]['title'] ?? '') === '新货架' && str_contains(pub('index.html'), '<span class="nm" id="f-act-n">A1 新货架</span>'), 'shelf publish: JSON valid, radio shows the new shelf');
+    ok(!str_contains(pub('index.html'), 'shelf-data') && !str_contains(pub('index.html'), '新货架') && str_contains(pub('index.html'), 'id="shop"'), 'old shelf data still saves and publishes but no longer reaches the page (SPEC §18 item 26)');
     $sh2 = $sh;
     $sh2['shelves'][0]['tools'][0]['url'] = 'javascript:alert(1)';
     ok(throws(fn() => content_save_draft('shelf', $sh2, (int) $sh['rev']), ValidationError::class), 'javascript: tool URL rejected');
@@ -1041,6 +1039,282 @@ function stats_http_tests(string $slug): void
     $rev = (string) settings_get()['rev'];
     http('POST', '/admin/?r=stats.toggle', ['form' => ['_csrf' => $csrfPage, 'rev' => $rev, 'enabled' => '1'], 'headers' => [$cookie]]);
     ok(stats_enabled() && str_contains(pub('index.html'), 'hit.php'), 'admin switch turns stats back on');
+}
+
+// ---------- 商城 (SPEC §20) ----------
+
+function shop_png(int $w = 600, int $h = 600): string
+{
+    $im = imagecreatetruecolor($w, $h);
+    imagefill($im, 0, 0, imagecolorallocate($im, 30, 60, 120));
+    $f = sys_get_temp_dir() . '/shopt-' . bin2hex(random_bytes(4)) . '.png';
+    imagepng($im, $f);
+    return $f;
+}
+
+/** A product ready to sell: photo, price, stock. */
+function shop_make(string $slug, string $type, string $price, ?int $stock, array $extra = []): array
+{
+    $p = shop_product_new();
+    $tmp = shop_png();
+    shop_product_photo($p['id'], 'add', 0, image_store_file($tmp));
+    unlink($tmp);
+    $in = ['name' => '测试 ' . $slug, 'slug' => $slug, 'type' => $type, 'price' => $price, 'stock' => $stock === null ? '' : (string) $stock,
+        'unlimited' => $stock === null ? '1' : '', 'stock_seen' => '0', 'on_sale' => '1', 'summary' => '', 'body' => '',
+        'dl_text' => $type === 'digital' ? '提取码 1234' : '', 'dl_link' => ''] + $extra;
+    return shop_product_save($p['id'], $in, shop_product_get($p['id'])['rev']);
+}
+
+function shop_buyer(string $type, string $phone = '13800138000', string $email = 'buyer@example.com', int $qty = 1): array
+{
+    return ['qty' => $qty, 'name' => '王五', 'phone' => $type === 'physical' ? $phone : '', 'address' => $type === 'physical' ? '北京市朝阳区某路 1 号' : '', 'email' => $type === 'digital' ? $email : '', 'note' => ''];
+}
+
+function group_shop(): void
+{
+    app_init('cli');
+    publish_site('初始内容');
+    // money and input
+    ok(shop_money(9903) === '99.03' && shop_money(5) === '0.05' && shop_money(100000) === '1000.00', 'money: fen shown as yuan with 2 decimals');
+    ok(shop_parse_money('99') === 9900 && shop_parse_money('99.5') === 9950 && shop_parse_money('¥ 1,299.00') === 129900 && shop_parse_money('９９．０３') === 9903, 'money: typed prices parse (¥, commas, full-width)');
+    ok(shop_parse_money('99.999') === null && shop_parse_money('-1') === null && shop_parse_money('1e3') === null && shop_parse_money('') === null, 'money: odd input refused');
+    ok(shop_phone_normalize('+86 138-0013-8000') === '13800138000' && shop_phone_normalize('１３８００１３８０００') === '13800138000' && shop_phone_normalize('12345') === null && shop_phone_normalize('23456789') === '23456789', 'phone: mainland (with +86, dashes, full width) and HK; junk refused');
+    ok(shop_verify_input(' Reader.Pilot@Example.com ') === 'reader.pilot' && shop_verify_input('１２３４') === '1234', 'lookup secret normalized (email part, full width digits)');
+    $prodErr = shop_order_input(['type' => 'physical'], ['qty' => '0', 'name' => '', 'phone' => 'abc', 'address' => '北京', 'consent' => ''])[1];
+    ok(isset($prodErr['qty'], $prodErr['name'], $prodErr['phone'], $prodErr['address'], $prodErr['consent']), 'order form: every bad field gets its own message');
+    [$cl] = shop_order_input(['type' => 'physical'], ['qty' => '2', 'name' => "张\x00三\u{202E}", 'phone' => '13800138000', 'address' => "上海市\n浦东新区 100 号", 'note' => '<b>x</b>', 'consent' => '1']);
+    ok($cl['name'] === '张 三' && !str_contains($cl['address'], "\n"), 'buyer text: control and bidi characters and line breaks removed');
+
+    // form tokens
+    $t = shop_form_token('order', time() - 10);
+    ok(shop_form_token_check('order', $t) === 'ok' && shop_form_token_check('lookup', $t) === 'bad', 'form token works only for its own form');
+    ok(shop_form_token_check('order', shop_form_token('order')) === 'fast' && shop_form_token_check('order', shop_form_token('order', time() - 7 * 3600)) === 'bad', 'form token: too fast and too old refused');
+    ok(shop_form_token_check('order', substr($t, 0, -1) . (substr($t, -1) === 'a' ? 'b' : 'a')) === 'bad' && shop_form_token_check('order', 'x') === 'bad', 'tampered form token refused');
+
+    // product validation
+    $bad = shop_product_new();
+    try {
+        shop_product_save($bad['id'], ['name' => 'x', 'slug' => '../etc', 'type' => 'physical', 'price' => '0', 'stock' => '-1', 'on_sale' => '1', 'dl_link' => 'javascript:alert(1)'], $bad['rev']);
+        ok(false, 'bad product refused');
+    } catch (ShopError $e) {
+        ok(isset($e->fields['slug'], $e->fields['price'], $e->fields['stock'], $e->fields['dl_link'], $e->fields['on_sale']), 'product: bad slug, price, stock, javascript: link and no photo all refused', json_encode($e->fields, JSON_UNESCAPED_UNICODE));
+    }
+    shop_product_delete($bad['id']);
+
+    $ph = shop_make('poster', 'physical', '99', 3);
+    $dg = shop_make('guide', 'digital', '29.9', null);
+    ok(is_file(PUBLIC_DIR . '/shop/poster.html') && is_file(PUBLIC_DIR . '/shop/guide.html') && str_contains(pub('index.html'), 'href="shop/poster.html"'), 'products on sale get static pages and a home card');
+    ok(is_file(PUBLIC_DIR . '/shop/.htaccess') && str_contains(pub('shop/.htaccess'), "script-src 'none'"), 'shop/.htaccess with the strict CSP is written');
+    ok(isset(uploads_referenced()[$ph['photos'][0]['src']]), 'product photos count as referenced uploads (restored by self-heal)');
+    ok(stats_path('/shop/poster.html') === '/shop/poster.html' && stats_path('/shop/nope.html') === null && stats_path('/shop/../index.html') === null, 'stats count existing product pages only');
+
+    // XSS: product text in the pages
+    $x = shop_make('xss', 'physical', '1', 1);
+    $x = shop_product_save($x['id'], ['name' => '<img src=x onerror=alert(1)>', 'slug' => 'xss', 'type' => 'physical', 'price' => '1', 'stock' => '1', 'stock_seen' => '1', 'on_sale' => '1',
+        'summary' => '"><script>alert(1)</script>', 'body' => "[x](javascript:alert(1))\n<script>alert(2)</script>", 'dl_text' => '', 'dl_link' => ''], $x['rev']);
+    $pg = pub('shop/xss.html') . pub('index.html');
+    ok(!str_contains($pg, '<img src=x') && !str_contains($pg, '<script>alert') && !str_contains($pg, 'href="javascript:'), 'product name, summary and body are escaped on the home grid and product page');
+
+    // ordering, unique amounts, stock
+    $o1 = shop_create_order('poster', shop_order_input($ph, ['qty' => '2', 'name' => '王五', 'phone' => '13800138000', 'address' => '北京市朝阳区某路 1 号', 'consent' => '1'])[0]);
+    ok($o1['subtotal'] === 19800 && $o1['amount'] === 19800 + $o1['offset'] && $o1['offset'] >= 1 && $o1['offset'] <= 99, 'order: subtotal 2 × 99, payable = total + 1..99 fen');
+    ok(preg_match(ORDER_ID_RE, $o1['id']) === 1 && str_starts_with($o1['id'], str_replace('-', '', local_day())), 'order number: Beijing date + 6 random letters');
+    ok(shop_product_get($ph['id'])['stock'] === 1 && $o1['held'] === true, 'stock reserved on order (3 → 1)');
+    ok(throws(fn() => shop_create_order('poster', shop_buyer('physical', '13800138000', '', 2)), ShopError::class), 'overselling refused (2 wanted, 1 left)');
+    ok(throws(fn() => shop_create_order('nope', shop_buyer('physical')), ShopError::class), 'unknown product refused');
+    // the amount never comes from the buyer
+    $tampered = shop_buyer('physical') + ['price' => 1, 'amount' => 1, 'subtotal' => 1];
+    $o2 = shop_create_order('poster', $tampered);
+    ok($o2['price'] === 9900 && $o2['amount'] > 9900, 'client price/amount fields are ignored');
+    shop_owner_action($o2['id'], 'cancel', ['reason' => '测试']);
+    // a hundred unpaid orders with the same total: all amounts distinct
+    $big = shop_make('pin', 'physical', '10', 400);
+    $amounts = [];
+    for ($i = 0; $i < 120; $i++) {
+        $amounts[] = shop_create_order('pin', shop_buyer('physical'))['amount'];
+    }
+    ok(count(array_unique($amounts)) === 120 && max($amounts) <= 1000 + 199, '120 open orders at one price: every payable amount is different (overflow into ¥1.xx)');
+    $mx = 0;
+    foreach (shop_orders() as $o) {
+        if ($o['product_id'] === $big['id'] && $o['status'] === 'pending') {
+            shop_owner_action($o['id'], 'cancel', ['reason' => '测试']);
+        }
+    }
+    ok(shop_product_get($big['id'])['stock'] === 400, 'cancelling releases every reserved unit');
+
+    // parallel buyers against the last 5 units (separate processes, one flock)
+    $race = shop_make('race', 'physical', '5', 5);
+    $code = 'define("BLOG_APP",true);require ' . var_export(REPO . '/pilot-blog/app/lib/bootstrap.php', true) . ';app_init("cli");'
+        . 'try{shop_create_order("race",["qty"=>1,"name"=>"并发","phone"=>"13900000000","address"=>"测试地址 1 号","email"=>"","note"=>""]);echo "OK";}catch(ShopError $e){echo "NO";}';
+    $procs = [];
+    for ($i = 0; $i < 12; $i++) {
+        $procs[] = proc_open([PHP_BINARY, '-r', $code], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pp, null, ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'PATH' => getenv('PATH')]);
+        $pipes[] = $pp;
+    }
+    $res = [];
+    foreach ($procs as $i => $pr) {
+        $res[] = stream_get_contents($pipes[$i][1]);
+        proc_close($pr);
+    }
+    $okN = count(array_filter($res, fn($r) => $r === 'OK'));
+    ok($okN === 5 && shop_product_get($race['id'])['stock'] === 0, '12 buyers at once for 5 units: exactly 5 orders, stock 0 (no overselling)', implode(',', $res));
+    shop_republish_if_changed('');   // what api/shop.php does after an order
+    ok(str_contains(pub('index.html'), '<li class="good out"><a class="good-a" href="shop/race.html">') && str_contains(pub('shop/race.html'), '售罄') && !str_contains(pub('shop/race.html'), 'buy-btn'), 'a sold-out product shows 售罄 on the home grid and its page has no buy button');
+
+    // expiry, restore, auto-complete, redaction
+    $exp = shop_create_order('guide', shop_buyer('digital'), time() - 25 * 3600);
+    $claimed = shop_create_order('guide', shop_buyer('digital'), time() - 30 * 3600);
+    shop_claim($claimed['id'], '尾号 1234', time() - 29 * 3600);
+    shop_maintain();
+    ok(shop_order_get($exp['id'])['status'] === 'cancelled' && shop_order_get($exp['id'])['cancel_auto'] === true, 'an unpaid order expires after 24 h (lazy, on the next access)');
+    ok(shop_order_get($claimed['id'])['status'] === 'claimed', 'an order the buyer marked 我已付款 never expires on its own');
+    $e2 = shop_create_order('poster', shop_buyer('physical'), time() - 25 * 3600);   // stock 1 → 0 then released
+    shop_maintain();
+    ok(shop_product_get($ph['id'])['stock'] === 1 && shop_order_get($e2['id'])['status'] === 'cancelled', 'expiry releases the reserved stock');
+    $back = shop_owner_action($e2['id'], 'confirm');
+    ok($back['status'] === 'confirmed' && shop_product_get($ph['id'])['stock'] === 0, 'paid after the automatic cancel: 确认收款 restores the order and takes the stock again');
+    ok(throws(fn() => shop_owner_action($o1['id'], 'ship', ['courier' => '顺丰', 'tracking' => 'SF1']), ShopError::class), 'ship before 确认收款 refused');
+    shop_owner_action($o1['id'], 'confirm');
+    ok(throws(fn() => shop_owner_action($o1['id'], 'ship', ['courier' => '顺丰', 'tracking' => '<script>']), ShopError::class), 'tracking number must be letters and digits');
+    shop_owner_action($o1['id'], 'ship', ['courier' => '顺丰', 'tracking' => 'SF1234567890']);
+    ok(throws(fn() => shop_owner_action($o1['id'], 'cancel', ['reason' => 'x']), ShopError::class), 'a shipped order cannot be cancelled (refund note instead)');
+    shop_owner_action($o1['id'], 'refund', ['note' => '已退 ¥10 差价']);
+    ok(count(shop_order_get($o1['id'])['refunds']) === 1, '记录退款 stores a note');
+    $d1 = shop_owner_action($claimed['id'], 'confirm');
+    ok($d1['status'] === 'completed' && $d1['closed_at'] !== null, 'digital: 确认收款 completes the order (content shows on lookup)');
+    // jump 31 days: shipped → completed; 181 more days: redacted
+    shop_maintain(time() + 31 * 86400);
+    $c1 = shop_order_get($o1['id']);
+    ok($c1['status'] === 'completed', 'shipped orders complete by themselves after 30 days');
+    shop_maintain(time() + (31 + 181) * 86400);
+    $c1 = shop_order_get($o1['id']);
+    ok($c1['buyer'] === ['name' => '', 'phone' => '', 'address' => '', 'email' => ''] && $c1['tracking'] === '' && $c1['redacted_at'] !== null && $c1['amount'] === $o1['amount'] && $c1['name'] !== '', '180 days after closing: name, phone, address, email, tracking erased; amounts and items kept');
+    ok(hash_equals($c1['verify'], shop_verify_hash($c1['id'], '8000')), 'lookup still works after redaction (only a keyed hash is kept)');
+    ok(!str_contains((string) file_get_contents(shop_orders_path()), '北京市朝阳区某路 1 号"') || shop_order_get($o2['id'])['redacted_at'] !== null, 'redacted data is gone from orders.json');
+
+    // CSV
+    $csvOrder = ['id' => '20261017-ABCDEF', 'created_at' => now_iso(), 'status' => 'pending', 'name' => '=HYPERLINK("http://x")', 'type' => 'physical', 'price' => 100, 'qty' => 1, 'subtotal' => 100, 'shipping' => 0, 'offset' => 1, 'amount' => 101,
+        'buyer' => ['name' => '+cmd|\'/C calc\'!A0', 'phone' => '13800138000', 'address' => "@SUM(1)", 'email' => '-1+1@x.com'], 'note' => "\t=1", 'payer' => ' =2', 'courier' => '', 'tracking' => '', 'cancel_reason' => '', 'refunds' => []];
+    $csv = shop_csv([$csvOrder]);
+    ok(str_starts_with($csv, "\u{FEFF}\"订单号\"") && str_contains($csv, "\r\n"), 'orders CSV: UTF-8 BOM, CRLF, quoted header');
+    ok(str_contains($csv, '"\'=HYPERLINK(""http://x"")"') && str_contains($csv, '"\'+cmd') && str_contains($csv, '"\'@SUM(1)"') && str_contains($csv, '"\'-1+1@x.com"') && str_contains($csv, "\"'\t=1\"") && str_contains($csv, '"\' =2"'), 'orders CSV: formula-looking cells defused with a leading quote (also after spaces)');
+
+    // closed shop
+    settings_save(['shop' => ['enabled' => false]], settings_get()['rev']);
+    ok(str_contains(pub('index.html'), '暂停营业') && !str_contains(pub('index.html'), 'class="goods"'), 'closed: the home section shows 暂停营业 instead of the grid');
+    ok(throws(fn() => shop_create_order('guide', shop_buyer('digital')), ShopError::class), 'closed: no new orders');
+    settings_save(['shop' => ['enabled' => true]], settings_get()['rev']);
+
+    // digital file: stored privately, safe names only
+    $tmp = tempnam(sys_get_temp_dir(), 'dl');
+    file_put_contents($tmp, 'PDFDATA');
+    ok(throws(fn() => shop_product_file_set($dg['id'], $tmp, 'evil.php', 7), ShopError::class) && throws(fn() => shop_product_file_set($dg['id'], $tmp, 'page.html', 7), ShopError::class), 'digital file: .php and .html refused');
+    $dg = shop_product_file_set($dg['id'], $tmp, '../../教程 "v1".pdf', 7);
+    @unlink($tmp);
+    $f = $dg['delivery']['file'];
+    ok($f['name'] === '教程 v1.pdf' && is_file(DATA_DIR . '/shop/files/' . $f['id'] . '.bin') && !glob(PUBLIC_DIR . '/**/*' . $f['id'] . '*'), 'digital file: name cleaned, stored only in blog-data');
+
+    shop_http(fn() => shop_http_tests($ph, $dg));
+}
+
+function shop_http(callable $fn): void
+{
+    $port = 20000 + random_int(0, 9999);
+    $GLOBALS['PORT'] = $port;
+    $env = ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'PATH' => getenv('PATH')];
+    $srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', PUBLIC_DIR, APP_DIR . '/dev/router.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, null, $env);
+    for ($i = 0; $i < 50 && @fsockopen('127.0.0.1', $port) === false; $i++) {
+        usleep(100000);
+    }
+    try {
+        $fn();
+    } finally {
+        proc_terminate($srv);
+        proc_close($srv);
+    }
+}
+
+function shop_post(string $a, array $form, array $headers = []): array
+{
+    return http('POST', '/api/shop.php?a=' . $a, ['form' => $form + ['tok' => shop_form_token($a === 'paid' ? 'paid' : $a, time() - 5), 'website' => ''], 'headers' => $headers]);
+}
+
+function shop_http_tests(array $ph, array $dg): void
+{
+    clear_rl();
+    $r = http('GET', '/api/shop.php?a=order&p=guide');
+    ok($r['status'] === 200 && str_contains($r['headers']['content-security-policy'] ?? '', "script-src 'none'") && ($r['headers']['x-frame-options'] ?? '') === 'DENY' && str_contains($r['headers']['cache-control'] ?? '', 'no-store'), 'order page: strict CSP, no framing, no caching');
+    ok(!preg_match('/<script/i', $r['body']), 'buyer pages carry no script at all');
+    ok(str_contains(http('GET', '/shop/guide.html')['headers']['content-security-policy'] ?? '', "script-src 'none'") && http('GET', '/shop/x.php')['status'] >= 400 && http('GET', '/shop/../app/lib/shop.php')['status'] >= 400, 'shop/ pages served with CSP; no PHP there');
+    ok(http('GET', '/api/shop.php?a=order&p=../../etc')['status'] === 404, 'odd product slug: 404');
+    // create through HTTP with tampered money fields
+    $r = shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'Buyer@Example.com', 'consent' => '1', 'price' => '0.01', 'amount' => '0.01']);
+    ok($r['status'] === 303 && preg_match('/a=pay&o=(\d{8}-[A-Z2-9]{6})&k=([0-9a-f]{32})/', $r['headers']['location'] ?? '', $m) === 1, 'order created over HTTP → 303 to the pay page', $r['status'] . ' ' . substr(strip_tags($r['body']), 0, 200));
+    $id = $m[1] ?? '';
+    $k = $m[2] ?? '';
+    ok((shop_order_get($id)['amount'] ?? 0) > 2990, 'posted price/amount ignored: the server computed ¥29.90 + cents');
+    $r = shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'x@example.com', 'consent' => '1'], ['Origin: https://evil.example']);
+    ok($r['status'] === 403, 'cross-site order POST refused (403)');
+    $r = http('POST', '/api/shop.php?a=order', ['form' => ['p' => 'guide', 'qty' => '1', 'email' => 'x@example.com', 'consent' => '1', 'website' => '']]);
+    ok($r['status'] === 400, 'order without the form token refused');
+    $r = shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'x@example.com', 'consent' => '1', 'website' => 'http://spam']);
+    ok($r['status'] === 400 && count(shop_orders()) > 0, 'honeypot filled: refused, nothing stored');
+    $r = shop_post('order', ['p' => 'poster', 'qty' => '1', 'name' => '<script>alert(1)</script>', 'phone' => '1380013', 'address' => '"><img src=x onerror=alert(1)>', 'consent' => '1']);
+    ok($r['status'] === 400 && str_contains($r['body'], '手机号格式不对') && !str_contains($r['body'], '<script>alert') && !str_contains($r['body'], '<img src=x') && str_contains($r['body'], '&lt;script&gt;'), 'invalid order re-shows the form with the typed values escaped');
+    // pay page
+    ok(http('GET', "/api/shop.php?a=pay&o=$id&k=$k")['status'] === 200, 'pay page opens with its token');
+    $r = http('GET', "/api/shop.php?a=pay&o=$id&k=" . str_repeat('0', 32));
+    ok($r['status'] === 404 && !str_contains($r['body'], $id), 'pay page with a wrong token: 404, nothing about the order shown');
+    $r = shop_post('paid', ['o' => $id, 'k' => str_repeat('a', 32), 'payer' => 'x']);
+    ok($r['status'] === 404 && shop_order_get($id)['status'] === 'pending', '我已付款 needs the pay token');
+    $r = shop_post('paid', ['o' => $id, 'k' => $k, 'payer' => '尾号 8888']);
+    ok($r['status'] === 303 && shop_order_get($id)['status'] === 'claimed' && shop_order_get($id)['payer'] === '尾号 8888', '我已付款 marks the order (303 back to the pay page)');
+    // lookup
+    clear_rl();
+    $r = shop_post('lookup', ['o' => $id, 'v' => 'buyer']);
+    ok($r['status'] === 200 && str_contains($r['body'], '已付款，等站长确认') && !str_contains($r['body'], 'buyer@example.com'), 'lookup with the email part works; the email is not echoed');
+    $r1 = shop_post('lookup', ['o' => $id, 'v' => 'nobody']);
+    $r2 = shop_post('lookup', ['o' => '20261017-ZZZZZZ', 'v' => 'buyer']);
+    ok($r1['status'] === 400 && $r2['status'] === 400 && str_contains($r1['body'], '订单号或验证信息不对') && str_contains($r2['body'], '订单号或验证信息不对'), 'wrong secret and unknown order number get the same answer (no enumeration)');
+    clear_rl();
+    for ($i = 0; $i < 9; $i++) {
+        $last = shop_post('lookup', ['o' => $id, 'v' => sprintf('%04d', $i)]);
+        if ($i % 4 === 3) {
+            exec('rm -rf ' . escapeshellarg(DATA_DIR . '/ratelimit/shop-lookup') . ' ' . escapeshellarg(DATA_DIR . '/ratelimit/shop-lookup-day'));   // as if from new addresses
+        }
+    }
+    $r = shop_post('lookup', ['o' => $id, 'v' => 'buyer']);
+    ok($r['status'] === 429 && str_contains($r['body'], '一小时后再试'), 'guessing one order from many addresses: locked after 8 tries per hour, even with the right answer');
+    clear_rl();
+    for ($i = 0; $i < 10; $i++) {
+        shop_post('lookup', ['o' => '20261017-AAAAA' . $i, 'v' => '1']);
+    }
+    ok(shop_post('lookup', ['o' => $id, 'v' => 'buyer'])['status'] === 429, 'per-visitor lookup limit: the 11th lookup in 10 minutes is refused');
+    clear_rl();
+    for ($i = 0; $i < 12; $i++) {
+        shop_post('order', ['p' => 'guide', 'qty' => '0', 'email' => 'x', 'consent' => '1']);
+    }
+    ok(shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'y@example.com', 'consent' => '1'])['status'] === 429, 'per-visitor order limit: 13th order attempt in an hour refused');
+    clear_rl();
+    // digital download
+    shop_owner_action($id, 'confirm');
+    $r = shop_post('lookup', ['o' => $id, 'v' => 'BUYER']);
+    ok(preg_match('/href="(shop\.php\?a=dl&amp;[^"]+)"/', $r['body'], $mm) === 1 && str_contains($r['body'], '提取码 1234'), 'confirmed digital order: lookup shows the content and a download link');
+    $dl = '/api/' . html_entity_decode($mm[1] ?? '');
+    $r = http('GET', $dl);
+    ok($r['status'] === 200 && $r['body'] === 'PDFDATA' && str_contains($r['headers']['content-disposition'] ?? '', 'attachment') && ($r['headers']['content-type'] ?? '') === 'application/octet-stream', 'download serves the private file as an attachment');
+    ok(http('GET', preg_replace('/e=(\d+)/', 'e=' . (time() + 99999), $dl))['status'] === 403, 'download with a changed expiry refused');
+    ok(http('GET', preg_replace('/o=[^&]+/', 'o=' . rawurlencode(shop_orders()[0]['id']), $dl))['status'] === 403, 'download link of one order does not work for another');
+    ok(http('GET', preg_replace('/e=\d+&s=[0-9a-f]+/', 'e=' . (time() - 5) . '&s=' . shop_dl_sig($id, time() - 5, $dg['delivery']['file']['id']), $dl))['status'] === 403, 'expired download link refused');
+    ok(http('GET', '/uploads/shop/')['status'] >= 400 && http('GET', '/blog-data/shop/orders.json')['status'] >= 400, 'buyer data and files are not reachable by URL');
+    $r = http('GET', '/api/shop.php?a=pay&o=' . $id . '&k=' . $k);
+    ok(!str_contains($r['body'], 'buyer@example.com') && !str_contains($r['body'], '13800138000'), 'pay page shows no buyer data');
+    // logs and stats never get buyer data
+    $logs = '';
+    foreach (array_merge(glob(DATA_DIR . '/log/*') ?: [], glob(DATA_DIR . '/stats/*') ?: [], glob(DATA_DIR . '/usage/*') ?: []) as $f) {
+        $logs .= (string) file_get_contents($f);
+    }
+    ok(!str_contains($logs, 'buyer@example.com') && !str_contains($logs, '13800138000') && !str_contains($logs, '王五'), 'no buyer data in the audit log, stats or usage files');
 }
 
 /** Admin code rules that need no browser (SPEC §11.6, §11.9, T11, T12); the flows are in admin.e2e.js. */

@@ -4,8 +4,9 @@ declare(strict_types=1);
 defined('BLOG_APP') || exit;
 
 // T1 reference. The 08da7c1 page (3401b7f4…) was the baseline until the owner-approved section reorder of 2026-10-15
-// (SPEC §18 item 24), rebaselined with check-template.php --rebaseline (see app/seed/rebaseline.log). T3 (hero) never moves.
-const BASELINE_SHA256 = '0f206a8a44a744f5c5ccabb510c5270ad8c6135a5a5bb1e6191e559952e5d075';
+// (SPEC §18 item 24), rebaselined with check-template.php --rebaseline (see app/seed/rebaseline.log); again on 2026-10-17
+// when the AI shelf became the shop (§18 item 26). T3 (hero) never moves.
+const BASELINE_SHA256 = '31c740bc08e56f5451a5788d62ddd2597cf6ec01c0fe2fe4a7c42ff8cabac8fb';
 const BASELINE_08DA7C1_SHA256 = '3401b7f4d1c8692dee06a383831474447733558bfba68efc96aab63ba850c90f';
 
 /** Byte regions of the hero (SPEC §15 T3). Throws when a landmark is missing. */

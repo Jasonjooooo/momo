@@ -130,12 +130,13 @@
 
 @media (min-width:900px){
   .smain{padding-top:40px}
-  .prod{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);column-gap:40px;align-items:start}
+  .prod{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto 1fr;column-gap:40px;align-items:start}
+  .prod~.back{max-width:1080px}
   .gal{grid-column:1;grid-row:1 / span 2;position:sticky;top:76px}
   .gal-track{flex-direction:column;overflow:visible;scroll-snap-type:none}
   .gal-hint{display:none}
   .prod-info{grid-column:2}
-  .prod-body{grid-column:2;margin-top:12px}
+  .prod-body{grid-column:2;grid-row:2;align-self:start;margin-top:12px}
   .prod-head h1{font-size:30px}
   .prod .strip{border-top-width:1px}
   .pcol::before,.pcol::after{display:none}
