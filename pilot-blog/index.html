@@ -1082,6 +1082,8 @@ html:not(.js) .shop-cats{display:none}
 .cat-tabs,.cat-chips{display:flex;gap:8px;min-width:0;margin:0 -4px;padding:2px 4px 4px;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch}
 .cat-tabs::-webkit-scrollbar,.cat-chips::-webkit-scrollbar{display:none}
 .cat-tabs[data-more],.cat-chips[data-more]{-webkit-mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,#000 calc(100% - 36px),transparent)}
+.cat-tabs[data-less],.cat-chips[data-less]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px);mask-image:linear-gradient(90deg,transparent,#000 36px)}
+.cat-tabs[data-less][data-more],.cat-chips[data-less][data-more]{-webkit-mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent);mask-image:linear-gradient(90deg,transparent,#000 36px,#000 calc(100% - 36px),transparent)}
 .cat-chips[hidden]{display:none}
 .cat-tab,.cat-chip{flex:none;display:inline-flex;align-items:center;gap:8px;min-height:44px;margin:0;padding:0 14px;white-space:nowrap;cursor:pointer;-webkit-appearance:none;appearance:none;transition:border-color .3s var(--ease-out),background-color .3s var(--ease-out),color .3s var(--ease-out)}
 .cat-tab{font:600 15px/1 var(--font-head);color:var(--text-secondary);background:#071026;border:1px solid var(--line-strong);border-radius:6px}

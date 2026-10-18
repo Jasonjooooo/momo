@@ -90,6 +90,18 @@ $out = shop_product_save($out['id'], [
     'summary' => '刺绣臂章，背面魔术贴。', 'body' => '', 'dl_text' => '', 'dl_link' => '',
 ], shop_product_get($out['id'])['rev']);
 
+// `more`: three extra products (no category yet) for the category tests in shop.e2e.js
+$extra = [];
+if (($argv[2] ?? '') === 'more') {
+    foreach ([['钥匙扣', 'tag-keyring', 'physical', '25', [92, 60, 40], 'KEYRING'], ['飞行笔记模板（PDF）', 'logbook-pdf', 'digital', '12', [20, 70, 60], 'LOGBOOK'], ['反光贴纸', 'reflect-sticker', 'physical', '8', [70, 30, 60], 'STICKER']] as [$n, $slug, $type, $price, $rgb, $label]) {
+        $x = shop_product_new();
+        shop_product_photo($x['id'], 'add', 0, fx_image(1000, 1000, $rgb, $label));
+        $x = shop_product_save($x['id'], ['name' => $n, 'slug' => $slug, 'type' => $type, 'price' => $price, 'stock' => $type === 'digital' ? '' : '30', 'unlimited' => $type === 'digital' ? '1' : '',
+            'stock_seen' => '0', 'on_sale' => '1', 'summary' => '', 'body' => '', 'dl_text' => $type === 'digital' ? '下载码 77' : '', 'dl_link' => ''], shop_product_get($x['id'])['rev']);
+        $extra[] = $x['slug'];
+    }
+}
+
 $s = settings_get();
 settings_save(['shop' => ['shipping' => 1000, 'free_over' => 29900, 'qr' => ['wechat' => fx_qr('wechat'), 'alipay' => fx_qr('alipay')]]], $s['rev']);
 $r = publish_site('商城测试');
@@ -97,4 +109,4 @@ if (!$r['ok']) {
     fwrite(STDERR, json_encode($r['errors'], JSON_UNESCAPED_UNICODE) . "\n");
     exit(1);
 }
-echo json_encode(['physical' => $phys['slug'], 'digital' => $dig['slug'], 'soldout' => $out['slug'], 'file_sha256' => $sha], JSON_UNESCAPED_UNICODE) . "\n";
+echo json_encode(['physical' => $phys['slug'], 'digital' => $dig['slug'], 'soldout' => $out['slug'], 'file_sha256' => $sha, 'extra' => $extra], JSON_UNESCAPED_UNICODE) . "\n";

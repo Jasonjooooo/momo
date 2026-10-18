@@ -375,3 +375,5 @@ h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
 @media (min-width:560px){.catpick-two{grid-template-columns:1fr 1fr}}
 .catpick-two label{display:block;font-weight:600;margin:0 0 4px}
 .prow-cat{font-size:13px;color:var(--text-2)}
+.cat-row .grow-move{flex-direction:row}
+.cat-row .grow-move form+form{margin-top:0}

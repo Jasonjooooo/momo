@@ -2359,8 +2359,8 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
   let top = '';
   function edge(row) {
     if (row.hidden) return;
-    if (row.scrollWidth - row.clientWidth - row.scrollLeft > 4) row.setAttribute('data-more', '');
-    else row.removeAttribute('data-more');
+    row.toggleAttribute('data-more', row.scrollWidth - row.clientWidth - row.scrollLeft > 4);
+    row.toggleAttribute('data-less', row.scrollLeft > 4);
   }
   function reveal(btn) {
     const row = btn.parentElement, l = btn.offsetLeft - row.offsetLeft, r = l + btn.offsetWidth;
@@ -2379,7 +2379,7 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
     goods.forEach(g => { const show = !t || (g.dataset.cat === t && (!s || g.dataset.sub === s)); g.hidden = !show; if (show) n++; });
     live.textContent = '显示 ' + n + ' 件商品';
     if (write) {
-      try { history.replaceState(history.state, '', s ? '#shop/c/' + s : t ? '#shop/c/' + t : '#shop'); } catch (e) {}
+      try { window.history.replaceState(window.history.state, '', s ? '#shop/c/' + s : t ? '#shop/c/' + t : '#shop'); } catch (e) {}   // (the chat keeps its own `history`)
     }
   }
   function fromHash() {

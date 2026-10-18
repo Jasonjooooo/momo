@@ -251,11 +251,213 @@ async function run(W, browser) {
   }
 }
 
+
+// ---------- 商品分类 (大类 / 小类): admin page, editor picker (with and without script), home tabs and chips, deep link,
+// no-script view, product breadcrumb. Screenshots in pilot-blog-work/screens/categories/. ----------
+const CAT_SHOTS = path.join(REPO, 'pilot-blog-work/screens/categories/');
+
+async function runCats(W, browser) {
+  console.log(`\n[categories ${W}]`);
+  const tmp = makeSite();
+  const out = JSON.parse(execFileSync('php', [__dirname + '/shop-fixture.php', PW, 'more'], { env: { ...process.env, BLOG_PUBLIC_DIR: tmp + '/pub', BLOG_DATA_DIR: tmp + '/data' } }).toString());
+  const port = 9800 + Math.floor(Math.random() * 150);
+  const srv = await startServer(tmp, port);
+  const base = 'http://127.0.0.1:' + port;
+  const logs = [];
+  const ctx = await browser.newContext({ ...VIEWPORTS[W], locale: 'zh-CN' });
+  await ctx.route('**/assets/hero-scrub*.mp4', r => r.fulfill({ status: 404, body: '' }));
+  const cats = () => JSON.parse(fs.readFileSync(tmp + '/data/shop/categories.json')).items;
+  const products = () => JSON.parse(fs.readFileSync(tmp + '/data/shop/products.json')).items;
+  const bySlug = slug => products().find(x => x.slug === slug);
+  const flash = async a => (await a.textContent('.flashes')) || '';
+  try {
+    const a = await adminLogin(ctx, base);
+    track(a, logs, base);
+    // ----- the 商品分类 page: create, limits, order -----
+    await a.goto(base + '/admin/?r=shop');
+    check(`[${W}] 商品 links to 商品分类, and the menu has it`, (await a.locator('main a.btn', { hasText: '商品分类' }).count()) === 1 && (await a.locator('.menu-list a', { hasText: '商品分类' }).count()) === 1);
+    await Promise.all([a.waitForNavigation(), a.click('main a.btn:has-text("商品分类")')]);
+    check(`[${W}] empty 商品分类 page explains that categories are optional`, (await a.textContent('main')).includes('还没有分类'));
+    const addTop = async name => { await a.fill('#c-new-name', name); await Promise.all([a.waitForNavigation(), a.click('form.cat-add:has(#c-new-name) button')]); };
+    await addTop('航空周边');
+    await addTop('书和资料');
+    await addTop('空的大类');
+    check(`[${W}] three 大类 created`, cats().map(c => c.name).join(',') === '航空周边,书和资料,空的大类', cats());
+    const [air, books, empty] = cats();
+    const addSub = async (top, name) => { await a.fill('#ns-' + top.id, name); await Promise.all([a.waitForNavigation(), a.click(`form.cat-add-sub:has(#ns-${top.id}) button`)]); };
+    await addSub(air, '海报');
+    await addSub(air, '徽章');
+    const subs = cats()[0].subs;
+    check(`[${W}] two 小类 in 航空周边`, subs.map(x => x.name).join(',') === '海报,徽章', subs);
+    const [poster, badge] = subs;
+    // a name over 12 characters (past the input's maxlength) is refused by the server with a plain message
+    await a.evaluate(() => document.getElementById('c-new-name').removeAttribute('maxlength'));
+    await addTop('一二三四五六七八九十十一十二');
+    check(`[${W}] 13-character name refused with a plain message`, (await flash(a)).includes('最多 12 个字') && cats().length === 3, await flash(a));
+    await addTop('航空周边');
+    check(`[${W}] a duplicate 大类 name refused`, (await flash(a)).includes('已经有') && cats().length === 3, await flash(a));
+    // order: 书和资料 up (phone-sized buttons, plain forms)
+    await Promise.all([a.waitForNavigation(), a.click(`[data-cat-id="${books.id}"] .grow-move button:has-text("上移")`)]);
+    check(`[${W}] 上移 moves 书和资料 before 航空周边`, cats().map(c => c.name).join(',') === '书和资料,航空周边,空的大类', cats().map(c => c.name));
+    await Promise.all([a.waitForNavigation(), a.click(`[data-cat-id="${badge.id}"] .grow-move button:has-text("上移")`)]);
+    check(`[${W}] 上移 on a 小类 reorders inside its 大类`, cats()[1].subs.map(x => x.name).join(',') === '徽章,海报', cats()[1].subs);
+    await Promise.all([a.waitForNavigation(), a.click(`[data-cat-id="${badge.id}"] .grow-move button:has-text("下移")`)]);
+    check(`[${W}] 下移 puts it back`, cats()[1].subs.map(x => x.name).join(',') === '海报,徽章', cats()[1].subs);
+    // ----- assign products: the two-select picker (script) -----
+    const assign = async (slug, top, sub) => {
+      await a.goto(base + '/admin/?r=shop.edit&id=' + bySlug(slug).id);
+      await a.selectOption('#s-cat-top', top);
+      if (sub) await a.selectOption('#s-cat-sub', sub);
+      await Promise.all([a.waitForNavigation(), a.click('form.editor .bar button[type=submit]')]);
+    };
+    await a.goto(base + '/admin/?r=shop.edit&id=' + bySlug(out.physical).id);
+    const pick = await a.evaluate(() => ({ plain: !document.getElementById('s-cat').offsetParent, top: !!document.getElementById('s-cat-top'), subHidden: document.getElementById('s-cat-sub').closest('div').hidden }));
+    check(`[${W}] editor: the plain select becomes 大类 + 小类 selects (小类 hidden until a 大类 with 小类 is picked)`, pick.plain && pick.top && pick.subHidden, pick);
+    await a.selectOption('#s-cat-top', air.id);
+    const subOpts = await a.locator('#s-cat-sub option').allTextContents();
+    check(`[${W}] picking 航空周边 offers its 小类`, subOpts.join(',') === '不选小类（直接放在大类里）,海报,徽章' && await a.locator('#s-cat-sub').isVisible(), subOpts);
+    await layout(a, 'admin product editor with categories', W);
+    await a.selectOption('#s-cat-sub', poster.id);
+    await Promise.all([a.waitForNavigation(), a.click('form.editor .bar button[type=submit]')]);
+    check(`[${W}] product saved into 航空周边 / 海报`, bySlug(out.physical).cat === poster.id && (await flash(a)).includes('已保存'), bySlug(out.physical).cat);
+    check(`[${W}] the editor shows the saved category again`, (await a.inputValue('#s-cat-top')) === air.id && (await a.inputValue('#s-cat-sub')) === poster.id);
+    await assign(out.extra[0], air.id, null);
+    await assign(out.digital, books.id, null);
+    await assign(out.extra[1], books.id, null);
+    // ----- the same editor without script: one plain select with 「大类 / 小类」 options -----
+    const nojs = await browser.newContext({ ...VIEWPORTS[W], locale: 'zh-CN', javaScriptEnabled: false });
+    const cookies = await ctx.cookies();
+    await nojs.addCookies(cookies);
+    const n = await nojs.newPage();
+    await n.goto(base + '/admin/?r=shop.edit&id=' + bySlug(out.soldout).id);
+    const plainOpts = await n.locator('#s-cat option').allTextContents();
+    check(`[${W}] without script the editor has one select: 不分类, 大类 and 「大类 / 小类」`, plainOpts.join(',') === '不分类,书和资料,航空周边,航空周边 / 海报,航空周边 / 徽章,空的大类' && await n.locator('#s-cat').isVisible(), plainOpts);
+    await n.selectOption('#s-cat', badge.id);
+    await Promise.all([n.waitForNavigation(), n.click('form.editor .bar button[type=submit]')]);
+    check(`[${W}] saved without script into 航空周边 / 徽章`, bySlug(out.soldout).cat === badge.id, bySlug(out.soldout).cat);
+    await nojs.close();
+    // ----- delete: refused while products are inside, fine when empty -----
+    await a.goto(base + '/admin/?r=cats');
+    const posterRow = a.locator(`[data-cat-id="${poster.id}"]`);
+    await posterRow.locator('summary').click();
+    check(`[${W}] a 小类 with a product shows why it cannot be deleted, and no delete button`, (await posterRow.textContent()).includes('还有 1 件商品，不能删除') && (await posterRow.locator('button.btn-danger').count()) === 0);
+    const meta = await a.locator(`[data-cat-id="${air.id}"] .cat-meta`).first().textContent();
+    check(`[${W}] 大类 counts include its 小类`, meta.includes('3 件商品') && meta.includes('在卖 3 件'), meta);
+    const emptyRow = a.locator(`[data-cat-id="${empty.id}"]`);
+    check(`[${W}] an empty 大类 says it is not shown on the home page`, (await emptyRow.textContent()).includes('首页不显示'));
+    await layout(a, 'admin categories', W);
+    await shot(a, 'admin-cats', W).catch(() => {});
+    fs.renameSync(SHOTS + 'admin-cats-' + W + '.png', CAT_SHOTS + 'admin-cats-' + W + '.png');
+    await emptyRow.locator('summary').click();
+    await emptyRow.locator('button.btn-danger').click();
+    await sheetOk(a);
+    check(`[${W}] the empty 大类 is deleted after the confirm sheet`, cats().length === 2 && (await flash(a)).includes('已删除'), await flash(a));
+    // the server refuses too, whatever the page shows
+    const refused = await a.evaluate(async ([id]) => {
+      const fd = new FormData(); fd.append('_csrf', document.querySelector('meta[name=csrf]').content); fd.append('id', id);
+      const r = await fetch('?r=cats.delete', { method: 'POST', body: fd, credentials: 'same-origin' });
+      return r.status;
+    }, [air.id]);
+    check(`[${W}] a forged delete of a 大类 with products is refused`, cats().some(c => c.id === air.id), refused);
+    // product list: filter by category
+    await a.goto(base + '/admin/?r=shop&cat=' + air.id);
+    const listed = await a.locator('.grow .prow-t').allTextContents();
+    check(`[${W}] 商品 filtered by 航空周边 lists its 3 products`, listed.length === 3, listed);
+    await a.goto(base + '/admin/?r=shop&cat=none');
+    check(`[${W}] 商品 filtered by 不分类 lists the one left`, (await a.locator('.grow .prow-t').allTextContents()).join(',') === '反光贴纸');
+
+    // ----- home: tabs and chips -----
+    const p = await ctx.newPage();
+    track(p, logs, base);
+    await p.goto(base + '/', { waitUntil: 'load' });
+    await sleep(600);
+    await p.evaluate(() => document.getElementById('shop').scrollIntoView({ block: 'start', behavior: 'instant' }));
+    await sleep(700);
+    const st = () => p.evaluate(() => ({
+      tabs: [...document.querySelectorAll('.cat-tab')].map(b => b.firstChild.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      chips: [...document.querySelectorAll('.cat-chips:not([hidden]) .cat-chip')].map(b => b.textContent + (b.getAttribute('aria-pressed') === 'true' ? '*' : '')),
+      shown: [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).map(g => g.querySelector('.good-n').textContent),
+      hash: location.hash,
+      live: document.querySelector('[data-cat-status]').textContent,
+    }));
+    let s0 = await st();
+    check(`[${W}] home tabs: 全部 first, 大类 in the owner's order, 其他 last; empty 大类 hidden`, s0.tabs.join(',') === '全部*,书和资料,航空周边,其他' && s0.shown.length === 6 && s0.chips.length === 0, s0);
+    const tapBad = await p.evaluate(() => [...document.querySelectorAll('.cat-tab, .cat-chip')].filter(b => b.offsetParent && b.getBoundingClientRect().height < 44).length);
+    check(`[${W}] tabs are at least 44px tall`, tapBad === 0, tapBad);
+    await p.click('.cat-tab[data-cat="' + air.id + '"]');
+    let s1 = await st();
+    check(`[${W}] 航空周边: its 3 products, 小类 chips 全部 / 海报 / 徽章, hash #shop/c/<id>`, s1.shown.length === 3 && s1.chips.join(',') === '全部*,海报,徽章' && s1.hash === '#shop/c/' + air.id && s1.tabs[2] === '航空周边*' && s1.live === '显示 3 件商品', s1);
+    await layout(p, 'home with category tabs', W, true);
+    const rowOk = await p.evaluate(() => { const r = document.querySelector('.cat-tabs'); return getComputedStyle(r).overflowX === 'auto' && getComputedStyle(r).flexWrap === 'nowrap'; });
+    check(`[${W}] tab rows scroll sideways instead of wrapping`, rowOk);
+    await p.locator('#shop').screenshot({ path: CAT_SHOTS + 'home-shop-tabs-' + W + '.png' });
+    await p.click('.cat-chips:not([hidden]) .cat-chip[data-sub="' + poster.id + '"]');
+    let s2 = await st();
+    check(`[${W}] 小类 海报: one product, chip pressed, hash names the 小类`, s2.shown.join(',') === 'PC-12 夜航航路图海报' && s2.chips.join(',') === '全部,海报*,徽章' && s2.hash === '#shop/c/' + poster.id, s2);
+    await p.locator('#shop').screenshot({ path: CAT_SHOTS + 'home-shop-chips-' + W + '.png' });
+    await p.click('.cat-tab[data-cat="other"]');
+    let s3 = await st();
+    check(`[${W}] 其他: the uncategorized product, no chips`, s3.shown.join(',') === '反光贴纸' && s3.chips.length === 0 && s3.hash === '#shop/c/other', s3);
+    await p.click('.cat-tab[data-cat=""]');
+    let s4 = await st();
+    check(`[${W}] 全部 again: all 6, hash back to #shop`, s4.shown.length === 6 && s4.hash === '#shop', s4);
+    // ----- deep link -----
+    const d = await ctx.newPage();
+    track(d, logs, base);
+    await d.goto(base + '/#shop/c/' + poster.id, { waitUntil: 'load' });
+    await sleep(900);
+    const dl = await d.evaluate(() => {
+      const r = document.getElementById('shop').getBoundingClientRect();
+      return { top: Math.round(r.top), vh: innerHeight, shown: [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).length, tab: (document.querySelector('.cat-tab[aria-pressed="true"]') || {}).textContent, chip: (document.querySelector('.cat-chips:not([hidden]) .cat-chip[aria-pressed="true"]') || {}).textContent };
+    });
+    check(`[${W}] deep link #shop/c/<小类>: filtered to 1 product, 航空周边 + 海报 pressed, the shop scrolled into view`, dl.shown === 1 && /^航空周边/.test(dl.tab) && dl.chip === '海报' && dl.top >= 0 && dl.top < dl.vh / 2, dl);
+    if (W === '1440') {
+      await d.click('#nav-links a[href="#ai"]');
+      await sleep(1200);
+      const nav = await d.evaluate(() => ({ hash: location.hash, top: Math.round(document.getElementById('ai').getBoundingClientRect().top), shown: [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).length }));
+      check(`[${W}] the nav 商城 link (#ai) still scrolls to the section and keeps the filter`, nav.hash === '#ai' && Math.abs(nav.top) < 120 && nav.shown === 1, nav);
+    }
+    await d.goto(base + '/#shop/c/c00000000', { waitUntil: 'load' });
+    await sleep(500);
+    check(`[${W}] deep link to a category that is gone: everything shows`, (await d.evaluate(() => [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).length)) === 6);
+    await d.close();
+    // ----- without script: every product shows, the tab rows stay hidden -----
+    const nj = await browser.newContext({ ...VIEWPORTS[W], locale: 'zh-CN', javaScriptEnabled: false });
+    const q = await nj.newPage();
+    await q.goto(base + '/#shop/c/' + poster.id);
+    const njs = await q.evaluate(() => ({ shown: [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).length, tabs: !!document.querySelector('.shop-cats').offsetParent, labels: [...document.querySelectorAll('.good-c')].map(e => e.textContent) }));
+    check(`[${W}] without script: all 6 products visible, no dead tab buttons, each card names its category`, njs.shown === 6 && !njs.tabs && njs.labels.includes('航空周边 / 海报') && njs.labels.includes('其他'), njs);
+    await nj.close();
+    // ----- product page breadcrumb -----
+    await p.goto(base + '/shop/' + out.physical + '.html');
+    const cr = await p.evaluate(() => [...document.querySelectorAll('.crumbs a')].map(a => a.textContent + '>' + a.getAttribute('href')));
+    check(`[${W}] product breadcrumb 商城 / 航空周边 / 海报 with links to the filtered shop`, cr.join(' ') === `商城>../#shop 航空周边>../#shop/c/${air.id} 海报>../#shop/c/${poster.id}`, cr);
+    await layout(p, 'product with breadcrumb', W);
+    await shot(p, 'product-crumbs', W, false);
+    fs.renameSync(SHOTS + 'product-crumbs-' + W + '.png', CAT_SHOTS + 'product-crumbs-' + W + '.png');
+    await Promise.all([p.waitForNavigation(), p.click('.crumbs a:has-text("航空周边")')]);
+    await sleep(900);
+    const back = await p.evaluate(() => ({ hash: location.hash, shown: [...document.querySelectorAll('#shop .goods > .good')].filter(g => g.offsetParent).length, top: Math.round(document.getElementById('shop').getBoundingClientRect().top), vh: innerHeight }));
+    check(`[${W}] breadcrumb 航空周边 opens the home shop filtered to it`, back.hash === '#shop/c/' + air.id && back.shown === 3 && back.top >= 0 && back.top < back.vh / 2, back);
+    const bad = logs.filter(l => !/^HTTP 4\d\d .*\/admin\/\?r=cats\.(add|delete)$/.test(l));
+    check(`[${W}] categories: no console errors, no external requests, no failed loads`, bad.length === 0, bad);
+  } finally {
+    await ctx.close();
+    srv.kill();
+    if (!process.env.KEEP) fs.rmSync(tmp, { recursive: true, force: true });
+    else console.log('  kept ' + tmp);
+  }
+}
+
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
+  fs.mkdirSync(CAT_SHOTS, { recursive: true });
   const browser = await chromium.launch();
   try {
-    for (const W of WANT) await run(W, browser);
+    for (const W of WANT) {
+      if (!process.env.ONLY_CATS) await run(W, browser);
+      await runCats(W, browser);
+    }
   } finally {
     await browser.close();
   }
