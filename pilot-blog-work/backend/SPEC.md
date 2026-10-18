@@ -1735,6 +1735,14 @@ Added by the supplier pass (2026-10-18, owner request):
    form (cached 5 min, at most once per 30 s per product) and to poll a not-yet-delivered card on lookup (once a minute per
    order). No new public entry point, no Nginx or .htaccess change. Details in §20 「货源」.
 
+Added by the categories pass (2026-10-18, owner request):
+
+30. **商品分类: two levels (大类 → 小类).** Owner-approved. Details in §20 「分类」. No T1 rebaseline: the tabs, their script
+   (inside `<!--{if has_shop_cats}-->`) and the card category line exist only when a 大类 holds a product on sale, so the
+   baseline and launch markup are unchanged; only `home-extra.css` grew, which changes the launch render (T2), so
+   `pilot-blog/index.html` was re-rendered (diff = the new CSS lines). T3 unchanged. The home script keeps a chat array
+   named `history`, so the filter calls `window.history.replaceState`. No Nginx or .htaccess change (no new entry point).
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
@@ -1860,6 +1868,44 @@ page 进货 card (state, supplier order number, cost, margin, card, 重试进货
 订单 filter 进货失败, menu badge and 概览 count it; 概览 reminds the owner to keep the supplier balance topped up (the API
 has no balance call).
 
+### 分类 (大类 / 小类, 2026-10-18)
+
+**Code.** `app/lib/shop_cats.php` (data, CRUD, limits, public tree, `shop_home_ctx()`), admin controllers and
+`admin_cat_select()` in `admin_shop.php`, view `cats`, picker in `shop_edit` and `supply_item`, filter chips in `shop`,
+`render_shop_cat_tabs()` in `blocks.php`, `shop_crumbs_html()` in `shop_pages.php`, condition `has_shop_cats`, CSS in
+`home-extra.css` / `shop.css` / `admin.css`, picker script in `admin.js`. Tests: `run.php` group `cats` (+ import checks in
+`supply`), `shop.e2e.js` stage `categories` (`ONLY_CATS=1` runs only it; screenshots in `pilot-blog-work/screens/categories/`).
+
+**Data.** `blog-data/shop/categories.json` (0600, written under `with_lock('shop')` with `json_write_atomic`):
+`{rev, updated_at, items:[{id, name, subs:[{id, name}]}]}`, ids `c` + 8 random hex (`SHOP_CAT_ID_RE`), unique across
+both levels and never changed by a rename or a move. Limits: 20 大类, 30 小类 per 大类, names 1..12 characters, one plain
+line (control and bidi characters removed), no duplicate name at one level (case-insensitive). On read, bad ids,
+duplicate ids and empty names are dropped. Products get `cat` = '' (不分类), a 大类 id or a 小类 id; products saved before
+categories (no key) or with a malformed value read as ''; an id that no longer exists is treated as 不分类 when rendering.
+A save that does not send `cat` keeps it; an unknown id is refused (`fields.cat`). Category edits republish without a
+version entry (live shop data, like products).
+
+**Delete rule.** Refused while any product (on sale or not) is in the category or, for a 大类, in one of its 小类; the
+message gives the count and says to move those products first. A 大类 whose 小类 are all empty is deleted with them
+(the confirm sheet says so). The admin page shows the note and a link to the filtered 商品 list instead of the button.
+
+**Admin.** Menu 商品分类 (after 商品; also a button on 商品). One card per 大类: name, counts (all / on sale, 「首页不显示」
+when none on sale), 上移 / 下移 (plain POST forms, 44 px), 改名或删除 (details), its 小类 list with the same controls, and
+加小类. 商品 list: filter chips 全部 / each 大类 / 不分类 (`?r=shop&cat=<id|none>`, moving is hidden while filtered) and
+the category on each row. Product editor and 货源 import: one plain `<select name="cat">` (不分类, 大类, 「大类 / 小类」),
+which `admin.js` replaces with a 大类 select and a dependent 小类 select (「不选小类（直接放在大类里）」 first) writing into it.
+
+**Public.** Only when the shop is open and some 大类 holds a product shown on the site: above the grid a row of 大类 tabs
+(`button.cat-tab`, `aria-pressed`, 全部 first with the total, 大类 in owner order with counts, 其他 last when shown products
+have no category) and, per 大类 with non-empty 小类, a hidden row of chips (全部 + 小类). Empty 大类 / 小类 are left out.
+Every card gets `data-cat` (大类 id or `other`) / `data-sub` and a `good-c` line naming its category. Rows are single
+lines that scroll sideways (edge fades when more is hidden), touch targets 44 px. Without script the rows are hidden by
+`html:not(.js)` and every product shows. The script filters with `hidden`, announces 「显示 N 件商品」 in a polite live
+region, and writes `#shop/c/<id>` (or `#shop` for 全部) with `replaceState`; on load or `hashchange` a `#shop/c/<id>`
+(大类, 小类 or `other`) picks the filter and scrolls `#shop` into view (instant, again on `load` unless the visitor already
+scrolled); an unknown id shows everything. `#ai` and the other anchors are untouched. Product pages show
+`商城 / 大类 / 小类` (or `商城 / 其他`) linking to `../#shop` and `../#shop/c/<id>`, only when the home page has tabs.
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -1880,8 +1926,11 @@ php pilot-blog-work/backend/tests/run.php            # or name groups: ... run.p
 # public pages in Chromium: launch page + browser subscribe flow, then 0, 1, 3 and 8 published posts at 1440 and 390
 node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub3
 
-# the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, screenshots in screens/shop/
+# the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, then the categories stage
 node pilot-blog-work/backend/tests/shop.e2e.js         # or: ... shop.e2e.js 390
+
+# only the category stage (admin 商品分类, editor picker, home tabs, deep link, no-script view, breadcrumb)
+ONLY_CATS=1 node pilot-blog-work/backend/tests/shop.e2e.js   # screenshots in screens/categories/
 
 # 货源 in Chromium against the mock supplier: import, buy, confirm, card reveal; screenshots in screens/supplier/
 node pilot-blog-work/backend/tests/supply.e2e.js       # or: ... supply.e2e.js 390
