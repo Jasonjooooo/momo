@@ -1,5 +1,5 @@
 <?php
-// Admin controllers for the 货源 (SPEC §21): connection settings with a write-only key, 测试连接, the supplier's catalog
+// Admin controllers for the 货源 (SPEC §20 货源): connection settings with a write-only key, 测试连接, the supplier's catalog
 // and 上架 one product at a time. Plain server-rendered forms like the rest of the shop admin. The key never reaches a
 // page: only its last 4 characters are shown.
 declare(strict_types=1);

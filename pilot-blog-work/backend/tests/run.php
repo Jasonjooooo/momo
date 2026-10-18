@@ -1328,7 +1328,7 @@ function shop_http_tests(array $ph, array $dg): void
     ok(!str_contains($logs, 'buyer@example.com') && !str_contains($logs, '13800138000') && !str_contains($logs, '王五'), 'no buyer data in the audit log, stats or usage files');
 }
 
-// ---------- 货源 (SPEC §21) ----------
+// ---------- 货源 (SPEC §20 货源) ----------
 
 /** Start the mock supplier; returns [proc, port, stateFile]. */
 function mock_start(): array
@@ -1592,6 +1592,21 @@ function group_supply(): void
         ok(!$r['ok'] && $o8['status'] === 'failed' && str_contains($o8['supply']['msg'], '比买家付的'), 'a cost above what the buyer paid is never bought, even when accepted');
         mock_knobs(['price_bump' => 0]);
         shop_owner_action($o8['id'], 'cancel', ['reason' => '涨价了，已退款']);
+
+        // hostile card content from the supplier: shown as text, never as markup
+        $ox = supply_paid_order($p1['slug']);
+        mock_knobs(['secret_override' => "<script>alert(1)</script>\n<img src=x onerror=alert(2)>\u{202E}KEY-1\x07"]);
+        supply_fulfill($ox['id'], 'confirm');
+        mock_knobs(['secret_override' => null]);
+        $ox = shop_order_get($ox['id']);
+        $lk = shop_lookup_result_html($ox, shop_product_get($ox['product_id']), null);
+        ok($ox['status'] === 'completed' && str_contains($lk, '&lt;script&gt;alert(1)&lt;/script&gt;') && !str_contains($lk, '<script>') && !str_contains($lk, '<img src=x') && !str_contains($ox['supply']['secret'], "\u{202E}") && !str_contains($ox['supply']['secret'], "\x07"), 'hostile card content is stored without control/bidi characters and shown escaped');
+        // the order form refreshes the supplier's stock at most every 30 s per product, even when the supplier fails
+        $calls0 = count(mock_state()['calls']);
+        for ($i = 0; $i < 5; $i++) {
+            supply_refresh_product($p1['id'], 0 + 1);
+        }
+        ok(count(mock_state()['calls']) - $calls0 <= 1, 'public stock refreshes are throttled (one outbound call for five order-form views)', (string) (count(mock_state()['calls']) - $calls0));
 
         // email contact type
         $o9 = supply_paid_order($p4['slug'], 3, 'Mail.Buyer@Example.com');

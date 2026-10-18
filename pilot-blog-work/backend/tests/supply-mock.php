@@ -147,6 +147,9 @@ return with_state(function (array &$s) use ($path, $p) {
             $s['seq'] = ($s['seq'] ?? 1000) + 1;
             $tradeNo = 'T' . $s['seq'];
             $secret = $i['delivery_way'] === 1 ? '卡密正在发货中，请耐心等待' : implode("\n", array_map(fn($n) => 'CARD-' . $s['seq'] . '-' . $n . ' 密码 ' . substr(md5($tradeNo . $n), 0, 10), range(1, $num)));
+            if (isset($k['secret_override'])) {
+                $secret = (string) $k['secret_override'];
+            }
             $res = ['tradeNo' => $tradeNo, 'amount' => number_format($amount / 100, 2, '.', ''), 'secret' => $secret, 'stock' => $stock - $num];
             $s['trades'][$req] = $res;
             $s['by_trade'][$tradeNo] = ['manual' => $i['delivery_way'] === 1, 'num' => $num];

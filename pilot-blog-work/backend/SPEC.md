@@ -1726,6 +1726,15 @@ Added by the shop pass (2026-10-17, owner request):
 28. **CSV cells.** `csv_cell()` (subscribers and orders) also defuses a formula that follows leading spaces or an
    ideographic space.
 
+Added by the supplier pass (2026-10-18, owner request):
+
+29. **货源: game top-up cards resold from a supplier store.** Owner-approved: products from a 发卡系统「店铺共享」 supplier
+   appear in the existing 商城 as a third product type `supply` (buyer label 自动发卡), next to physical and digital goods.
+   New order status `failed` (进货失败, owner only; the buyer sees 已确认收款，正在发货). Only the admin makes outbound calls
+   (货源 page, product editor, 确认收款, order page); the public side calls the supplier only to refresh stock on the order
+   form (cached 5 min, at most once per 30 s per product) and to poll a not-yet-delivered card on lookup (once a minute per
+   order). No new public entry point, no Nginx or .htaccess change. Details in §20 「货源」.
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
@@ -1794,6 +1803,63 @@ digital text/link, one file); delete only without orders. 订单: filters 要处
 已取消 / 全部, search by number, phone, name, email or amount, 30 per page, CSV export (BOM, CRLF, quoted, formula-safe).
 收款设置: 营业 switch, 收款码 upload (re-encoded to PNG ≤1200 px on white), shipping, free-over, auto-cancel hours, notice.
 
+### 货源 (supplier cards, 2026-10-18)
+
+**Code.** `app/lib/supply.php` (signed client, address checks, catalog cache, import, stock refresh, buying, polling),
+`app/lib/admin_supply.php`, views `supply` and `supply_item`; changes in `shop.php` (type `supply`, status `failed`,
+`shop_product_live()`), `shop_pages.php` (buyer copy, card reveal), `admin_shop.php` (confirm → buy, 重试进货 etc.),
+`order.php`, `shop_edit.php`, `orders.php`, `dashboard.php`. Tests: `tests/supply-mock.php` (+ `supply-mock-data.php`,
+a php -S mock that checks every signature), `run.php` group `supply`, `tests/supply.e2e.js` (+ `supply-fixture.php`,
+screenshots in `pilot-blog-work/screens/supplier/`).
+
+**Settings.** `settings.supply = {enabled, base_url, app_id}`; the app key is `secrets.json` `supply_app_key` (+
+`supply_key_set_at`): write-only, the page shows only its last 4 characters, never logged. `supply.enabled` is part of
+`settings_page_state()` (toggling republishes); supply products are shown and orderable only while it is on
+(`shop_product_live()`). 测试连接 calls `/shared/authentication/connect`; refusals and network errors add the hint to put
+the server IP `45.152.64.62` in the supplier's 对接白名单.
+
+**Outbound calls** (`supply_call()`): POST `application/x-www-form-urlencoded` to `base_url + path` (paths
+`/shared/...` only) with `app_id` and `sign`; sign = md5(urldecode(http_build_query(ksorted params without '' values) .
+'&key=' . app_key)), arrays signed as submitted. The address must be `https://` (ports 443/8443 only), no userinfo, query
+or fragment, a public DNS name (no single-label, `.local`, `.internal`, `.lan` …) or a public IP literal. Every call
+resolves the host and refuses it unless **every** A/AAAA answer is public (private, loopback, link-local, CGNAT,
+benchmark, documentation, multicast, IPv4-mapped and NAT64 ranges blocked); the checked address is pinned with
+`CURLOPT_RESOLVE` (no DNS rebinding), proxies are bypassed, redirects are not followed, TLS is verified, 5 s connect / 10 s
+total, answers over 2 MB are cut off, the body must be JSON with `code`. Streams fallback without the curl extension (same
+rules, peer name = host). Results: `ok` (code 200), `refused` (a definite no, with the supplier's `msg`), `net`/`bad` (the
+outcome is unknown), `config` (nothing sent). Logs carry the path and the kind only. Tests only: `BLOG_SUPPLY_TEST_LOOPBACK=1`
+under the CLI or the dev server allows `http://127.0.0.1`.
+
+**Catalog and import.** `/items` and `/item` answers are cached 5 minutes in `blog-data/supply/cache/` (successes only).
+Cost = `user_price` (or the 种类 price from `config.category`); the import uses `/valuation` for the exact cost of the
+minimum quantity. 暂不支持 with the reason: `config.sku` set, a non-empty `widget`, `password_status` 1, contact type phone
+or QQ, `seckill_status` 1, minimum over 20, or no price. Supported: plain, 种类 (`race`, one shop product per code + 种类,
+no duplicates), manual delivery, contact any (the supplier gets our order number) or email (the buyer's email; the order
+form says so). 预选卡密 is optional on the supplier side and never sent. The new product: owner-set name, a generated
+default card photo, description = the supplier's HTML turned into plain text (owner may edit), price ≥ cost (refused
+below cost at import and while on sale in the editor), `stock` = the supplier's stock (not reserved by orders),
+`supply = {code, race, src_name, cost, cost_at, stock_at, min, max, contact, manual}`; per-order quantity from
+minimum/maximum (capped at 20). Buyers never see the supplier's name, codes, cost or messages.
+
+**Buying** (`supply_fulfill()`, after 确认收款): never before the owner confirmed; one global flock `supply-trade` around
+the whole purchase, the order re-read inside it (a bought order is never bought again; four simultaneous 确认收款 clicks =
+one purchase, tested). Valuation first: refused when the cost exceeds what the buyer paid for the goods, or rose more than
+10 % over the cost the order saw (owner can 按新成本进货, never above what the buyer paid). `request_no` =
+`PB<order number without dash>T<attempt>` is written to the order before the call. Unknown outcome (timeout, broken
+answer, crash) keeps the same `request_no` for 重试进货; a definite refusal moves to the next attempt; if the supplier refuses
+a retried unknown `request_no`, the order waits for the owner to check the supplier (确认没买成，重新进货). Success stores
+`trade_no`, `amount`, `secret` (card content, control/bidi characters removed, ≤ 5000) on the order and completes it; a
+pending note (manual delivery) keeps it `confirmed` and `/query` is polled when the owner or buyer opens the order (once a
+minute per order). Failures put the order in `failed` with the supplier's message for the owner; it can be retried,
+cancelled (only when nothing was bought) or refunded. The card is shown on the buyer's lookup like digital delivery
+(escaped text), erased with the buyer data 180 days after closing, never in the CSV, logs or stats.
+
+**Admin.** Menu 货源 (switch, connection settings, 测试连接, whitelist and balance reminder, imported products with cost and
+margin, the supplier catalog by category with 上架); product editor 货源 box (cost, margin, stock, 刷新成本和库存); order
+page 进货 card (state, supplier order number, cost, margin, card, 重试进货 / 按新成本进货 / 确认没买成，重新进货 / 刷新卡密);
+订单 filter 进货失败, menu badge and 概览 count it; 概览 reminds the owner to keep the supplier balance topped up (the API
+has no balance call).
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -1816,6 +1882,9 @@ node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub
 
 # the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, screenshots in screens/shop/
 node pilot-blog-work/backend/tests/shop.e2e.js         # or: ... shop.e2e.js 390
+
+# 货源 in Chromium against the mock supplier: import, buy, confirm, card reveal; screenshots in screens/supplier/
+node pilot-blog-work/backend/tests/supply.e2e.js       # or: ... supply.e2e.js 390
 
 # the owner's end-to-end QA: every admin flow at 1440 and 390 on a throwaway site (~2.5 min)
 PORT=9300 node pilot-blog-work/backend/e2e.js         # or: ... e2e.js 390   (add keep to leave the temp dirs)

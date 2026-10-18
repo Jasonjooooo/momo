@@ -1,5 +1,5 @@
 <?php
-// 货源 (SPEC §21): the owner resells game top-up cards from a supplier store (发卡系统「店铺共享」API).
+// 货源 (SPEC §20 货源): the owner resells game top-up cards from a supplier store (发卡系统「店铺共享」API).
 // Only the admin and the owner's 确认收款 make outbound calls; buyers never reach the supplier directly. The app key
 // lives in secrets.json (never sent to a browser, never logged). Every call goes to a validated https host whose DNS
 // answers are all public addresses, pinned for the connection (no SSRF into the hosting network, no DNS rebinding),
@@ -856,6 +856,11 @@ function supply_refresh_product(string $id, int $maxAge = SUPPLY_CACHE_TTL, bool
     $s = $p['supply'];
     $stale = $s['stock_at'] === null || time() - (int) strtotime($s['stock_at']) >= $maxAge;
     if (!$stale && !$cost) {
+        return $p;
+    }
+    // public pages refresh at most once every 30 s per product, whatever the outcome: a slow or broken supplier
+    // must not turn every visit to the order form into a 10-second outbound call
+    if (!$cost && $maxAge > 0 && !rl_hit('supply-stock', $id, 1, 30, true)['allowed']) {
         return $p;
     }
     $st = supply_stock($s['code'], $s['race']);
