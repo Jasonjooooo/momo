@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'supply', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -1331,6 +1331,157 @@ function shop_http_tests(array $ph, array $dg): void
 // ---------- 货源 (SPEC §20 货源) ----------
 
 /** Start the mock supplier; returns [proc, port, stateFile]. */
+function group_cats(): void
+{
+    app_init('cli');
+    publish_site('初始内容');
+    ok(shop_cats() === [], 'no categories file: no categories');
+    // migration: products saved before categories have no `cat` key and read as 不分类; a hand-broken value too
+    shop_ensure_dirs();
+    $tmp = shop_png();
+    $src = image_store_file($tmp)['src'];
+    unlink($tmp);
+    json_write_atomic(shop_products_path(), ['rev' => 3, 'items' => [
+        ['id' => 'g00000000a1', 'slug' => 'old-one', 'name' => '老商品', 'type' => 'physical', 'price' => 1000, 'stock' => 5, 'on_sale' => true, 'photos' => [['src' => $src, 'alt' => '']]],
+        ['id' => 'g00000000a2', 'slug' => 'old-two', 'name' => '老商品二', 'type' => 'physical', 'price' => 2000, 'stock' => 5, 'on_sale' => true, 'photos' => [['src' => $src, 'alt' => '']], 'cat' => '"><script>'],
+    ]]);
+    $old = shop_products();
+    ok($old[0]['cat'] === '' && $old[1]['cat'] === '', 'migration: products without a category (or with a broken one) read as 不分类, no file edit needed');
+    publish_site('迁移', ['version' => false]);
+    ok(!str_contains(pub('index.html'), 'data-shop-cats') && !str_contains(pub('index.html'), 'data-cat=') && !str_contains(pub('shop/old-one.html'), 'class="crumbs"'), 'no categories yet: the home grid and product pages look as before (no tabs, no breadcrumb)');
+
+    // names and limits
+    ok(throws(fn() => shop_cat_add('   '), ShopError::class), 'empty name refused');
+    ok(throws(fn() => shop_cat_add(str_repeat('长', 13)), ShopError::class), 'name over 12 characters refused');
+    $a = shop_cat_add(str_repeat('长', 12));
+    ok(preg_match(SHOP_CAT_ID_RE, $a['id']) === 1 && $a['name'] === str_repeat('长', 12), '12 characters accepted, id c + 8 hex');
+    $b = shop_cat_add("航空\x00周边\u{202E}");
+    ok($b['name'] === '航空 周边', 'name is one plain line: control and bidi characters removed', $b['name']);
+    ok(throws(fn() => shop_cat_add('航空 周边'), ShopError::class), 'a second 大类 with the same name refused');
+    $s1 = shop_cat_add('海报', $b['id']);
+    $s2 = shop_cat_add('徽章', $b['id']);
+    ok(throws(fn() => shop_cat_add('海报', $b['id']), ShopError::class) && shop_cat_add('海报', $a['id'])['name'] === '海报', 'same 小类 name refused inside one 大类, fine in another');
+    ok(throws(fn() => shop_cat_add('x', 'c00000000'), ShopError::class), '小类 in a missing 大类 refused');
+    $ids = array_keys(shop_cat_index(shop_cats()));
+    ok(count($ids) === count(array_unique($ids)) && count($ids) === 5, 'ids are unique across both levels');
+    for ($i = count(shop_cats()); $i < SHOP_CATS_MAX; $i++) {
+        shop_cat_add('类' . $i);
+    }
+    ok(count(shop_cats()) === 20 && throws(fn() => shop_cat_add('第二十一'), ShopError::class), 'at most 20 大类');
+    $many = shop_cat_add('子' . 0, $a['id']);
+    for ($i = 2; $i < SHOP_SUBS_MAX; $i++) {
+        shop_cat_add('子' . $i, $a['id']);
+    }
+    ok(count(shop_cats()[0]['subs']) === 30 && throws(fn() => shop_cat_add('子满', $a['id']), ShopError::class), 'at most 30 小类 in one 大类');
+    // delete the empty filler (a 大类 with 30 empty 小类 goes with them)
+    shop_cat_delete($a['id']);
+    foreach (shop_cats() as $c) {
+        if (str_starts_with($c['name'], '类')) {
+            shop_cat_delete($c['id']);
+        }
+    }
+    ok(array_column(shop_cats(), 'name') === ['航空 周边'] && !isset(shop_cat_index(shop_cats())[$many['id']]), 'deleting an empty 大类 removes its empty 小类 too');
+
+    // rename, order
+    shop_cat_rename($b['id'], '航空周边');
+    shop_cat_rename($s2['id'], '徽章贴纸');
+    ok(shop_cats()[0]['name'] === '航空周边' && shop_cats()[0]['subs'][1]['name'] === '徽章贴纸' && shop_cats()[0]['id'] === $b['id'], 'rename keeps the id');
+    ok(throws(fn() => shop_cat_rename($s2['id'], '海报'), ShopError::class) && throws(fn() => shop_cat_rename($b['id'], ''), ShopError::class), 'rename to a taken or empty name refused');
+    $c = shop_cat_add('书和资料');
+    ok(shop_cat_move($c['id'], 'up') && array_column(shop_cats(), 'id') === [$c['id'], $b['id']], '大类 move up');
+    ok(!shop_cat_move($c['id'], 'up'), 'the first 大类 cannot move further up');
+    ok(shop_cat_move($s1['id'], 'down') && array_column(shop_cats()[1]['subs'], 'id') === [$s2['id'], $s1['id']], '小类 move down inside its 大类');
+    ok(!shop_cat_move($s1['id'], 'down'), 'the last 小类 cannot move further down');
+
+    // products in categories
+    $poster = shop_make('poster', 'physical', '99', 3, ['cat' => $s1['id']]);
+    $book = shop_make('book', 'digital', '19', null, ['cat' => $c['id']]);
+    ok($poster['cat'] === $s1['id'] && $book['cat'] === $c['id'], 'a product sits in a 小类 or directly in a 大类');
+    try {
+        shop_product_save($poster['id'], ['name' => 'x', 'slug' => 'poster', 'type' => 'physical', 'price' => '99', 'stock' => '3', 'stock_seen' => '3', 'on_sale' => '1', 'cat' => 'c00000000'], shop_product_get($poster['id'])['rev']);
+        ok(false, 'unknown category refused');
+    } catch (ShopError $e) {
+        ok(isset($e->fields['cat']), 'saving a product into a category that does not exist is refused');
+    }
+    $p = shop_product_get($poster['id']);
+    shop_product_save($p['id'], ['name' => $p['name'], 'slug' => 'poster', 'type' => 'physical', 'price' => '99', 'stock' => '3', 'stock_seen' => '3', 'on_sale' => '1'], $p['rev']);
+    ok(shop_product_get($poster['id'])['cat'] === $s1['id'], 'a save that does not send the category keeps it');
+    $badge = shop_make('badge', 'physical', '15', 9, ['cat' => $b['id']]);
+    $off = shop_make('offsale', 'physical', '5', 9, ['cat' => $s2['id']]);
+    shop_product_save($off['id'], ['name' => $off['name'], 'slug' => 'offsale', 'type' => 'physical', 'price' => '5', 'stock' => '9', 'stock_seen' => '9', 'on_sale' => ''], $off['rev']);
+
+    // delete with products: refused, with the count
+    try {
+        shop_cat_delete($s1['id']);
+        ok(false, '小类 with a product refused');
+    } catch (ShopError $e) {
+        ok($e->code_ === 'state' && str_contains($e->getMessage(), '还有 1 件商品'), 'deleting a 小类 that holds a product is refused with the count', $e->getMessage());
+    }
+    try {
+        shop_cat_delete($b['id']);
+        ok(false, '大类 with products refused');
+    } catch (ShopError $e) {
+        ok(str_contains($e->getMessage(), '还有 3 件商品'), 'deleting a 大类 counts the products in it and its 小类 (an off-sale one too)', $e->getMessage());
+    }
+    ok(throws(fn() => shop_cat_delete($s2['id']), ShopError::class), 'a 小类 holding only an off-sale product cannot be deleted either');
+
+    // the public tree and the published pages
+    $settings = settings_get();
+    $tree = shop_cats_public(shop_cats(), array_values(array_filter(shop_products(), fn($x) => shop_product_live($x, $settings))));
+    ok(array_column($tree['cats'], 'id') === [$c['id'], $b['id']] && array_column($tree['cats'][1]['subs'], 'id') === [$s1['id']] && $tree['cats'][1]['n'] === 2 && $tree['cats'][1]['direct'] === 1 && $tree['other'] === 2,
+        'public tree: owner order, only 小类 with a product on sale (徽章贴纸 holds only an off-sale one), counts, 其他 = 2 old products', json_encode($tree, JSON_UNESCAPED_UNICODE));
+    $home = pub('index.html');
+    ok(str_contains($home, '<div class="shop-cats" data-shop-cats>') && str_contains($home, '#shop/c/') && str_contains($home, 'shopCats()'), 'home: tabs block and its script are published');
+    $tabsAt = strpos($home, 'class="cat-tabs"');
+    $order = [strpos($home, '>全部<', $tabsAt), strpos($home, '>书和资料<', $tabsAt), strpos($home, '>航空周边<', $tabsAt), strpos($home, '>其他<', $tabsAt)];
+    ok(!in_array(false, $order, true) && $order === array_values(array_unique($order)) && $order[0] < $order[1] && $order[1] < $order[2] && $order[2] < $order[3], 'tabs: 全部 first, 大类 in owner order, 其他 last');
+    ok(str_contains($home, 'data-subs-of="' . $b['id'] . '" hidden><button type="button" class="cat-chip" data-sub="" aria-pressed="true">全部</button><button type="button" class="cat-chip" data-sub="' . $s1['id'] . '" aria-pressed="false">海报</button></div>')
+        && !str_contains($home, '徽章贴纸') && !str_contains($home, 'data-subs-of="' . $c['id'] . '"'), 'chips: one row per 大类 with 小类, 全部 first; empty 小类 and rows for a 大类 without 小类 left out');
+    ok(str_contains($home, 'data-cat="' . $b['id'] . '" data-sub="' . $s1['id'] . '"><a class="good-a" href="shop/poster.html"') && str_contains($home, 'data-cat="' . $b['id'] . '" data-sub=""><a class="good-a" href="shop/badge.html"')
+        && str_contains($home, 'data-cat="other" data-sub=""><a class="good-a" href="shop/old-one.html"'), 'goods carry their 大类 / 小类 (or other) for the filter');
+    ok(str_contains($home, 'type="button" class="cat-tab" data-cat="" aria-pressed="true">全部') && substr_count($home, 'class="cat-tab"') === 4, 'tabs are buttons with aria-pressed (全部 pressed)');
+    ok(!str_contains($home, ' hidden><a class="good-a"') && !preg_match('/<li class="good[^"]*"[^>]*\shidden/', $home), 'every product is in the published grid without script (nothing hidden server-side)');
+    ok(str_contains($home, '<span class="good-c">航空周边 / 海报</span>') && str_contains($home, '<span class="good-c">其他</span>'), 'cards name their category (visible without script)');
+    $pp = pub('shop/poster.html');
+    ok(str_contains($pp, '<nav class="crumbs" aria-label="所在分类"><ol><li><a href="../#shop">商城</a></li><li><a href="../#shop/c/' . $b['id'] . '">航空周边</a></li><li><a href="../#shop/c/' . $s1['id'] . '">海报</a></li></ol></nav>'), 'product page breadcrumb 商城 / 大类 / 小类 links to the filtered home shop');
+    ok(str_contains(pub('shop/book.html'), '<li><a href="../#shop/c/' . $c['id'] . '">书和资料</a></li></ol>') && str_contains(pub('shop/old-one.html'), '<li><a href="../#shop/c/other">其他</a></li></ol>'), 'breadcrumb: a product directly in a 大类 stops there; no category: 其他');
+    ok(str_contains($home, '<style id="extra-css">') && str_contains($home, '.cat-tab[aria-pressed="true"]'), 'the category styles are published with the extra CSS');
+
+    // empty categories are hidden; moving products out then deleting works
+    $bk = shop_product_get($book['id']);
+    shop_product_save($bk['id'], ['name' => $bk['name'], 'slug' => 'book', 'type' => 'digital', 'price' => '19', 'stock' => '', 'unlimited' => '1', 'stock_seen' => '', 'on_sale' => '', 'dl_text' => '提取码 1234', 'cat' => $c['id']], $bk['rev']);
+    ok(!str_contains(pub('index.html'), '>书和资料<'), 'a 大类 whose only product went off sale disappears from the home tabs');
+    $bk = shop_product_get($book['id']);
+    shop_product_save($bk['id'], ['name' => $bk['name'], 'slug' => 'book', 'type' => 'digital', 'price' => '19', 'stock' => '', 'unlimited' => '1', 'stock_seen' => '', 'on_sale' => '', 'dl_text' => '提取码 1234', 'cat' => ''], $bk['rev']);
+    shop_cat_delete($c['id']);
+    ok(!isset(shop_cat_index(shop_cats())[$c['id']]), 'after its product moved to 不分类, the 大类 can be deleted');
+    shop_cat_rename($b['id'], '新名字');
+    ok(str_contains(pub('index.html'), '>新名字<') && str_contains(pub('shop/poster.html'), '>新名字</a>'), 'a rename republishes the home tabs and the product pages');
+
+    // closed shop: no tabs
+    settings_save(['shop' => ['enabled' => false]], (int) settings_get()['rev']);
+    ok(!str_contains(pub('index.html'), 'data-shop-cats') && !str_contains(pub('shop/poster.html'), 'class="crumbs"'), 'shop closed: no tabs and no breadcrumb');
+    settings_save(['shop' => ['enabled' => true]], (int) settings_get()['rev']);
+
+    // escaping: hostile names and a hand-edited file
+    $x = shop_cat_add('<zz>"&\'</zz>', $b['id']);
+    $pp = shop_product_get($poster['id']);
+    shop_product_save($pp['id'], ['name' => $pp['name'], 'slug' => 'poster', 'type' => 'physical', 'price' => '99', 'stock' => '3', 'stock_seen' => '3', 'on_sale' => '1', 'cat' => $x['id']], $pp['rev']);
+    $all = pub('index.html') . pub('shop/poster.html');
+    ok(!str_contains($all, '<zz>') && substr_count($all, '&lt;zz&gt;') === 3, 'category names are escaped on the home chips, cards and the breadcrumb', (string) substr_count($all, '&lt;zz&gt;'));
+    shop_cat_rename($b['id'], '"><b>x');
+    ok(!str_contains(pub('index.html') . pub('shop/poster.html'), '"><b>x') && str_contains(pub('index.html'), 'aria-label="「&quot;&gt;&lt;b&gt;x」的小类"'), 'a 大类 name is escaped in attributes (aria-label) too');
+    $doc = json_read(shop_cats_path(), []);
+    $doc['items'][] = ['id' => 'c1234567"><script>alert(1)</script>', 'name' => 'bad', 'subs' => []];
+    $doc['items'][] = ['id' => $b['id'], 'name' => '重复', 'subs' => []];
+    $doc['items'][] = ['id' => 'cabcdef01', 'name' => '', 'subs' => []];
+    json_write_atomic(shop_cats_path(), $doc);
+    ok(array_column(shop_cats(), 'id') === [$b['id']], 'a hand-edited file: bad ids, duplicate ids and empty names are dropped on read');
+    publish_site('检查', ['version' => false]);
+    ok(!str_contains(pub('index.html'), '<script>alert(1)'), 'nothing from a broken categories file reaches the page');
+    ok((fileperms(shop_cats_path()) & 0777) === 0600 || (fileperms(shop_cats_path()) & 0077) === 0, 'categories.json is private', decoct(fileperms(shop_cats_path()) & 0777));
+}
+
 function mock_start(): array
 {
     require_once __DIR__ . '/supply-mock-data.php';
@@ -1456,7 +1607,17 @@ function group_supply(): void
         ok(throws(fn() => supply_import('WZRY60', ['name' => 'again', 'price' => '9', 'on_sale' => '1']), ShopError::class), 'the same product and 种类 cannot be imported twice');
         $p2 = supply_import('YSRACE', ['name' => '原神 空月祝福', 'price' => '28', 'race' => '空月祝福', 'body' => '', 'on_sale' => '1']);
         ok($p2['supply']['race'] === '空月祝福' && $p2['supply']['cost'] === 2500, 'import with a 种类: cost of that 种类');
-        $p3 = supply_import('WZRYMAN', ['name' => '王者 皮肤礼包', 'price' => '35', 'body' => '', 'on_sale' => '1']);
+        $gameCat = shop_cat_add('游戏点卡');
+        $gameSub = shop_cat_add('王者荣耀', $gameCat['id']);
+        try {
+            supply_import('WZRYMAN', ['name' => '王者 皮肤礼包', 'price' => '35', 'body' => '', 'on_sale' => '1', 'cat' => 'c00000000']);
+            ok(false, 'import into a missing category refused');
+        } catch (ShopError $e) {
+            ok(isset($e->fields['cat']), 'import: a category that does not exist is refused');
+        }
+        $p3 = supply_import('WZRYMAN', ['name' => '王者 皮肤礼包', 'price' => '35', 'body' => '', 'on_sale' => '1', 'cat' => $gameSub['id']]);
+        ok($p3['cat'] === $gameSub['id'] && shop_product_get($p3['id'])['cat'] === $gameSub['id'] && $p1['cat'] === '', 'import: the category chosen at import is stored (none chosen: 不分类)');
+        ok(str_contains(pub('index.html'), 'data-cat="' . $gameCat['id'] . '" data-sub="' . $gameSub['id'] . '"') && str_contains(pub('shop/' . $p3['slug'] . '.html'), 'href="../#shop/c/' . $gameSub['id'] . '"'), 'an imported card shows under its category on the home grid and in its breadcrumb');
         $p4 = supply_import('MAIL01', ['name' => '邮箱卡', 'price' => '4', 'body' => '', 'on_sale' => '1']);
         $px = supply_import('XSSNAME', ['name' => '<img src=x onerror=alert(1)>点卡', 'price' => '10', 'body' => supply_item('XSSNAME')['item']['description'], 'on_sale' => '1']);
         $home = pub('index.html');
@@ -1774,7 +1935,7 @@ function group_admin(): void
     ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
     $copy = '';
     foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php',
-        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
+        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_cats.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
         $copy .= (string) file_get_contents($f);
     }
     ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');
