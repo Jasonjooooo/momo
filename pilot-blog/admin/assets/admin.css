@@ -343,3 +343,12 @@ fieldset.field .check{margin:6px 0}
 .pager{display:flex;gap:10px;margin:0 0 16px}
 .card form+form,.card form+p+form{margin-top:12px}
 .check input[type=radio]{align-self:center}
+
+/* ---------- 货源 ---------- */
+.sup-list{margin:0}
+.sup-row{display:flex;gap:10px;align-items:center;justify-content:space-between;padding:10px 12px;margin:0 0 8px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
+.sup-txt{min-width:0;flex:1}
+.sup-txt .prow-t{overflow-wrap:anywhere}
+.sup-row .btn{flex:none}
+.card-secret-admin{margin:6px 0 10px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);overflow-wrap:anywhere}
+.card-secret-admin p{margin:0 0 4px}

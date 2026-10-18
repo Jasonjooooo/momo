@@ -10,11 +10,37 @@ $unlimited = array_key_exists('unlimited', $form) ? $form['unlimited'] === '1' :
 $stock = $p['stock'] === null ? '' : (string) $p['stock'];
 $file = $p['delivery']['file'];
 $pageUrl = site_base() . 'shop/' . $p['slug'] . '.html';
+$isSupply = $p['type'] === 'supply';
 ?>
 <p class="crumb"><a href="<?= h(url('shop')) ?>">商品</a> / <span><?= h($p['on_sale'] ? '在卖' : '没上架') ?></span></p>
 <h1 class="page-h"><?= h($p['name'] !== '' ? $p['name'] : '新商品') ?></h1>
-<?php if ($p['on_sale'] && $p['photos']): ?>
+<?php if (shop_product_live($p)): ?>
 <p><a class="btn btn-ghost" href="<?= h($pageUrl) ?>" target="_blank" rel="noopener">看商品页</a></p>
+<?php endif; ?>
+<?php if ($isSupply): $sp = $p['supply']; $margin = $p['price'] - $sp['cost']; [$qMin, $qMax] = supply_qty_bounds($p); ?>
+<section class="card<?= h($margin < 0 ? ' card-hot' : '') ?>" aria-labelledby="g-supply">
+  <h2 class="card-h" id="g-supply">货源（只有你看得到）</h2>
+  <p class="where">这件是从货源进的卡。买家付款、你确认收款以后，网站自动从供货平台买一张，卡密显示在买家的「查订单」里。</p>
+  <dl class="kv">
+    <div><dt>供货平台的商品</dt><dd><?= h($sp['src_name'] !== '' ? $sp['src_name'] : $sp['code']) ?></dd></div>
+    <div><dt>商品编号</dt><dd class="mono sel"><?= h($sp['code'] . ($sp['race'] !== '' ? ' / ' . $sp['race'] : '')) ?></dd></div>
+    <div><dt>成本（每件）</dt><dd class="mono"><?= h('¥' . shop_money($sp['cost'])) ?></dd></div>
+    <div><dt>售价（每件）</dt><dd class="mono"><?= h('¥' . shop_money($p['price'])) ?></dd></div>
+    <div><dt>毛利（每件）</dt><dd class="mono<?= h($margin < 0 ? ' num-hot' : '') ?>"><?= h(($margin < 0 ? '亏 ¥' . shop_money(-$margin) : '¥' . shop_money($margin)) . ($p['price'] > 0 ? '（' . round($margin * 100 / $p['price']) . '%）' : '')) ?></dd></div>
+    <div><dt>供货平台库存</dt><dd class="mono"><?= h((string) (int) $p['stock']) ?></dd></div>
+    <div><dt>每单数量</dt><dd class="mono"><?= h($qMin === $qMax ? $qMin . ' 件' : $qMin . ' 到 ' . $qMax . ' 件') ?></dd></div>
+    <div><dt>发货方式</dt><dd><?= h($sp['manual'] ? '人工发货（要等供货方发卡）' : '自动发卡') ?></dd></div>
+  </dl>
+  <p class="where"><?= h('成本 ' . cn_time($sp['cost_at']) . ' 读取，库存 ' . cn_time($sp['stock_at']) . ' 读取。库存每 5 分钟跟供货平台对一次，买家下单前也会再对一次。') ?></p>
+<?php if ($margin < 0): ?>
+  <p class="notice notice-warn">售价低于成本，卖一单亏一单。调高售价以后才能上架。</p>
+<?php endif; ?>
+  <form method="post" action="<?= h(url('supply.product')) ?>">
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= h($p['id']) ?>">
+    <button class="btn" type="submit">刷新成本和库存</button>
+  </form>
+</section>
 <?php endif; ?>
 
 <section class="card" aria-labelledby="g-photos">
@@ -67,26 +93,38 @@ $pageUrl = site_base() . 'shop/' . $p['slug'] . '.html';
     <p class="ferr"<?php if (!$err('name')): ?> hidden<?php endif; ?>><?= h((string) $err('name')) ?></p>
   </div>
 
+<?php if ($isSupply): ?>
+  <input type="hidden" name="type" value="supply">
+  <input type="hidden" name="stock" value="<?= h($stock) ?>">
+<?php else: ?>
   <fieldset class="field">
     <legend class="label">类型</legend>
     <label class="check"><input type="radio" name="type" value="physical"<?php if ($type !== 'digital'): ?> checked<?php endif; ?>> 实物（你寄快递，买家填收货地址）</label>
     <label class="check"><input type="radio" name="type" value="digital"<?php if ($type === 'digital'): ?> checked<?php endif; ?>> 数字（教程、资料、文件或链接，买家填邮箱）</label>
   </fieldset>
+<?php endif; ?>
 
   <div class="field-row">
     <div class="field<?= h($err('price') ? ' has-err' : '') ?>">
-      <label for="s-price">价格（元）</label>
+      <label for="s-price"><?= h($isSupply ? '售价（元，每件）' : '价格（元）') ?></label>
       <div class="affix"><span>¥</span><input id="s-price" name="price" type="text" inputmode="decimal" value="<?= h($v('price', $p['price'] > 0 ? shop_money($p['price']) : '')) ?>" placeholder="99.00"></div>
+<?php if ($isSupply): ?>
+      <p class="hint"><?= h('成本 ¥' . shop_money($p['supply']['cost']) . '，售价不能低于它。') ?></p>
+<?php endif; ?>
       <p class="ferr"<?php if (!$err('price')): ?> hidden<?php endif; ?>><?= h((string) $err('price')) ?></p>
     </div>
+<?php if (!$isSupply): ?>
     <div class="field<?= h($err('stock') ? ' has-err' : '') ?>">
       <label for="s-stock">库存（件）</label>
       <input id="s-stock" name="stock" type="text" inputmode="numeric" value="<?= h($v('stock', $stock)) ?>">
       <p class="hint">有人下单会先扣掉；没付款被取消会放回来。</p>
       <p class="ferr"<?php if (!$err('stock')): ?> hidden<?php endif; ?>><?= h((string) $err('stock')) ?></p>
     </div>
+<?php endif; ?>
   </div>
+<?php if (!$isSupply): ?>
   <label class="check"><input type="checkbox" name="unlimited" value="1"<?php if ($unlimited): ?> checked<?php endif; ?>> 数字商品不限量（库存不用填）</label>
+<?php endif; ?>
 
   <div class="field<?= h($err('on_sale') ? ' has-err' : '') ?>">
     <label class="check check-big"><input type="checkbox" name="on_sale" value="1"<?php if ($onSale): ?> checked<?php endif; ?>> 上架（在首页商城显示，可以下单）</label>
@@ -120,6 +158,7 @@ $pageUrl = site_base() . 'shop/' . $p['slug'] . '.html';
   </div>
 <?php endforeach; ?>
 
+<?php if (!$isSupply): ?>
   <h3 class="sub-h">数字商品：买家付款后看到的内容</h3>
   <p class="where">只有数字商品用得到。你确认收款以后，买家在「查订单」里能看到下面的文字和链接，也能下载你传的文件。实物商品不用填。</p>
   <div class="field<?= h($err('dl_text') ? ' has-err' : '') ?>">
@@ -132,12 +171,14 @@ $pageUrl = site_base() . 'shop/' . $p['slug'] . '.html';
     <input id="s-dll" name="dl_link" type="url" inputmode="url" autocapitalize="off" spellcheck="false" placeholder="https://pan.baidu.com/s/…" value="<?= h($v('dl_link', $p['delivery']['link'])) ?>">
     <p class="ferr"<?php if (!$err('dl_link')): ?> hidden<?php endif; ?>><?= h((string) $err('dl_link')) ?></p>
   </div>
+<?php endif; ?>
 
   <div class="bar bar-static">
     <button class="btn btn-primary btn-wide" type="submit">保存</button>
   </div>
 </form>
 
+<?php if (!$isSupply): ?>
 <section class="card" aria-labelledby="g-file">
   <h2 class="card-h" id="g-file">数字商品：文件</h2>
   <p class="where">可以传一个文件（最大 <?= h((string) $file_mb) ?> MB），比如 PDF 或压缩包。文件放在网站后台的私有文件夹里，买家只能用「查订单」里 30 分钟有效的链接下载。更大的文件请放网盘，填上面的链接。</p>
@@ -157,6 +198,7 @@ $pageUrl = site_base() . 'shop/' . $p['slug'] . '.html';
     <button class="btn btn-primary" type="submit">上传文件</button>
   </form>
 </section>
+<?php endif; ?>
 
 <section class="card" aria-labelledby="g-del">
   <h2 class="card-h" id="g-del">删除</h2>

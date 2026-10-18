@@ -5,8 +5,8 @@
 declare(strict_types=1);
 defined('BLOG_APP') || exit;
 
-const SHOP_TYPES = ['physical' => '实物', 'digital' => '数字'];
-const SHOP_STATUS = ['pending' => '待付款', 'claimed' => '买家已付款，待确认', 'confirmed' => '已确认收款', 'shipped' => '已发货', 'completed' => '已完成', 'cancelled' => '已取消'];
+const SHOP_TYPES = ['physical' => '实物', 'digital' => '数字', 'supply' => '自动发卡'];   // supply: a card bought from the 货源 (supply.php)
+const SHOP_STATUS = ['pending' => '待付款', 'claimed' => '买家已付款，待确认', 'confirmed' => '已确认收款', 'shipped' => '已发货', 'completed' => '已完成', 'cancelled' => '已取消', 'failed' => '进货失败'];
 const SHOP_UNPAID = ['pending', 'claimed'];       // open orders whose payable amount must be unique
 const ORDER_ID_RE = '/^\d{8}-[A-HJ-KM-NP-Z2-9]{6}$/';
 const PRODUCT_ID_RE = '/^g[0-9a-f]{10}$/';
@@ -116,7 +116,7 @@ function shop_products(): array
 /** Canonical product shape (migrate on read: missing keys get defaults). */
 function shop_product_normalize(array $p): array
 {
-    $type = ($p['type'] ?? '') === 'digital' ? 'digital' : 'physical';
+    $type = in_array($p['type'] ?? '', ['digital', 'supply'], true) ? $p['type'] : 'physical';
     $photos = [];
     foreach ((is_array($p['photos'] ?? null) ? $p['photos'] : []) as $ph) {
         if (is_array($ph) && is_string($ph['src'] ?? null) && preg_match(UPLOAD_REL_RE, $ph['src'])) {
@@ -143,6 +143,7 @@ function shop_product_normalize(array $p): array
         'body' => (string) ($p['body'] ?? ''),
         'photos' => $photos,
         'delivery' => ['text' => (string) ($dl['text'] ?? ''), 'link' => (string) ($dl['link'] ?? ''), 'file' => $file],
+        'supply' => $type === 'supply' ? supply_link_normalize($p['supply'] ?? null) : null,
         'rev' => (int) ($p['rev'] ?? 1),
         'created_at' => (string) ($p['created_at'] ?? now_iso()),
         'updated_at' => (string) ($p['updated_at'] ?? now_iso()),
@@ -167,6 +168,12 @@ function shop_product_by_slug(string $slug): ?array
         }
     }
     return null;
+}
+
+/** Shown on the site and orderable: on sale, with a photo, and (cards from the 货源) the 货源 switched on. */
+function shop_product_live(array $p, ?array $settings = null): bool
+{
+    return $p['on_sale'] && $p['photos'] && ($p['type'] !== 'supply' || supply_settings($settings)['enabled']);
 }
 
 function shop_orders(): array
@@ -399,10 +406,11 @@ function shop_clean_line(mixed $v, int $max): string
 function shop_order_input(array $product, array $in): array
 {
     $e = [];
-    $qtyRaw = ascii_numbers(is_string($in['qty'] ?? null) ? $in['qty'] : '1');
+    [$qMin, $qMax] = ($product['type'] ?? '') === 'supply' ? supply_qty_bounds($product) : [1, SHOP_QTY_MAX];
+    $qtyRaw = ascii_numbers(is_string($in['qty'] ?? null) ? $in['qty'] : (string) $qMin);
     $qty = ctype_digit($qtyRaw) ? (int) $qtyRaw : 0;
-    if ($qty < 1 || $qty > SHOP_QTY_MAX) {
-        $e['qty'] = '数量请填 1 到 ' . SHOP_QTY_MAX . '。';
+    if ($qty < $qMin || $qty > $qMax) {
+        $e['qty'] = $qMin === $qMax ? '这件商品每单只能买 ' . $qMin . ' 件。' : '数量请填 ' . $qMin . ' 到 ' . $qMax . '。';
     }
     $c = ['qty' => $qty, 'name' => '', 'phone' => '', 'address' => '', 'email' => '', 'note' => shop_clean_line($in['note'] ?? '', 100)];
     if ($product['type'] === 'physical') {
@@ -519,7 +527,7 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
         }
         $idx = null;
         foreach ($products as $i => $p) {
-            if ($p['slug'] === $slug && $p['on_sale']) {
+            if ($p['slug'] === $slug && shop_product_live($p, $settings)) {
                 $idx = $i;
             }
         }
@@ -527,6 +535,10 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
             throw new ShopError('gone', '这件商品已经下架了。');
         }
         $p = $products[$idx];
+        $supply = $p['type'] === 'supply';
+        if ($supply && ($p['supply']['code'] === '' || !supply_ready($settings))) {
+            throw new ShopError('closed', '这件商品暂时不能买，过一会儿再来看看。');
+        }
         if ($p['stock'] !== null && $p['stock'] < $c['qty']) {
             throw new ShopError('stock', $p['stock'] <= 0 ? '这件商品刚刚卖完了。' : '库存不够了，现在最多能买 ' . $p['stock'] . ' 件。', ['qty' => '现在最多能买 ' . $p['stock'] . ' 件。']);
         }
@@ -560,7 +572,7 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
             'note' => $c['note'],
             'payer' => '',
             'verify' => shop_verify_hash($id, $secret),
-            'held' => $p['stock'] !== null,
+            'held' => $p['stock'] !== null && !$supply,   // a card's stock is the supplier's: nothing to reserve here
             'expires_at' => gmdate('Y-m-d\TH:i:s\Z', $now + 3600 * (int) $ss['cancel_hours']),
             'history' => [],
             'courier' => '',
@@ -571,8 +583,11 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
             'closed_at' => null,
             'redacted_at' => null,
         ];
+        if ($supply) {
+            $o['supply'] = supply_order_init($p, $c['email']);
+        }
         shop_hist($o, 'pending', 'buyer', '', $now);
-        if ($p['stock'] !== null) {
+        if ($p['stock'] !== null && !$supply) {
             $products[$idx]['stock'] = $p['stock'] - $c['qty'];
         }
         $orders[] = $o;
@@ -630,7 +645,7 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                 if ($st === 'cancelled' && !empty($o['cancel_auto']) && $o['redacted_at'] === null) {
                     // paid after the automatic cancel: take the stock again if it is still there
                     foreach ($products as &$p) {
-                        if ($p['id'] === $o['product_id'] && $p['stock'] !== null) {
+                        if ($p['id'] === $o['product_id'] && $p['stock'] !== null && $o['type'] !== 'supply') {
                             if ($p['stock'] < $o['qty']) {
                                 throw new ShopError('stock', '库存不够，没法恢复这个订单。先在「商品」里把库存加上，再来确认收款。');
                             }
@@ -647,6 +662,7 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                 }
                 $o['status'] = 'confirmed';
                 shop_hist($o, 'confirmed', 'owner', '', $now);
+                // a card from the 货源 stays 'confirmed' here: supply_fulfill() buys it right after and completes it
                 if ($o['type'] === 'digital') {
                     // nothing to ship: the lookup page shows the content from now on
                     $o['status'] = 'completed';
@@ -656,7 +672,7 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                 break;
             case 'ship':
                 if ($o['type'] !== 'physical' || !in_array($st, ['confirmed', 'shipped'], true)) {
-                    throw new ShopError('state', $o['type'] !== 'physical' ? '数字商品不用发货。' : '先确认收款，再发货。');
+                    throw new ShopError('state', $o['type'] !== 'physical' ? ($o['type'] === 'supply' ? '自动发卡的订单不用发快递。' : '数字商品不用发货。') : '先确认收款，再发货。');
                 }
                 $courier = shop_clean_line($args['courier'] ?? '', 20);
                 $tracking = shop_clean_line($args['tracking'] ?? '', 40);
@@ -682,12 +698,20 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                 if ($st === 'confirmed' && $o['type'] === 'physical') {
                     throw new ShopError('state', '实物订单先填快递并发货，再标记完成。');
                 }
+                if ($o['type'] === 'supply') {
+                    throw new ShopError('state', '自动发卡的订单在卡密发出以后自己完成。');
+                }
                 $o['status'] = 'completed';
                 $o['closed_at'] = $stamp;
                 shop_hist($o, 'completed', 'owner', '', $now);
                 break;
             case 'cancel':
-                if (!in_array($st, ['pending', 'claimed', 'confirmed'], true)) {
+                if ($o['type'] === 'supply' && (($o['supply']['trade_no'] ?? '') !== '' || ($o['supply']['state'] ?? '') === 'trading')) {
+                    throw new ShopError('state', ($o['supply']['state'] ?? '') === 'trading'
+                        ? '这个订单正在进货，等一会儿刷新页面再看。'
+                        : '这个订单已经从货源买到了卡（花了你的货源余额），不能取消。要退款的话，在微信或支付宝里退，再用「记录退款」写下来。');
+                }
+                if (!in_array($st, ['pending', 'claimed', 'confirmed', 'failed'], true)) {
                     throw new ShopError('state', $st === 'shipped' ? '已经发货的订单不能取消。需要退款的话，用「记录退款」写下来。' : '这个订单现在是「' . SHOP_STATUS[$st] . '」，不能取消。');
                 }
                 $reason = shop_clean_line($args['reason'] ?? '', 60);
@@ -761,6 +785,10 @@ function shop_redact(array &$o, int $now): void
     $o['note'] = '';
     $o['payer'] = '';
     $o['tracking'] = '';
+    if (isset($o['supply']) && is_array($o['supply'])) {
+        $o['supply']['secret'] = '';
+        $o['supply']['contact'] = '';
+    }
     $o['redacted_at'] = gmdate('Y-m-d\TH:i:s\Z', $now);
 }
 
@@ -804,7 +832,8 @@ function shop_product_input(array $cur, array $in, array $all): array
         }
     }
     $c['slug'] = $slug;
-    $c['type'] = ($in['type'] ?? '') === 'digital' ? 'digital' : 'physical';
+    $supply = $cur['type'] === 'supply';
+    $c['type'] = $supply ? 'supply' : (($in['type'] ?? '') === 'digital' ? 'digital' : 'physical');
     $price = shop_parse_money(is_string($in['price'] ?? null) ? $in['price'] : '');
     if ($price === null || $price < 1 || $price > SHOP_PRICE_MAX) {
         $e['price'] = '价格请填像 99 或 99.50 这样的数字（元），最多两位小数。';
@@ -813,7 +842,9 @@ function shop_product_input(array $cur, array $in, array $all): array
     }
     $unlimited = ($in['unlimited'] ?? '') === '1' && $c['type'] === 'digital';
     $stockRaw = ascii_numbers(is_string($in['stock'] ?? null) ? $in['stock'] : '');
-    if ($unlimited) {
+    if ($supply) {
+        $c['stock'] = $cur['stock'];   // the supplier's stock, refreshed from the 货源
+    } elseif ($unlimited) {
         $c['stock'] = null;
     } elseif (!ctype_digit($stockRaw) || (int) $stockRaw > SHOP_STOCK_MAX) {
         $e['stock'] = '库存请填 0 到 ' . SHOP_STOCK_MAX . ' 的整数。';
@@ -842,6 +873,11 @@ function shop_product_input(array $cur, array $in, array $all): array
     if ($link !== '' && (!shop_url_ok($link) || strlen($link) > 500)) {
         $e['dl_link'] = '链接要以 https:// 或 http:// 开头，像 https://pan.baidu.com/s/xxxx 这样。';
     }
+    if ($supply) {
+        unset($e['dl_text'], $e['dl_link']);   // the card itself is the delivery
+        $text = '';
+        $link = '';
+    }
     $c['delivery']['text'] = $text;
     $c['delivery']['link'] = $link;
     foreach ($c['photos'] as $k => $ph) {
@@ -854,6 +890,9 @@ function shop_product_input(array $cur, array $in, array $all): array
         }
         if ($c['type'] === 'digital' && $text === '' && $link === '' && $c['delivery']['file'] === null) {
             $e['on_sale'] = '数字商品上架前，先填好买家付款后能看到的内容（文字、链接或文件）。';
+        }
+        if ($supply && !isset($e['price']) && $c['price'] < $c['supply']['cost']) {
+            $e['price'] = '售价 ¥' . shop_money($c['price']) . ' 低于成本 ¥' . shop_money($c['supply']['cost']) . '，卖一单亏一单，不能上架。把售价调到成本以上，或者先不上架。';
         }
     }
     return [$c, $e];
@@ -901,7 +940,7 @@ function shop_product_save(string $id, array $in, int $rev): array
             [$c, $e] = shop_product_input($cur, $in, $products);
             $seenRaw = ascii_numbers(is_string($in['stock_seen'] ?? null) ? $in['stock_seen'] : '');
             $seen = $seenRaw === '' ? null : (int) $seenRaw;
-            if (!$e && $c['stock'] !== null && $cur['stock'] !== null && $seen !== null && $cur['stock'] !== $seen) {
+            if (!$e && $c['type'] !== 'supply' && $c['stock'] !== null && $cur['stock'] !== null && $seen !== null && $cur['stock'] !== $seen) {
                 if ($c['stock'] === $seen) {
                     $c['stock'] = $cur['stock'];   // untouched field: keep what orders left
                 } else {
@@ -1263,7 +1302,7 @@ function shop_catalog_text(): string
     try {
         $ss = shop_settings();
         foreach (shop_products() as $p) {
-            if (!$p['on_sale']) {
+            if (!shop_product_live($p)) {
                 continue;
             }
             $lines[] = '- ' . $p['name'] . '（' . SHOP_TYPES[$p['type']] . '，¥' . shop_money($p['price']) . '，' . (shop_avail_label($p) ?? '有货') . '）' . ($p['summary'] !== '' ? '：' . $p['summary'] : '');

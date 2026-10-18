@@ -40,7 +40,7 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
         'shop' => [
             'open' => (bool) $settings['shop']['enabled'],
             'notice' => (string) $settings['shop']['notice'],
-            'products' => array_values(array_filter($products, fn($p) => $p['on_sale'] && $p['photos'])),
+            'products' => array_values(array_filter($products, fn($p) => shop_product_live($p, $settings))),
         ],
     ];
     $base = $ctx;
@@ -186,7 +186,7 @@ function render_site(array $site, array $shelf, array $posts, array $settings, b
             $files['posts/' . $p['slug'] . '.html'] = render_post_page($p, $base, $published[$i + 1] ?? null, $published[$i - 1] ?? null);
         }
         $files['posts/index.html'] = render_archive($base, $published);
-        $shown = array_values(array_filter($products, fn($p) => $p['on_sale'] && $p['photos']));
+        $shown = array_values(array_filter($products, fn($p) => shop_product_live($p, $settings)));
         foreach ($shown as $k => $p) {
             if (!preg_match(SLUG_RE, $p['slug']) || $p['slug'] === 'index') {
                 return ['ok' => false, 'errors' => ['shop' => '商品《' . $p['name'] . '》的网址不对。']];

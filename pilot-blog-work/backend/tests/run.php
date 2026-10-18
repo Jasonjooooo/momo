@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'supply', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -13,7 +13,8 @@ if (($argv[1] ?? '') !== '--child') {
     $passed = 0;
     foreach ($want as $g) {
         $tmp = make_site();
-        $env = ['BLOG_PUBLIC_DIR' => $tmp . '/pub', 'BLOG_DATA_DIR' => $tmp . '/data', 'TEST_TMP' => $tmp, 'PATH' => getenv('PATH')];
+        $env = ['BLOG_PUBLIC_DIR' => $tmp . '/pub', 'BLOG_DATA_DIR' => $tmp . '/data', 'TEST_TMP' => $tmp, 'PATH' => getenv('PATH')]
+            + ($g === 'supply' ? ['BLOG_SUPPLY_TEST_LOOPBACK' => '1'] : []);
         $p = proc_open([PHP_BINARY, __FILE__, '--child', $g], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $env);
         $out = stream_get_contents($pipes[1]);
         $err = stream_get_contents($pipes[2]);
@@ -1327,6 +1328,399 @@ function shop_http_tests(array $ph, array $dg): void
     ok(!str_contains($logs, 'buyer@example.com') && !str_contains($logs, '13800138000') && !str_contains($logs, '王五'), 'no buyer data in the audit log, stats or usage files');
 }
 
+// ---------- 货源 (SPEC §21) ----------
+
+/** Start the mock supplier; returns [proc, port, stateFile]. */
+function mock_start(): array
+{
+    require_once __DIR__ . '/supply-mock-data.php';
+    $state = getenv('TEST_TMP') . '/mock-state.json';
+    file_put_contents($state, json_encode(supply_mock_state(), JSON_UNESCAPED_UNICODE));
+    $port = 30000 + random_int(0, 9999);
+    $env = ['MOCK_STATE' => $state, 'PATH' => getenv('PATH'), 'PHP_CLI_SERVER_WORKERS' => '4'];
+    $proc = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", __DIR__ . '/supply-mock.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, null, $env);
+    for ($i = 0; $i < 50 && @fsockopen('127.0.0.1', $port) === false; $i++) {
+        usleep(100000);
+    }
+    return [$proc, $port, $state];
+}
+
+function mock_state(): array
+{
+    return json_decode((string) file_get_contents($GLOBALS['MOCK_STATE']), true);
+}
+
+function mock_knobs(array $k): void
+{
+    $s = mock_state();
+    $s['knobs'] = $k + ($s['knobs'] ?? []);
+    file_put_contents($GLOBALS['MOCK_STATE'], json_encode($s, JSON_UNESCAPED_UNICODE));
+}
+
+function mock_set(string $key, mixed $v): void
+{
+    $s = mock_state();
+    $s[$key] = $v;
+    file_put_contents($GLOBALS['MOCK_STATE'], json_encode($s, JSON_UNESCAPED_UNICODE));
+}
+
+/** A paid supply order: created, then 确认收款 by the owner (status confirmed, nothing bought yet). */
+function supply_paid_order(string $slug, int $qty = 1, string $email = 'gamer@example.com'): array
+{
+    $p = shop_product_by_slug($slug);
+    [$c, $e] = shop_order_input($p, ['qty' => (string) $qty, 'email' => $email, 'consent' => '1']);
+    if ($e) {
+        throw new RuntimeException('order input: ' . json_encode($e, JSON_UNESCAPED_UNICODE));
+    }
+    $o = shop_create_order($slug, $c);
+    return shop_owner_action($o['id'], 'confirm');
+}
+
+function group_supply(): void
+{
+    app_init('cli');
+    publish_site('初始内容');
+
+    // signing: the supplier's PHP reference (ksort, drop '', urldecode(http_build_query) . &key=)
+    $d = ['b' => 'x y', 'app_id' => '7', 'a' => '', 'sku' => ['颜色' => '红', '尺码' => 'L'], 'z' => '0', 'sign' => 'old'];
+    $want = md5('app_id=7&b=x y&sku[颜色]=红&sku[尺码]=L&z=0&key=K&1');
+    ok(supply_sign($d, 'K&1') === $want, 'sign: ksort, empty values dropped, "0" kept, arrays as sku[k]=v, sign itself excluded, urldecoded');
+    ok(supply_sign(['app_id' => '7', 'q' => 'a+b&c=d%20'], 'k') === md5(urldecode('app_id=7&q=' . urlencode('a+b&c=d%20') . '&key=k')), 'sign: special characters go through http_build_query then urldecode, like the reference');
+    ok(supply_sign(['b' => '1', 'a' => '2'], 'k') === supply_sign(['a' => '2', 'b' => '1'], 'k'), 'sign: parameter order does not matter');
+
+    // SSRF: the address the owner types
+    $no = ['http://shop.example-card.com', 'https://127.0.0.1', 'https://10.1.2.3', 'https://192.168.1.1/x', 'https://172.16.0.9', 'https://169.254.169.254',
+        'https://100.64.0.1', 'https://[::1]', 'https://[fd00::1]', 'https://[::ffff:127.0.0.1]', 'https://0.0.0.0', 'https://localhost', 'https://foo.internal',
+        'https://router.lan', 'https://2130706433', 'https://0x7f000001', 'https://user:pw@shop.example-card.com', 'https://shop.example-card.com/?a=1',
+        'https://shop.example-card.com#x', 'https://shop.example-card.com:22', 'https://shop.example-card.com:6379', 'ftp://shop.example-card.com', 'file:///etc/passwd',
+        'gopher://shop.example-card.com', 'https://shop.example-card.com/../x', "https://shop.example-card.com\n.evil", 'https://shop.example-card.com\\@evil.com', '//shop.example-card.com', ''];
+    $passed = array_values(array_filter($no, fn($u) => supply_url_parse($u, false)['ok']));
+    ok($passed === [], 'SSRF: http, private/loopback/link-local/CGNAT/mapped IPs, internal names, numeric hosts, odd ports, userinfo, query, other schemes refused', implode(' | ', $passed));
+    $yes = supply_url_parse('https://Shop.Example-Card.com/api/', false);
+    ok($yes['ok'] && $yes['url'] === 'https://shop.example-card.com/api' && supply_url_parse('https://shop.example-card.cn:8443', false)['ok'], 'a normal https address (with a path or port 8443) is accepted and normalized');
+    ok(!supply_resolve('127.0.0.1', false)['ok'] && !supply_resolve('10.0.0.8', false)['ok'] && !supply_resolve('::1', false)['ok'] && supply_resolve('8.8.8.8', false)['ok'], 'DNS check: a host whose address is internal is refused (every answer must be public)');
+    ok(!supply_ip_public('100.100.1.1') && !supply_ip_public('198.18.0.1') && !supply_ip_public('224.0.0.1') && !supply_ip_public('fe80::1') && !supply_ip_public('64:ff9b::7f00:1') && supply_ip_public('45.152.64.62'), 'blocked ranges include CGNAT, benchmark, multicast, link-local and NAT64 of loopback');
+    ok(throws(fn() => settings_save(['supply' => ['base_url' => 'https://192.168.0.1']], settings_get()['rev']), ValidationError::class), 'settings refuse an internal supplier address');
+
+    [$mock, $mport, $GLOBALS['MOCK_STATE']] = mock_start();
+    $base = 'http://127.0.0.1:' . $mport;
+    try {
+        $cfg = ['base_url' => $base, 'app_id' => MOCK_APP_ID, 'app_key' => MOCK_APP_KEY];
+        ok(supply_test_connection($cfg)['ok'], '测试连接 against the mock: signature accepted');
+        $bad = supply_test_connection(['app_key' => 'wrong-key-123'] + $cfg);
+        ok(!$bad['ok'] && str_contains($bad['msg'], '签名错误') && str_contains($bad['msg'], SUPPLY_SERVER_IP), 'wrong key: plain message with the supplier\'s words and the whitelist hint (' . SUPPLY_SERVER_IP . ')', $bad['msg']);
+        ok(!str_contains($bad['msg'], 'wrong-key-123') && !str_contains($bad['msg'], MOCK_APP_KEY), 'the key never appears in a message');
+        mock_knobs(['ip_refuse' => true]);
+        $ip = supply_test_connection($cfg);
+        ok(!$ip['ok'] && str_contains($ip['msg'], '白名单') && str_contains($ip['msg'], '45.152.64.62'), 'IP refused: the owner is told to add 45.152.64.62 to the 对接白名单', $ip['msg']);
+        mock_knobs(['ip_refuse' => false]);
+        $r = supply_call('/shared/authentication/connect', [], ['base_url' => $base . '/redir'] + $cfg);
+        ok($r['kind'] === 'bad' && str_contains($r['msg'], '跳转'), 'a redirect (to the cloud metadata address) is not followed', $r['kind']);
+        $r = supply_call('/shared/authentication/connect', [], ['base_url' => $base . '/big'] + $cfg);
+        ok($r['kind'] === 'net' && str_contains($r['msg'], '太大'), 'an answer over 2 MB is cut off', $r['kind']);
+        $r = supply_call('/shared/authentication/connect', [], ['base_url' => $base . '/html'] + $cfg);
+        ok($r['kind'] === 'bad', 'an answer that is not the API\'s JSON is refused', $r['kind']);
+        $r = supply_call('/shared/authentication/connect', [], ['base_url' => 'http://127.0.0.1:' . ($mport === 39999 ? 39998 : $mport + 1)] + $cfg);
+        ok($r['kind'] === 'net', 'no server: a network failure, not a crash');
+        $r = supply_call('/shared/../../etc', [], $cfg);
+        ok($r['kind'] === 'config', 'only API paths can be called');
+
+        // settings: write-only key
+        settings_save(['supply' => ['base_url' => $base, 'app_id' => MOCK_APP_ID, 'enabled' => true]], settings_get()['rev']);
+        supply_key_set(MOCK_APP_KEY);
+        ok(supply_ready() && supply_key_hint() === substr(MOCK_APP_KEY, -4) && !str_contains((string) file_get_contents(data_path('settings.json')), MOCK_APP_KEY), 'key stored in secrets.json only; hint is the last 4');
+        ok((fileperms(data_path('secrets.json')) & 0777) === 0600, 'secrets.json stays 0600');
+
+        // catalog and import rules
+        $cat = supply_catalog(true);
+        ok($cat['ok'] && count($cat['cats']) === 3 && count($cat['cats'][0]['items']) === 2 && $cat['cats'][0]['items'][0]['user_price'] === 580, 'catalog: categories and products with this account\'s cost', json_encode($cat['cats'][0]['items'][0] ?? null, JSON_UNESCAPED_UNICODE));
+        $calls = count(mock_state()['calls']);
+        supply_catalog(false);
+        ok(count(mock_state()['calls']) === $calls, 'catalog is cached (no second call within 5 minutes)');
+        $why = fn(string $code) => supply_unsupported(supply_item($code)['item']);
+        ok($why('WZRY60') === [] && $why('YSRACE') === [] && $why('WZRYMAN') === [] && $why('MAIL01') === [], 'plain, 种类, manual-delivery and email-contact products can be sold');
+        ok(str_contains(implode('', $why('SKU01')), '规格') && str_contains(implode('', $why('WIDGET01')), '额外信息') && str_contains(implode('', $why('PHONE01')), '手机号') && str_contains(implode('', $why('PASS01')), '密码'), 'sku, widget, phone contact and password products are 暂不支持 with the reason');
+        $it = supply_item('WZRY60')['item'];
+        ok(!str_contains($it['description'], '<') && !str_contains($it['description'], 'alert(1)') && str_contains($it['description'], '官方 60 点券兑换码。') && str_contains($it['description'], '- 不退不换'), 'supplier HTML description becomes plain text (no tags, no script text)', $it['description']);
+        ok(array_keys(supply_item('YSRACE')['item']['races']) === ['空月祝福', '648 创世结晶'] && supply_item('YSRACE')['item']['races']['空月祝福'] === 2500, '种类 come from config.category with their costs');
+        ok(throws(fn() => supply_import('SKU01', ['name' => 'x', 'price' => '99', 'on_sale' => '1']), ShopError::class), 'importing an unsupported product is refused');
+        try {
+            supply_import('WZRY60', ['name' => '王者 60 点券', 'price' => '5.00', 'body' => 'x', 'on_sale' => '1']);
+            ok(false, 'price below cost refused');
+        } catch (ShopError $e) {
+            ok(isset($e->fields['price']) && str_contains($e->getMessage(), '低于成本'), 'import: a price below cost (5.00 < 5.80) is refused', $e->getMessage());
+        }
+        ok(throws(fn() => supply_import('YSRACE', ['name' => '原神', 'price' => '30', 'race' => '不存在', 'on_sale' => '1']), ShopError::class), 'import: a 种类 the supplier does not have is refused');
+        $p1 = supply_import('WZRY60', ['name' => '王者荣耀 60 点券', 'price' => '6.80', 'body' => $it['description'], 'on_sale' => '1']);
+        ok($p1['type'] === 'supply' && $p1['supply']['cost'] === 580 && $p1['stock'] === 500 && $p1['price'] === 680 && count($p1['photos']) === 1, 'import: a supply product with cost, supplier stock, price and a default card photo');
+        ok(throws(fn() => supply_import('WZRY60', ['name' => 'again', 'price' => '9', 'on_sale' => '1']), ShopError::class), 'the same product and 种类 cannot be imported twice');
+        $p2 = supply_import('YSRACE', ['name' => '原神 空月祝福', 'price' => '28', 'race' => '空月祝福', 'body' => '', 'on_sale' => '1']);
+        ok($p2['supply']['race'] === '空月祝福' && $p2['supply']['cost'] === 2500, 'import with a 种类: cost of that 种类');
+        $p3 = supply_import('WZRYMAN', ['name' => '王者 皮肤礼包', 'price' => '35', 'body' => '', 'on_sale' => '1']);
+        $p4 = supply_import('MAIL01', ['name' => '邮箱卡', 'price' => '4', 'body' => '', 'on_sale' => '1']);
+        $px = supply_import('XSSNAME', ['name' => '<img src=x onerror=alert(1)>点卡', 'price' => '10', 'body' => supply_item('XSSNAME')['item']['description'], 'on_sale' => '1']);
+        $home = pub('index.html');
+        $page = pub('shop/' . $p1['slug'] . '.html');
+        $xpage = pub('shop/' . $px['slug'] . '.html');
+        ok(str_contains($home, 'href="shop/' . $p1['slug'] . '.html"') && str_contains($page, '自动发卡') && str_contains($page, '确认收款后系统自动发卡'), 'imported product is on the home grid and its page says cards are sent automatically after the owner confirms payment');
+        $leak = array_filter(['WZRY60', 'YSRACE', '5.80', '¥5.80', '王者荣耀 60 点券（自动发卡）', '127.0.0.1:' . $mport, MOCK_APP_ID . '"', 'src_name'], fn($n) => str_contains($home . $page . pub('shop/' . $p2['slug'] . '.html'), $n));
+        ok($leak === [], 'buyers never see the supplier\'s code, cost, product name or address', implode(' | ', $leak));
+        ok(!str_contains($xpage . $home, '<img src=x') && !str_contains($xpage, 'href="javascript:') && !str_contains($xpage, '<iframe') && !str_contains($xpage, '<script'), 'supplier-provided names and descriptions are escaped on public pages');
+        try {
+            shop_product_save($p1['id'], ['name' => $p1['name'], 'slug' => $p1['slug'], 'type' => 'physical', 'price' => '5', 'stock' => '9999', 'on_sale' => '1', 'summary' => '', 'body' => '', 'dl_text' => 'x', 'dl_link' => ''], shop_product_get($p1['id'])['rev']);
+            ok(false, 'editor price below cost refused');
+        } catch (ShopError $e) {
+            ok(isset($e->fields['price']), 'editor: lowering the price below cost while on sale is refused');
+        }
+        $p1b = shop_product_save($p1['id'], ['name' => $p1['name'], 'slug' => $p1['slug'], 'type' => 'physical', 'price' => '7', 'stock' => '9999', 'on_sale' => '1', 'summary' => '', 'body' => '', 'dl_text' => 'x', 'dl_link' => ''], shop_product_get($p1['id'])['rev']);
+        ok($p1b['type'] === 'supply' && $p1b['stock'] === 500 && $p1b['delivery']['text'] === '' && $p1b['price'] === 700, 'editor: type, stock and delivery of a supply product cannot be changed by the form');
+
+        // ordering: quantity bounds, stock from the supplier
+        ok(isset(shop_order_input($p4, ['qty' => '1', 'email' => 'a@b.cn', 'consent' => '1'])[1]['qty']) && isset(shop_order_input($p4, ['qty' => '6', 'email' => 'a@b.cn', 'consent' => '1'])[1]['qty']) && !shop_order_input($p4, ['qty' => '3', 'email' => 'a@b.cn', 'consent' => '1'])[1], 'per-order quantity bounds come from the supplier\'s minimum/maximum (2..5)');
+        mock_knobs(['stock_override' => 0]);
+        supply_refresh_product($p1['id'], 0);
+        ok(shop_product_get($p1['id'])['stock'] === 0 && str_contains(pub('shop/' . $p1['slug'] . '.html'), '售罄') && throws(fn() => supply_paid_order($p1['slug'])), 'supplier stock 0: product shows 售罄 and orders are refused');
+        mock_knobs(['stock_override' => null]);
+        supply_refresh_product($p1['id'], 0);
+        ok(shop_product_get($p1['id'])['stock'] === 500, 'stock comes back after a refresh');
+
+        // never before payment is confirmed
+        $o = shop_create_order($p1['slug'], shop_order_input(shop_product_get($p1['id']), ['qty' => '2', 'email' => 'early@example.com', 'consent' => '1'])[0]);
+        $r = supply_fulfill($o['id'], 'retry');
+        ok(!$r['ok'] && (mock_state()['trade_calls'] ?? 0) === 0 && $o['held'] === false && shop_product_get($p1['id'])['stock'] === 500, 'an unpaid order never trades (and does not reserve the supplier\'s stock)');
+        shop_claim($o['id'], '');
+        ok(!supply_fulfill($o['id'], 'retry')['ok'] && (mock_state()['trade_calls'] ?? 0) === 0, 'a claimed (我已付款) order never trades either');
+
+        // confirm → trade once, deterministic request_no, secret stored, completed
+        $o = shop_owner_action($o['id'], 'confirm');
+        ok($o['status'] === 'confirmed', '确认收款 on a supply order: confirmed, waiting for the purchase');
+        $bal = mock_state()['balance'];
+        $r = supply_fulfill($o['id'], 'confirm');
+        $o = shop_order_get($o['id']);
+        $ms = mock_state();
+        ok($r['ok'] && $o['status'] === 'completed' && $o['supply']['trade_no'] !== '' && str_starts_with($o['supply']['secret'], 'CARD-') && substr_count($o['supply']['secret'], "\n") === 1, 'trade: card content stored on the order, order completed', json_encode($o['supply'], JSON_UNESCAPED_UNICODE));
+        ok($o['supply']['request_no'] === supply_request_no($o['id'], 0) && $ms['calls'][count($ms['calls']) - 1]['request_no'] === 'PB' . str_replace('-', '', $o['id']) . 'T0', 'request_no is derived from our order number');
+        ok($bal - $ms['balance'] === 1160 && $o['supply']['amount'] === 1160, 'the supplier charged 2 × ¥5.80 once');
+        ok($ms['calls'][count($ms['calls']) - 1]['contact'] === $o['id'] && !in_array('early@example.com', array_column($ms['calls'], 'contact'), true), 'contact type 任意: the supplier gets the order number, not the buyer\'s email');
+        $n = $ms['trade_calls'];
+        supply_fulfill($o['id'], 'retry');
+        supply_fulfill($o['id'], 'confirm');
+        ok(mock_state()['trade_calls'] === $n && mock_state()['balance'] === $ms['balance'], 'retry or a second confirm on a bought order never trades again');
+        ok(throws(fn() => shop_owner_action($o['id'], 'confirm'), ShopError::class), 'double 确认收款 is refused by the order state');
+        ok(throws(fn() => shop_owner_action($o['id'], 'cancel', ['reason' => 'x']), ShopError::class), 'a bought order cannot be cancelled (refund note instead)');
+
+        // parallel: 8 processes try to buy the same paid order at once
+        $o2 = supply_paid_order($p1['slug']);
+        mock_knobs(['trade_delay_ms' => 400]);
+        $before = mock_state()['trade_calls'];
+        $code = 'define("BLOG_APP",true);require ' . var_export(REPO . '/pilot-blog/app/lib/bootstrap.php', true) . ';app_init("cli");'
+            . '$r=supply_fulfill(' . var_export($o2['id'], true) . ',"retry");echo $r["ok"]?"OK":"NO";';
+        $procs = [];
+        $pp = [];
+        for ($i = 0; $i < 8; $i++) {
+            $procs[] = proc_open([PHP_BINARY, '-r', $code], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipesI, null, ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'PATH' => getenv('PATH'), 'BLOG_SUPPLY_TEST_LOOPBACK' => '1']);
+            $pp[] = $pipesI;
+        }
+        $res = [];
+        foreach ($procs as $i => $pr) {
+            $res[] = stream_get_contents($pp[$i][1]) . stream_get_contents($pp[$i][2]);
+            proc_close($pr);
+        }
+        mock_knobs(['trade_delay_ms' => 0]);
+        ok(mock_state()['trade_calls'] - $before === 1 && shop_order_get($o2['id'])['status'] === 'completed', '8 concurrent purchases of one paid order: exactly one trade call', implode(',', $res) . ' trades=' . (mock_state()['trade_calls'] - $before));
+
+        // failures: balance, then retry; IP refused; stock
+        mock_set('balance', 100);
+        $o3 = supply_paid_order($p1['slug']);
+        $r = supply_fulfill($o3['id'], 'confirm');
+        $o3 = shop_order_get($o3['id']);
+        ok(!$r['ok'] && $o3['status'] === 'failed' && str_contains($o3['supply']['msg'], '余额不足') && $o3['supply']['state'] === 'refused' && $o3['supply']['attempt'] === 1, 'insufficient balance: order goes to 进货失败 with the supplier\'s message for the owner', $o3['supply']['msg']);
+        $lk = shop_lookup_result_html($o3, shop_product_get($o3['product_id']), null);
+        ok(str_contains($lk, '已确认收款，正在发货') && !str_contains($lk, '余额') && !str_contains($lk, '进货') && !str_contains($lk, 'CARD-'), 'the buyer sees 已确认收款，正在发货, never the supplier\'s message');
+        require_once APP_DIR . '/lib/admin_shop.php';
+        ok(shop_counts(shop_orders())['failed'] === 1 && shop_attention_count() >= 1, '进货失败 counts for the admin badge');
+        mock_set('balance', 100000);
+        $r = supply_fulfill($o3['id'], 'retry');
+        $o3 = shop_order_get($o3['id']);
+        ok($r['ok'] && $o3['status'] === 'completed' && $o3['supply']['request_no'] === supply_request_no($o3['id'], 1), '重试进货 after a definite refusal: new attempt number, bought');
+        mock_knobs(['ip_refuse' => true]);
+        $o4 = supply_paid_order($p1['slug']);
+        supply_fulfill($o4['id'], 'confirm');
+        $o4 = shop_order_get($o4['id']);
+        ok($o4['status'] === 'failed' && str_contains($o4['supply']['msg'], SUPPLY_SERVER_IP), 'IP refused at trade: 进货失败 with the whitelist hint');
+        mock_knobs(['ip_refuse' => false]);
+        $o4 = shop_owner_action($o4['id'], 'cancel', ['reason' => '缺货，已原路退款']);
+        ok($o4['status'] === 'cancelled', 'a 进货失败 order can be cancelled (nothing was bought)');
+        ok(!supply_fulfill($o4['id'], 'retry')['ok'] && shop_order_get($o4['id'])['supply']['trade_no'] === '', 'a cancelled order is never bought');
+
+        // unknown outcome: the trade went through but the answer broke → retry with the same request_no, no second charge
+        $o5 = supply_paid_order($p1['slug']);
+        mock_knobs(['break_after_trade' => true]);
+        $bal = mock_state()['balance'];
+        supply_fulfill($o5['id'], 'confirm');
+        $o5 = shop_order_get($o5['id']);
+        ok($o5['status'] === 'failed' && $o5['supply']['state'] === 'unknown' && str_contains($o5['supply']['msg'], '同一个请求号'), 'broken answer after the purchase: 结果不确定, retry promises the same request number');
+        $req = $o5['supply']['request_no'];
+        supply_fulfill($o5['id'], 'retry');
+        $o5 = shop_order_get($o5['id']);
+        ok($o5['status'] === 'completed' && $o5['supply']['request_no'] === $req && $bal - mock_state()['balance'] === 580, 'retry after an unknown outcome reuses the request_no: delivered, charged once');
+        // the supplier refuses a repeated request_no → the owner must check; nothing is bought twice by itself
+        $o6 = supply_paid_order($p1['slug']);
+        mock_knobs(['break_after_trade' => true, 'dup_refuse' => true]);
+        supply_fulfill($o6['id'], 'confirm');
+        $bal = mock_state()['balance'];
+        supply_fulfill($o6['id'], 'retry');
+        $o6 = shop_order_get($o6['id']);
+        ok($o6['supply']['state'] === 'unclear' && $o6['status'] === 'failed' && mock_state()['balance'] === $bal, 'unknown, then the supplier refuses the same request_no: 需要你核对, no automatic new purchase');
+        ok(!supply_fulfill($o6['id'], 'retry')['ok'] && mock_state()['balance'] === $bal, 'plain 重试进货 stays blocked until the owner checks');
+        mock_knobs(['dup_refuse' => false]);
+        $r = supply_fulfill($o6['id'], 'fresh');
+        ok($r['ok'] && shop_order_get($o6['id'])['supply']['request_no'] === supply_request_no($o6['id'], 1), 'after the owner confirms nothing was bought: a new request_no, bought');
+
+        // cost rose
+        $o7 = supply_paid_order($p1['slug']);
+        mock_knobs(['price_bump' => 100]);   // 5.80 → 6.80 (+17%)
+        supply_fulfill($o7['id'], 'confirm');
+        $o7 = shop_order_get($o7['id']);
+        ok($o7['status'] === 'failed' && $o7['supply']['state'] === 'blocked' && $o7['supply']['cost_now'] === 680 && (mock_state()['trades'][$o7['supply']['request_no']] ?? null) === null, 'cost rose more than 10%: no trade, clear admin warning', $o7['supply']['msg']);
+        $r = supply_fulfill($o7['id'], 'accept', 680);
+        ok($r['ok'] && shop_order_get($o7['id'])['status'] === 'completed', '按新成本进货 (owner accepted ¥6.80) buys it');
+        $o8 = supply_paid_order($p1['slug']);
+        mock_knobs(['price_bump' => 300]);   // 8.80 > what the buyer paid (7.00)
+        $r = supply_fulfill($o8['id'], 'accept', 880);
+        $o8 = shop_order_get($o8['id']);
+        ok(!$r['ok'] && $o8['status'] === 'failed' && str_contains($o8['supply']['msg'], '比买家付的'), 'a cost above what the buyer paid is never bought, even when accepted');
+        mock_knobs(['price_bump' => 0]);
+        shop_owner_action($o8['id'], 'cancel', ['reason' => '涨价了，已退款']);
+
+        // email contact type
+        $o9 = supply_paid_order($p4['slug'], 3, 'Mail.Buyer@Example.com');
+        supply_fulfill($o9['id'], 'confirm');
+        $ms = mock_state();
+        ok($ms['calls'][count($ms['calls']) - 1]['contact'] === 'mail.buyer@example.com' && shop_order_get($o9['id'])['status'] === 'completed', 'contact type 邮箱: the buyer\'s email is sent as contact');
+
+        // 种类
+        $o10 = supply_paid_order($p2['slug']);
+        supply_fulfill($o10['id'], 'confirm');
+        $ms = mock_state();
+        ok($ms['calls'][count($ms['calls']) - 1]['race'] === '空月祝福' && shop_order_get($o10['id'])['supply']['amount'] === 2500, 'the 种类 is sent with valuation and trade');
+
+        // manual delivery: pending message, polled (rate-limited) until the card arrives
+        $o11 = supply_paid_order($p3['slug']);
+        supply_fulfill($o11['id'], 'confirm');
+        $o11 = shop_order_get($o11['id']);
+        ok($o11['status'] === 'confirmed' && $o11['supply']['pending'] === true && $o11['supply']['trade_no'] !== '', 'manual delivery: bought, card not out yet, order stays 已确认收款，正在发货');
+        $q0 = mock_state()['queries'] ?? 0;
+        supply_poll($o11['id']);
+        supply_poll($o11['id']);
+        supply_poll($o11['id']);
+        ok((mock_state()['queries'] ?? 0) - $q0 === 1 && shop_order_get($o11['id'])['supply']['pending'], 'polling /query is limited to once a minute per order');
+        mock_knobs(['manual_release' => true]);
+        $o11x = shop_order_get($o11['id']);
+        $o11x['supply']['polled_at'] = gmdate('Y-m-d\TH:i:s\Z', time() - 120);
+        shop_mutate(function (array &$pr, array &$orders) use ($o11x) {
+            foreach ($orders as $k => $oo) {
+                if ($oo['id'] === $o11x['id']) {
+                    $orders[$k] = $o11x;
+                }
+            }
+        });
+
+        // buyer lookup over HTTP polls and reveals
+        $port = 20000 + random_int(0, 9999);
+        $GLOBALS['PORT'] = $port;
+        $srv = proc_open([PHP_BINARY, '-S', "127.0.0.1:$port", '-t', PUBLIC_DIR, APP_DIR . '/dev/router.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pipes, null,
+            ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'PATH' => getenv('PATH'), 'BLOG_SUPPLY_TEST_LOOPBACK' => '1']);
+        for ($i = 0; $i < 50 && @fsockopen('127.0.0.1', $port) === false; $i++) {
+            usleep(100000);
+        }
+        try {
+            clear_rl();
+            $r = shop_post('lookup', ['o' => $o11['id'], 'v' => 'gamer']);
+            ok($r['status'] === 200 && str_contains($r['body'], 'MANUAL-') && shop_order_get($o11['id'])['status'] === 'completed', 'buyer lookup asks /query again and shows the card when it arrived');
+            $r = shop_post('lookup', ['o' => $o['id'], 'v' => 'early']);
+            ok($r['status'] === 200 && str_contains($r['body'], 'card-secret') && str_contains($r['body'], 'CARD-') && str_contains($r['body'], '已发卡，可以查看卡密'), 'buyer lookup reveals the card content like digital delivery');
+            ok(!str_contains($r['body'], $o['supply']['trade_no'] . '<') && !str_contains($r['body'], 'PB' . str_replace('-', '', $o['id'])) && !str_contains($r['body'], 'WZRY60'), 'lookup shows no supplier order number, request number or code');
+            $r = http('GET', '/api/shop.php?a=order&p=' . $p1['slug']);
+            ok($r['status'] === 200 && str_contains($r['body'], '确认收款') && !preg_match('/<script/i', $r['body']), 'order form for a card renders (email, no script)');
+            $cid = shop_orders()[0]['id'];
+            $r = shop_post('order', ['p' => $p1['slug'], 'qty' => '1', 'email' => 'web@example.com', 'consent' => '1', 'price' => '0.01']);
+            ok($r['status'] === 303 && preg_match('/o=(\d{8}-[A-Z2-9]{6})/', $r['headers']['location'] ?? '', $mm) === 1 && shop_order_get($mm[1])['amount'] > 700 && shop_order_get($mm[1])['status'] === 'pending', 'buyer order over HTTP: server price, pending, nothing bought', $r['status'] . '');
+            ok((mock_state()['trades'][supply_request_no($mm[1] ?? '', 0)] ?? null) === null, 'creating or viewing an order never trades');
+            // admin pages
+            $pw = '云底下的跑道灯2026春';
+            json_write_atomic(data_path('admin.json'), ['version' => 1, 'password_hash' => pw_hash($pw), 'created_at' => now_iso(), 'password_changed_at' => now_iso(), 'session_epoch' => 1]);
+            @unlink(DATA_DIR . '/setup-code.txt');
+            $r = http('GET', '/admin/?r=login', ['headers' => ['Accept: application/json']]);
+            $r = http('POST', '/admin/?r=login', ['form' => ['_csrf' => (string) ($r['json']['csrf'] ?? ''), 'password' => $pw]]);
+            preg_match('/pb_admin=([^;]+)/', $r['headers']['set-cookie'] ?? '', $m);
+            $cookie = 'Cookie: pb_admin=' . ($m[1] ?? '');
+            $r = http('GET', '/admin/?r=supply', ['headers' => [$cookie]]);
+            $b = $r['body'];
+            ok($r['status'] === 200 && str_contains($b, '<h1 class="page-h">货源</h1>') && str_contains($b, '王者荣耀 60 点券（自动发卡）') && str_contains($b, '45.152.64.62'), 'admin 货源 page lists the supplier\'s products and the whitelist IP');
+            ok(!str_contains($b, MOCK_APP_KEY) && !str_contains($b, substr(MOCK_APP_KEY, 0, 8)) && str_contains($b, substr(MOCK_APP_KEY, -4)), 'the key is never in the page (only its last 4)');
+            ok(!str_contains($b, '<img src=x') && !str_contains($b, '<script>alert') && str_contains($b, '&lt;img src=x'), 'supplier names are escaped in the admin');
+            $csrf = preg_match('/<meta name="csrf" content="([0-9a-f]+)"/', $b, $mm2) ? $mm2[1] : '';
+            $r = http('GET', '/admin/?r=supply.item&code=XSSNAME', ['headers' => [$cookie]]);
+            ok($r['status'] === 200 && !str_contains($r['body'], '<img src=x') && !str_contains($r['body'], '<iframe') && !str_contains($r['body'], '<a href="javascript'), 'supply item page escapes supplier HTML');
+            $r = http('GET', '/admin/?r=supply.item&code=SKU01', ['headers' => [$cookie]]);
+            ok(str_contains($r['body'], '暂不支持') && str_contains($r['body'], '规格') && !str_contains($r['body'], 'supply.import'), '暂不支持 page shows the reason and no import form');
+            $r = http('GET', '/admin/?r=supply.item&code=..%2F..%2Fetc', ['headers' => [$cookie]]);
+            ok($r['status'] === 404, 'odd product code: 404');
+            $rev = (string) settings_get()['rev'];
+            $r = http('POST', '/admin/?r=supply.save', ['form' => ['_csrf' => $csrf, 'rev' => $rev, 'part' => 'conn', 'base_url' => 'https://169.254.169.254', 'app_id' => 'x', 'app_key' => ''], 'headers' => [$cookie]]);
+            ok($r['status'] === 400 && str_contains($r['body'], '内网') && settings_get()['supply']['base_url'] === $base, 'admin refuses an internal supplier address (cloud metadata)');
+            $r = http('POST', '/admin/?r=supply.test', ['form' => ['_csrf' => $csrf], 'headers' => [$cookie]]);
+            $r = http('GET', '/admin/?r=supply', ['headers' => [$cookie]]);
+            ok(str_contains($r['body'], '连接正常'), '测试连接 button: plain Chinese result');
+            $r = http('POST', '/admin/?r=order.act', ['form' => ['_csrf' => $csrf, 'id' => $o3['id'], 'act' => 'retry'], 'headers' => [$cookie]]);
+            ok(in_array($r['status'], [302, 303], true) && mock_state()['trade_calls'] > 0, 'admin 重试进货 route works');
+            $r = http('GET', '/admin/?r=order&id=' . $o['id'], ['headers' => [$cookie]]);
+            ok(str_contains($r['body'], '进货（买家看不到这里）') && str_contains($r['body'], 'CARD-'), 'admin order page shows the purchase and the card');
+            $r = http('GET', '/admin/?r=dashboard', ['headers' => [$cookie]]);
+            ok(str_contains($r['body'], '进货失败') && str_contains($r['body'], '余额'), '概览 shows 进货失败 and the balance reminder');
+            // double confirm through HTTP
+            $o12 = shop_create_order($p1['slug'], shop_order_input(shop_product_get($p1['id']), ['qty' => '1', 'email' => 'twice@example.com', 'consent' => '1'])[0]);
+            $tc = mock_state()['trade_calls'];
+            $mh = curl_multi_init();
+            $hs = [];
+            for ($i = 0; $i < 4; $i++) {
+                $h = curl_init('http://127.0.0.1:' . $port . '/admin/?r=order.act');
+                curl_setopt_array($h, [CURLOPT_POST => true, CURLOPT_POSTFIELDS => http_build_query(['_csrf' => $csrf, 'id' => $o12['id'], 'act' => 'confirm']), CURLOPT_HTTPHEADER => [$cookie], CURLOPT_RETURNTRANSFER => true, CURLOPT_PROXY => '']);
+                curl_multi_add_handle($mh, $h);
+                $hs[] = $h;
+            }
+            do {
+                curl_multi_exec($mh, $run);
+                curl_multi_select($mh, 0.1);
+            } while ($run > 0);
+            ok(mock_state()['trade_calls'] - $tc === 1 && shop_order_get($o12['id'])['status'] === 'completed', 'four 确认收款 clicks at once: one purchase', (string) (mock_state()['trade_calls'] - $tc));
+        } finally {
+            proc_terminate($srv);
+            proc_close($srv);
+        }
+
+        // nothing secret in logs, stats or the CSV
+        $all = '';
+        foreach (array_merge(glob(DATA_DIR . '/log/*') ?: [], glob(DATA_DIR . '/stats/*') ?: [], glob(DATA_DIR . '/usage/*') ?: [], glob(DATA_DIR . '/supply/cache/*') ?: []) as $f) {
+            $all .= (string) file_get_contents($f);
+        }
+        $csv = shop_csv(shop_orders());
+        ok(!str_contains($all . $csv, 'CARD-') && !str_contains($all . $csv, 'MANUAL-') && !str_contains($all, MOCK_APP_KEY), 'card content and the key are never in logs, stats, cache or the CSV');
+        ok(!str_contains(json_encode(settings_get()), MOCK_APP_KEY), 'the key is not in settings');
+        // redaction erases the card
+        shop_maintain(time() + 200 * 86400);
+        $red = shop_order_get($o['id']);
+        ok($red['redacted_at'] !== null && $red['supply']['secret'] === '' && !str_contains((string) file_get_contents(shop_orders_path()), 'CARD-' . substr($o['supply']['secret'], 5, 4)), '180 days after closing the card content is erased with the buyer data');
+        // supply switched off: products leave the shop
+        settings_save(['supply' => ['enabled' => false]], settings_get()['rev']);
+        ok(!str_contains(pub('index.html'), 'shop/' . $p1['slug'] . '.html') && !is_file(PUBLIC_DIR . '/shop/' . $p1['slug'] . '.html') && throws(fn() => supply_paid_order($p1['slug'])), '货源 off: its products leave the home grid and cannot be ordered');
+    } finally {
+        proc_terminate($mock);
+        proc_close($mock);
+    }
+}
+
 /** Admin code rules that need no browser (SPEC §11.6, §11.9, T11, T12); the flows are in admin.e2e.js. */
 function group_admin(): void
 {
@@ -1365,7 +1759,7 @@ function group_admin(): void
     ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
     $copy = '';
     foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php',
-        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
+        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
         $copy .= (string) file_get_contents($f);
     }
     ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');

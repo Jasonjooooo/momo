@@ -51,13 +51,22 @@ $asked = (int) $today['chat']['requests'];
   </div>
 </section>
 
-<section class="card<?php if ($shop['claimed'] + $shop['to_ship'] > 0): ?> card-hot<?php endif; ?>" aria-labelledby="c-shop">
+<section class="card<?php if ($shop['claimed'] + $shop['to_ship'] + $shop['failed'] > 0): ?> card-hot<?php endif; ?>" aria-labelledby="c-shop">
   <h2 class="card-h" id="c-shop">商城</h2>
   <dl class="kv kv-3">
     <div><dt>待确认收款</dt><dd class="num<?php if ($shop['claimed'] > 0): ?> num-hot<?php endif; ?>"><?= h((string) $shop['claimed']) ?></dd></div>
     <div><dt>待发货</dt><dd class="num<?php if ($shop['to_ship'] > 0): ?> num-hot<?php endif; ?>"><?= h((string) $shop['to_ship']) ?></dd></div>
     <div><dt>待付款</dt><dd class="num"><?= h((string) $shop['pending']) ?></dd></div>
+<?php if ($supply_n > 0 || $shop['failed'] > 0): ?>
+    <div><dt>进货失败</dt><dd class="num<?php if ($shop['failed'] > 0): ?> num-hot<?php endif; ?>"><?= h((string) $shop['failed']) ?></dd></div>
+<?php endif; ?>
   </dl>
+<?php if ($shop['failed'] > 0): ?>
+  <p class="where">有订单已经确认收款，但从货源进货没成功（比如货源余额不够、缺货或网络问题）。打开订单看原因，处理好以后点「重试进货」，或者取消并退款。</p>
+<?php endif; ?>
+<?php if ($supply_n > 0): ?>
+  <p class="where"><?= h('有 ' . $supply_n . ' 件货源商品' . ($supply_on ? '' : '（货源开关关着，首页不显示它们）') . '。进货从你在供货平台的余额里扣，这里查不到余额，记得定期去供货平台看一眼，保持余额充足。') ?></p>
+<?php endif; ?>
 <?php if ($shop['claimed'] > 0): ?>
   <p class="where">有买家说已经付款了。打开微信或支付宝的收款记录，按金额对一下，再在订单里点「确认收款」。</p>
 <?php endif; ?>
@@ -65,6 +74,9 @@ $asked = (int) $today['chat']['requests'];
   <div class="row-btns">
     <a class="btn btn-primary" href="<?= h(url('orders')) ?>">处理订单</a>
     <a class="btn" href="<?= h(url('shop')) ?>">商品</a>
+<?php if ($supply_n > 0 || $supply_on): ?>
+    <a class="btn" href="<?= h(url('supply')) ?>">货源</a>
+<?php endif; ?>
 <?php if ($shop_qr === 0): ?>
     <a class="btn" href="<?= h(url('pay')) ?>">上传收款码</a>
 <?php endif; ?>

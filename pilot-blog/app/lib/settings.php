@@ -15,6 +15,7 @@ function settings_defaults(): array
         'home' => ['leg_limit' => 6],
         'stats' => ['enabled' => true],
         'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'pay_sub' => false, 'qr' => ['wechat' => null, 'alipay' => null]],
+        'supply' => ['enabled' => false, 'base_url' => '', 'app_id' => ''],
     ];
 }
 
@@ -44,6 +45,11 @@ function settings_normalize(array $s): array
         $out['shop']['qr'][$k] = is_string($q) && preg_match(SHOP_QR_RE, $q) && str_contains($q, '/' . $k . '-') ? $q : null;
     }
     $out['shop']['qr'] = ['wechat' => $out['shop']['qr']['wechat'], 'alipay' => $out['shop']['qr']['alipay']];
+    $out['supply'] = [
+        'enabled' => (bool) ($out['supply']['enabled'] ?? false),
+        'base_url' => is_string($out['supply']['base_url'] ?? null) ? trim($out['supply']['base_url']) : '',
+        'app_id' => is_string($out['supply']['app_id'] ?? null) ? trim($out['supply']['app_id']) : '',
+    ];
     $out['rev'] = (int) $out['rev'];
     return $out;
 }
@@ -79,6 +85,12 @@ function settings_validate(array $s): array
     } elseif (!mb_check_encoding($s['shop']['notice'], 'UTF-8') || preg_match('/[\x00-\x1F\x7F]/', $s['shop']['notice'])) {
         $e['shop.notice'] = '公告里有看不见的特殊字符，请删掉后再保存。';
     }
+    if ($s['supply']['base_url'] !== '' && !($u = supply_url_parse($s['supply']['base_url']))['ok']) {
+        $e['supply.base_url'] = $u['msg'];
+    }
+    if ($s['supply']['app_id'] !== '' && !preg_match(SUPPLY_APP_ID_RE, $s['supply']['app_id'])) {
+        $e['supply.app_id'] = 'app_id 只能是字母、数字、短横线和下划线，最多 64 位。';
+    }
     return $e;
 }
 
@@ -93,7 +105,7 @@ function settings_page_state(array $s): array
 {
     $shop = $s['shop'];
     unset($shop['qr']);   // the 收款码 only appear on the pay page (served live), not on the static pages
-    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled'], $shop];
+    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled'], $shop, $s['supply']['enabled']];
 }
 
 /**

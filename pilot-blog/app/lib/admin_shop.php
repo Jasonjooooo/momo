@@ -9,12 +9,13 @@ const ORDER_FILTERS = [
     'claimed' => '买家已付款',
     'pending' => '待付款',
     'to_ship' => '待发货',
+    'failed' => '进货失败',
     'shipped' => '已发货',
     'completed' => '已完成',
     'cancelled' => '已取消',
     'all' => '全部',
 ];
-const ORDER_CHIP = ['pending' => 'chip-warn', 'claimed' => 'chip-hot', 'confirmed' => 'chip-ok', 'shipped' => 'chip-ok', 'completed' => '', 'cancelled' => 'chip-line'];
+const ORDER_CHIP = ['pending' => 'chip-warn', 'claimed' => 'chip-hot', 'confirmed' => 'chip-ok', 'shipped' => 'chip-ok', 'completed' => '', 'cancelled' => 'chip-line', 'failed' => 'chip-hot'];
 
 function admin_shop_maintain(): void
 {
@@ -30,7 +31,7 @@ function shop_attention_count(): int
 {
     try {
         $c = shop_counts(shop_orders());
-        return $c['claimed'] + $c['to_ship'];
+        return $c['claimed'] + $c['to_ship'] + $c['failed'];
     } catch (Throwable $e) {
         return 0;
     }
@@ -76,6 +77,13 @@ function admin_shop_edit(array $form = [], array $errors = []): void
 {
     $id = is_string($_GET['id'] ?? null) ? $_GET['id'] : post_str('id', 40);
     $p = preg_match(PRODUCT_ID_RE, $id) ? shop_product_get($id) : null;
+    if ($p !== null && $p['type'] === 'supply' && $form === []) {
+        try {
+            $p = supply_refresh_product($p['id']) ?? $p;   // the supplier's stock, at most 5 minutes old
+        } catch (Throwable $e) {
+            error_log('admin shop edit refresh: ' . get_class($e));
+        }
+    }
     if ($p === null) {
         http_response_code(404);
         view('error', ['title' => '找不到这件商品', 'message' => '这件商品不存在，可能已经删除了。', 'back' => url('shop')]);
@@ -239,18 +247,18 @@ function admin_orders(): void
     $page = is_string($_GET['p'] ?? null) ? max(1, (int) $_GET['p']) : 1;
     $all = shop_orders();
     $counts = shop_counts($all);
-    $counts['todo'] = $counts['claimed'] + $counts['pending'] + $counts['to_ship'];
+    $counts['todo'] = $counts['claimed'] + $counts['pending'] + $counts['to_ship'] + $counts['failed'];
     $rows = array_values(array_filter(array_reverse($all), function ($o) use ($f, $q) {
         $ok = match ($f) {
             'all' => true,
-            'todo' => in_array($o['status'], ['claimed', 'pending'], true) || ($o['status'] === 'confirmed' && $o['type'] === 'physical'),
+            'todo' => in_array($o['status'], ['claimed', 'pending', 'failed'], true) || ($o['status'] === 'confirmed' && $o['type'] === 'physical'),
             'to_ship' => $o['status'] === 'confirmed' && $o['type'] === 'physical',
             default => $o['status'] === $f,
         };
         return $ok && shop_order_matches($o, $q);
     }));
     if ($f === 'todo') {
-        $rank = ['claimed' => 0, 'confirmed' => 1, 'pending' => 2];
+        $rank = ['failed' => 0, 'claimed' => 1, 'confirmed' => 2, 'pending' => 3];
         usort($rows, fn($a, $b) => ($rank[$a['status']] ?? 3) <=> ($rank[$b['status']] ?? 3) ?: strcmp($b['created_at'], $a['created_at']));
     }
     $per = 30;
@@ -278,6 +286,13 @@ function admin_order(): void
         view('error', ['title' => '找不到这个订单', 'message' => '订单号不对，或者订单不存在。', 'back' => url('orders')]);
         return;
     }
+    if ($o['type'] === 'supply' && !empty($o['supply']['pending'])) {
+        try {
+            $o = supply_poll($o['id']) ?? $o;   // the card was not out yet: ask again (once a minute)
+        } catch (Throwable $e) {
+            error_log('admin order poll: ' . get_class($e));
+        }
+    }
     view('order', ['title' => '订单 ' . $o['id'], 'o' => $o, 'product' => shop_product_get($o['product_id'])]);
 }
 
@@ -286,9 +301,21 @@ function admin_order_act(): void
     $id = post_id(ORDER_ID_RE);
     $act = post_str('act', 10);
     $before = shop_page_signature(shop_products());
+    if (in_array($act, ['retry', 'accept', 'fresh', 'poll'], true)) {
+        admin_order_supply($id, $act);
+        return;
+    }
     try {
         $o = shop_owner_action($id, $act, ['courier' => post_str('courier', 200), 'tracking' => post_str('tracking', 200), 'reason' => post_str('reason', 500), 'note' => post_str('note', 500)]);
         audit('order_' . $act, $id);
+        if ($act === 'confirm' && $o['type'] === 'supply') {
+            // paid and confirmed by the owner: now buy the card (once; see supply_fulfill)
+            $r = supply_fulfill($id, 'confirm');
+            audit('supply_trade', $id . ($r['ok'] ? ' ok' : ' failed'));
+            shop_republish_if_changed($before);
+            flash($r['ok'] ? 'ok' : 'error', '已确认收款。' . $r['msg']);
+            redirect('order', ['id' => $id]);
+        }
         shop_republish_if_changed($before);
         flash('ok', match ($act) {
             'confirm' => $o['type'] === 'digital' ? '已确认收款。买家现在可以在「查订单」里看到内容。' : '已确认收款。寄出以后记得填快递单号。',
@@ -314,6 +341,28 @@ function admin_orders_export(): void
     header('Content-Disposition: attachment; filename="orders-' . str_replace('-', '', local_day()) . '.csv"');
     header('Content-Length: ' . strlen($csv));
     echo $csv;
+}
+
+/** 重试进货 / 按新成本进货 / 确认没买成，重新进货 / 刷新卡密 on a supply order. */
+function admin_order_supply(string $id, string $act): void
+{
+    $before = shop_page_signature(shop_products());
+    try {
+        if ($act === 'poll') {
+            $o = supply_poll($id, true);
+            $pending = $o !== null && !empty($o['supply']['pending']);
+            flash($pending ? 'info' : 'ok', $pending ? '供货平台还没发出卡密，过一会儿再刷新。' : '卡密已经到了，买家查订单时能看到。');
+        } else {
+            $accept = $act === 'accept' ? (int) post_str('cost', 12) : 0;
+            $r = supply_fulfill($id, $act === 'accept' ? 'accept' : ($act === 'fresh' ? 'fresh' : 'retry'), $accept);
+            audit('supply_' . $act, $id . ($r['ok'] ? ' ok' : ' failed'));
+            flash($r['ok'] ? 'ok' : 'error', $r['msg']);
+        }
+        shop_republish_if_changed($before);
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有完成：');
+    }
+    redirect('order', ['id' => $id]);
 }
 
 // ---------- 收款设置 ----------

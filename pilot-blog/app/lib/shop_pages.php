@@ -49,6 +49,9 @@ function shop_ship_text(array $p, array $ss): string
     if ($p['type'] === 'digital') {
         return '数字商品，不用寄送。确认收款后，在「查订单」里查看。';
     }
+    if ($p['type'] === 'supply') {
+        return '自动发卡，不用寄送。站长确认收款后系统自动发卡，卡密在「查订单」里查看。';
+    }
     if ($ss['shipping'] <= 0) {
         return '包邮，快递寄出。';
     }
@@ -58,10 +61,12 @@ function shop_ship_text(array $p, array $ss): string
 /** The three plain steps of buying here, shown on product and order pages. */
 function shop_how_html(string $type): string
 {
-    $last = $type === 'digital'
-        ? '我本人核对到账后确认，你在「查订单」里就能看到内容。确认是手工的，可能要等几个小时。'
-        : '我本人核对到账后确认，然后寄快递，快递单号在「查订单」里能看到。确认是手工的，可能要等几个小时。';
-    return '<ol class="how"><li>点「购买」，填数量和' . ($type === 'digital' ? '邮箱' : '收货信息') . '。</li>'
+    $last = match ($type) {
+        'digital' => '我本人核对到账后确认，你在「查订单」里就能看到内容。确认是手工的，可能要等几个小时。',
+        'supply' => '我本人核对到账后确认收款，确认以后系统自动发卡，卡密在「查订单」里查看。确认是手工的，可能要等几个小时。',
+        default => '我本人核对到账后确认，然后寄快递，快递单号在「查订单」里能看到。确认是手工的，可能要等几个小时。',
+    };
+    return '<ol class="how"><li>点「购买」，填数量和' . ($type !== 'physical' ? '邮箱' : '收货信息') . '。</li>'
         . '<li>下单后页面会给出付款金额（比价格多几分钱，用来认出你的付款）。用微信或支付宝扫我的收款码，付这个金额，备注订单号。</li>'
         . '<li>' . $last . '</li></ol>';
 }
@@ -152,11 +157,16 @@ function shop_form_hidden(string $purpose): string
 /** The order form for one product. $v: values typed so far; $e: field errors; $top: a message above the form. */
 function shop_order_form_html(array $p, array $ss, array $v = [], array $e = [], string $top = ''): string
 {
-    $max = $p['stock'] === null ? SHOP_QTY_MAX : min(SHOP_QTY_MAX, max(1, $p['stock']));
+    [$qMin, $qMax] = $p['type'] === 'supply' ? supply_qty_bounds($p) : [1, SHOP_QTY_MAX];
+    $max = $p['stock'] === null ? $qMax : min($qMax, max(1, $p['stock']));
     $f = fn(string $k) => (string) ($v[$k] ?? '');
     $fields = [];
-    $fields[] = shop_field('f-qty', '数量', shop_input('f-qty', 'qty', $f('qty') !== '' ? $f('qty') : '1', ['type' => 'number', 'inputmode' => 'numeric', 'min' => '1', 'max' => (string) $max, 'required' => true], $e['qty'] ?? null, true),
-        $p['stock'] === null ? '' : '现在有 ' . $p['stock'] . ' 件。', $e['qty'] ?? null);
+    $qHint = $p['stock'] === null ? '' : '现在有 ' . $p['stock'] . ' 件。';
+    if ($qMin > 1 || $qMax < SHOP_QTY_MAX) {
+        $qHint .= ($qMin === $qMax ? '每单只能买 ' . $qMin . ' 件。' : '每单 ' . $qMin . ' 到 ' . $qMax . ' 件。');
+    }
+    $fields[] = shop_field('f-qty', '数量', shop_input('f-qty', 'qty', $f('qty') !== '' ? $f('qty') : (string) $qMin, ['type' => 'number', 'inputmode' => 'numeric', 'min' => (string) $qMin, 'max' => (string) max($qMin, $max), 'required' => true], $e['qty'] ?? null, $qHint !== ''),
+        $qHint, $e['qty'] ?? null);
     if ($p['type'] === 'physical') {
         $fields[] = shop_field('f-name', '收货人', shop_input('f-name', 'name', $f('name'), ['type' => 'text', 'autocomplete' => 'name', 'maxlength' => '20', 'required' => true], $e['name'] ?? null), '', $e['name'] ?? null);
         $fields[] = shop_field('f-phone', '手机号', shop_input('f-phone', 'phone', $f('phone'), ['type' => 'tel', 'inputmode' => 'tel', 'autocomplete' => 'tel', 'maxlength' => '20', 'required' => true], $e['phone'] ?? null, true),
@@ -168,12 +178,14 @@ function shop_order_form_html(array $p, array $ss, array $v = [], array $e = [],
             '查订单时要填邮箱 @ 前面的部分。有问题时我用它联系你，不会发广告。', $e['email'] ?? null);
     }
     $fields[] = shop_field('f-note', '备注（可不填）', shop_input('f-note', 'note', $f('note'), ['type' => 'text', 'maxlength' => '100'], $e['note'] ?? null), '', $e['note'] ?? null);
-    $why = $p['type'] === 'physical'
-        ? '收货人、手机号和地址只用来寄快递和联系你，不给别人。订单完成或取消 180 天后，这些信息会自动删除，只留下金额和日期。'
-        : '邮箱只用来查订单和在出问题时联系你，不给别人，也不会自动发邮件。订单完成或取消 180 天后会自动删除。';
+    $why = match (true) {
+        $p['type'] === 'physical' => '收货人、手机号和地址只用来寄快递和联系你，不给别人。订单完成或取消 180 天后，这些信息会自动删除，只留下金额和日期。',
+        $p['type'] === 'supply' && ($p['supply']['contact'] ?? 0) === 2 => '邮箱用来查订单和在出问题时联系你，也会作为这张卡的登记邮箱交给发卡的供货方，不作别的用途，也不会自动发邮件。订单完成或取消 180 天后会自动删除。',
+        default => '邮箱只用来查订单和在出问题时联系你，不给别人，也不会自动发邮件。订单完成或取消 180 天后会自动删除。',
+    };
     $consent = '我同意本站保存这些信息，只用于这个订单。';
     $sum = '<dl class="sum"><div><dt>单价</dt><dd>¥' . shop_money($p['price']) . '</dd></div>'
-        . '<div><dt>运费</dt><dd>' . enc_text($p['type'] === 'digital' ? '不用寄送' : ($ss['shipping'] <= 0 ? '包邮' : '¥' . shop_money($ss['shipping']) . ($ss['free_over'] > 0 ? '（满 ¥' . shop_money($ss['free_over']) . ' 包邮）' : ''))) . '</dd></div></dl>'
+        . '<div><dt>运费</dt><dd>' . enc_text($p['type'] !== 'physical' ? '不用寄送' : ($ss['shipping'] <= 0 ? '包邮' : '¥' . shop_money($ss['shipping']) . ($ss['free_over'] > 0 ? '（满 ¥' . shop_money($ss['free_over']) . ' 包邮）' : ''))) . '</dd></div></dl>'
         . '';
     return '<div class="scol">' . "\n"
         . '<header class="strip">' . "\n"
@@ -284,11 +296,15 @@ function shop_pay_html(array $o, array $ss, string $msg = ''): string
             $body .= '<p class="state-box state-x">这个订单已经取消：' . enc_text($o['cancel_reason']) . ' 如果你已经付了款，请在「查订单」里看取消原因，或者在首页的店铺客服留言。</p>';
             break;
         default:
-            $body .= '<p class="state-box state-ok">已确认收款，谢谢。' . ($o['type'] === 'digital' ? '内容在「查订单」里查看。' : '发货以后，快递单号会显示在「查订单」里。') . '</p>';
+            $body .= '<p class="state-box state-ok">已确认收款，谢谢。' . match ($o['type']) {
+                'digital' => '内容在「查订单」里查看。',
+                'supply' => '卡密自动发出后在「查订单」里查看。',
+                default => '发货以后，快递单号会显示在「查订单」里。',
+            } . '</p>';
     }
     return '<div class="scol">' . "\n" . $head . "\n" . $body . "\n"
         . shop_amount_rows($o) . "\n"
-        . '<section class="savebox"><p class="end-k">SAVE THIS PAGE</p><p>请截图保存这一页，或者记下订单号 <b class="mono">' . enc_text($o['id']) . '</b>。以后在「查订单」里，用订单号和' . ($o['type'] === 'digital' ? '邮箱 @ 前面的部分' : '手机号后 4 位') . '查看进度。</p>'
+        . '<section class="savebox"><p class="end-k">SAVE THIS PAGE</p><p>请截图保存这一页，或者记下订单号 <b class="mono">' . enc_text($o['id']) . '</b>。以后在「查订单」里，用订单号和' . ($o['type'] !== 'physical' ? '邮箱 @ 前面的部分' : '手机号后 4 位') . '查看进度。</p>'
         . '<p><a class="tlink tlink-go" href="' . $lookup . '">去查订单</a></p></section>' . "\n"
         . '</div>';
 }
@@ -296,6 +312,9 @@ function shop_pay_html(array $o, array $ss, string $msg = ''): string
 /** Status in the buyer's words. */
 function shop_status_buyer(array $o): string
 {
+    if ($o['type'] === 'supply' && in_array($o['status'], ['confirmed', 'failed'], true)) {
+        return '已确认收款，正在发货';   // a failed purchase is the owner's business: the buyer only sees that the card is on its way
+    }
     return match ($o['status']) {
         'pending' => '待付款',
         'claimed' => '已付款，等站长确认',
@@ -348,11 +367,13 @@ function shop_timeline(array $o): array
     foreach ($o['history'] as $h) {
         $times[$h['s']] = $h['t'];
     }
-    $steps = $o['type'] === 'digital'
-        ? ['pending' => '下单，待付款', 'claimed' => '你已付款，等站长确认', 'confirmed' => '已确认收款，可以查看内容', 'completed' => '已完成']
-        : ['pending' => '下单，待付款', 'claimed' => '你已付款，等站长确认', 'confirmed' => '已确认收款', 'shipped' => '已发货', 'completed' => '已完成'];
+    $steps = match ($o['type']) {
+        'digital' => ['pending' => '下单，待付款', 'claimed' => '你已付款，等站长确认', 'confirmed' => '已确认收款，可以查看内容', 'completed' => '已完成'],
+        'supply' => ['pending' => '下单，待付款', 'claimed' => '你已付款，等站长确认', 'confirmed' => '已确认收款，正在发货', 'completed' => '已发卡，可以查看卡密'],
+        default => ['pending' => '下单，待付款', 'claimed' => '你已付款，等站长确认', 'confirmed' => '已确认收款', 'shipped' => '已发货', 'completed' => '已完成'],
+    };
     $order = array_keys($steps);
-    $cur = $o['status'];
+    $cur = $o['status'] === 'failed' ? 'confirmed' : $o['status'];
     $out = [];
     if ($cur === 'cancelled') {
         foreach ($order as $s) {
@@ -394,6 +415,20 @@ function shop_lookup_result_html(array $o, ?array $product, ?string $dl): string
     if ($o['type'] === 'physical' && $o['tracking'] !== '' && in_array($o['status'], ['shipped', 'completed'], true)) {
         $more .= '<section class="shipbox"><p class="end-k">SHIPPED</p><dl class="sum"><div><dt>快递公司</dt><dd>' . enc_text($o['courier']) . '</dd></div>'
             . '<div><dt>快递单号</dt><dd class="mono sel">' . enc_text($o['tracking']) . '</dd></div></dl><p class="sf-hint">长按快递单号可以复制，到快递公司的小程序或网站里查物流。</p></section>';
+    }
+    if ($o['type'] === 'supply' && in_array($o['status'], ['confirmed', 'failed', 'completed'], true)) {
+        $sec = (string) ($o['supply']['secret'] ?? '');
+        $ready = ($o['supply']['trade_no'] ?? '') !== '' && empty($o['supply']['pending']) && $sec !== '';
+        if ($ready) {
+            $lines = array_values(array_filter(explode("\n", $sec), fn($l) => trim($l) !== ''));
+            $more .= '<section class="dlbox card-box"><p class="end-k">YOUR CARD</p><p class="sf-hint">卡密（长按可以复制）：</p><div class="dl-text card-secret mono">'
+                . implode('', array_map(fn($l) => '<p class="sel">' . enc_text($l) . '</p>', $lines)) . '</div>'
+                . '<p class="sf-hint">请尽快使用或抄下来。卡密只给查到这个订单的人看，不要截图发给别人。</p></section>';
+        } elseif ($o['redacted_at'] !== null) {
+            $more .= '<p class="state-box">这个订单已经结束很久了，卡密已经按规定删除。</p>';
+        } else {
+            $more .= '<p class="state-box">已确认收款，正在发货。卡密一般几分钟内就会出现在这里，稍后再查一次。等了很久还没有的话，在首页的店铺客服说一声。</p>';
+        }
     }
     if ($o['type'] === 'digital' && in_array($o['status'], ['confirmed', 'completed'], true) && $product !== null) {
         $d = $product['delivery'];

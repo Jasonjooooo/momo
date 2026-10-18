@@ -1,13 +1,13 @@
 <?php
 defined('BLOG_APP') || exit;
-$countOf = ['todo' => $counts['todo'], 'claimed' => $counts['claimed'], 'pending' => $counts['pending'], 'to_ship' => $counts['to_ship'], 'shipped' => $counts['shipped'], 'completed' => $counts['completed'], 'cancelled' => $counts['cancelled'], 'all' => $counts['all']];
+$countOf = ['todo' => $counts['todo'], 'claimed' => $counts['claimed'], 'pending' => $counts['pending'], 'to_ship' => $counts['to_ship'], 'failed' => $counts['failed'], 'shipped' => $counts['shipped'], 'completed' => $counts['completed'], 'cancelled' => $counts['cancelled'], 'all' => $counts['all']];
 ?>
 <h1 class="page-h">订单</h1>
 <p class="notice notice-info">核对付款：打开微信或支付宝的收款记录，看到一笔钱，就按<b>金额</b>找订单（每个没付款的订单金额都不一样，尾数是用来区分的），再点进去「确认收款」。买家备注里一般也有订单号。</p>
 
 <nav class="chips" aria-label="按状态筛选">
 <?php foreach (ORDER_FILTERS as $k => $label): ?>
-  <a class="fchip<?= h(in_array($k, ['claimed', 'to_ship'], true) && $countOf[$k] > 0 ? ' fchip-hot' : '') ?>" href="<?= h(url('orders', ($k === 'todo' ? [] : ['f' => $k]) + ($q !== '' ? ['q' => $q] : []))) ?>"<?php if ($filter === $k): ?> aria-current="page"<?php endif; ?>><?= h($label) ?> <span class="mono"><?= h((string) $countOf[$k]) ?></span></a>
+  <a class="fchip<?= h(in_array($k, ['claimed', 'to_ship', 'failed'], true) && $countOf[$k] > 0 ? ' fchip-hot' : '') ?>" href="<?= h(url('orders', ($k === 'todo' ? [] : ['f' => $k]) + ($q !== '' ? ['q' => $q] : []))) ?>"<?php if ($filter === $k): ?> aria-current="page"<?php endif; ?>><?= h($label) ?> <span class="mono"><?= h((string) $countOf[$k]) ?></span></a>
 <?php endforeach; ?>
 </nav>
 
@@ -27,7 +27,7 @@ $countOf = ['todo' => $counts['todo'], 'claimed' => $counts['claimed'], 'pending
 <p class="where"><?= h('共 ' . $total . ' 个' . ($pages > 1 ? '，第 ' . $page . ' / ' . $pages . ' 页' : '') . '。') ?></p>
 <ul class="plist olist">
 <?php foreach ($rows as $o):
-    $label = $o['status'] === 'confirmed' && $o['type'] === 'physical' ? '待发货' : SHOP_STATUS[$o['status']];
+    $label = $o['status'] === 'confirmed' && $o['type'] === 'physical' ? '待发货' : ($o['status'] === 'confirmed' && $o['type'] === 'supply' ? '等卡密' : SHOP_STATUS[$o['status']]);
 ?>
   <li>
     <a class="prow orow" href="<?= h(url('order', ['id' => $o['id']])) ?>">

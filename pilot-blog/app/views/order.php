@@ -5,6 +5,9 @@ $b = $o['buyer'];
 $amount = '¥' . shop_money((int) $o['amount']);
 $red = $o['redacted_at'] !== null;
 $who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动'];
+$isSupply = $o['type'] === 'supply';
+$sp = $isSupply ? supply_order_normalize($o['supply'] ?? null) : null;
+$bought = $isSupply && $sp['trade_no'] !== '';
 ?>
 <p class="crumb"><a href="<?= h(url('orders')) ?>">订单</a> / <span class="mono"><?= h($o['id']) ?></span></p>
 <h1 class="page-h"><?= h($o['name'] . ' × ' . $o['qty']) ?></h1>
@@ -22,7 +25,7 @@ $who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动'];
 <section class="card" aria-labelledby="o-act">
   <h2 class="card-h" id="o-act">操作</h2>
 <?php if (in_array($st, ['pending', 'claimed'], true) || ($st === 'cancelled' && !empty($o['cancel_auto']) && !$red)): ?>
-  <form method="post" action="<?= h(url('order.act')) ?>" data-confirm="<?= h('确认已经在微信或支付宝收到 ' . $amount . '？' . ($o['type'] === 'digital' ? '确认以后买家马上能看到内容。' : '')) ?>" data-confirm-ok="确认收款">
+  <form method="post" action="<?= h(url('order.act')) ?>" data-confirm="<?= h('确认已经在微信或支付宝收到 ' . $amount . '？' . ($o['type'] === 'digital' ? '确认以后买家马上能看到内容。' : '') . ($isSupply ? '确认以后网站马上从货源进货（扣你在供货平台的余额），卡密自动显示给买家。' : '')) ?>" data-confirm-ok="确认收款">
     <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="id" value="<?= h($o['id']) ?>">
     <input type="hidden" name="act" value="confirm">
@@ -58,7 +61,7 @@ $who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动'];
   </form>
   <p class="where">发货 <?= h((string) SHOP_AUTOCOMPLETE_DAYS) ?> 天后会自动完成。</p>
 <?php endif; ?>
-<?php if (in_array($st, ['pending', 'claimed', 'confirmed'], true)): ?>
+<?php if (in_array($st, ['pending', 'claimed', 'confirmed', 'failed'], true) && !$bought && !($isSupply && $sp['state'] === 'trading')): ?>
   <form class="stack" method="post" action="<?= h(url('order.act')) ?>" data-confirm="取消这个订单？库存会放回去。买家查订单时会看到取消原因。" data-confirm-ok="取消订单" data-confirm-danger="1">
     <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="id" value="<?= h($o['id']) ?>">
@@ -74,6 +77,74 @@ $who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动'];
   <p class="muted">这个订单已经结束了。</p>
 <?php endif; ?>
 </section>
+
+<?php if ($isSupply && !in_array($st, ['pending', 'claimed'], true) && !($st === 'cancelled' && $sp['state'] === 'new')): ?>
+<section class="card<?= h($st === 'failed' ? ' card-hot' : '') ?>" aria-labelledby="o-sup">
+  <h2 class="card-h" id="o-sup">进货（买家看不到这里）</h2>
+  <p><span class="chip <?= h($sp['state'] === 'done' ? 'chip-ok' : ($st === 'failed' ? 'chip-hot' : 'chip-warn')) ?>"><?= h($sp['state'] === 'done' && $sp['pending'] ? '已进货，等卡密' : (SUPPLY_STATE[$sp['state']] ?? $sp['state'])) ?></span></p>
+<?php if ($st === 'failed' && $sp['msg'] !== ''): ?>
+  <p class="notice notice-err"><?= h($sp['msg']) ?></p>
+  <p class="where">买家查订单时看到的是「已确认收款，正在发货」。处理好以后重试；处理不了就取消订单，在微信或支付宝里把钱退给买家，再记录退款。</p>
+<?php endif; ?>
+  <dl class="kv">
+<?php if ($sp['trade_no'] !== ''): ?>
+    <div><dt>供货平台订单号</dt><dd class="mono sel"><?= h($sp['trade_no']) ?></dd></div>
+    <div><dt>进货花了</dt><dd class="mono"><?= h('¥' . shop_money($sp['amount'])) ?></dd></div>
+    <div><dt>这单毛利</dt><dd class="mono"><?= h('¥' . shop_money((int) $o['subtotal'] - $sp['amount'])) ?></dd></div>
+<?php elseif ($sp['cost_now'] > 0): ?>
+    <div><dt>现在的成本</dt><dd class="mono"><?= h('¥' . shop_money($sp['cost_now']) . '（买家付的商品金额 ¥' . shop_money((int) $o['subtotal']) . '）') ?></dd></div>
+<?php endif; ?>
+<?php if ($sp['request_no'] !== ''): ?>
+    <div><dt>请求号</dt><dd class="mono sel"><?= h($sp['request_no']) ?></dd></div>
+<?php endif; ?>
+<?php if ($sp['at'] !== null): ?>
+    <div><dt>最后一次</dt><dd class="mono"><?= h(cn_time($sp['at'])) ?></dd></div>
+<?php endif; ?>
+  </dl>
+<?php if ($bought && $sp['secret'] !== ''): ?>
+  <details class="help">
+    <summary><?= h($sp['pending'] ? '供货平台的说明' : '卡密（买家查订单时能看到）') ?></summary>
+    <div class="mono sel card-secret-admin"><?php foreach (explode("\n", $sp['secret']) as $line): ?><p><?= h($line) ?></p><?php endforeach; ?></div>
+  </details>
+<?php endif; ?>
+<?php if ($st === 'failed' && $sp['state'] === 'unclear'): ?>
+  <form method="post" action="<?= h(url('order.act')) ?>" data-confirm="确定在供货平台上找过了，这一单没有买成？确认以后会用新的请求号再买一次。如果其实买成了，就会买两张。" data-confirm-ok="确认没买成，重新进货" data-confirm-danger="1">
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= h($o['id']) ?>">
+    <input type="hidden" name="act" value="fresh">
+    <button class="btn btn-primary btn-wide" type="submit">确认没买成，重新进货</button>
+  </form>
+<?php elseif ($st === 'failed' || ($st === 'confirmed' && !$bought && $sp['state'] !== 'trading')): ?>
+<?php $canAccept = $sp['state'] === 'blocked' && $sp['cost_now'] > 0 && $sp['cost_now'] <= (int) $o['subtotal'] && $sp['cost_now'] > $sp['accept_cost']; ?>
+<?php if ($canAccept): ?>
+  <form method="post" action="<?= h(url('order.act')) ?>" data-confirm="<?= h('按新成本 ¥' . shop_money($sp['cost_now']) . ' 进货？这一单的毛利会变成 ¥' . shop_money((int) $o['subtotal'] - $sp['cost_now']) . '。') ?>" data-confirm-ok="按新成本进货">
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= h($o['id']) ?>">
+    <input type="hidden" name="act" value="accept">
+    <input type="hidden" name="cost" value="<?= h((string) $sp['cost_now']) ?>">
+    <button class="btn btn-primary btn-wide" type="submit"><?= h('按新成本 ¥' . shop_money($sp['cost_now']) . ' 进货') ?></button>
+  </form>
+<?php endif; ?>
+  <form method="post" action="<?= h(url('order.act')) ?>" data-confirm="重新从货源进货？会扣你在供货平台的余额。" data-confirm-ok="重试进货">
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= h($o['id']) ?>">
+    <input type="hidden" name="act" value="retry">
+    <button class="btn btn-wide<?= h($canAccept ? '' : ' btn-primary') ?>" type="submit">重试进货</button>
+  </form>
+<?php if ($sp['state'] === 'unknown'): ?>
+  <p class="where">重试会用同一个请求号，就算上一次其实买成了，供货平台也不会再扣一次钱。</p>
+<?php endif; ?>
+<?php elseif ($bought && $sp['pending']): ?>
+  <form method="post" action="<?= h(url('order.act')) ?>">
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="id" value="<?= h($o['id']) ?>">
+    <input type="hidden" name="act" value="poll">
+    <button class="btn btn-wide" type="submit">刷新卡密</button>
+  </form>
+  <p class="where">这件是人工发货，供货方发卡以后，你或买家打开订单时会自动取到卡密。</p>
+<?php endif; ?>
+</section>
+<?php endif; ?>
 
 <?php if ($o['type'] === 'physical' && $o['tracking'] !== ''): ?>
 <section class="card" aria-labelledby="o-ship">

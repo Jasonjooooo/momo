@@ -10,6 +10,8 @@
 // GET  ?a=lookup[&o=<订单号>]           查订单表单
 // POST ?a=lookup                       订单号 + 手机号后 4 位（或邮箱 @ 前面的部分）→ 进度、快递、数字内容
 // GET  ?a=dl&o=…&e=…&s=…               数字商品文件（30 分钟有效的签名链接）
+// 自动发卡（货源）商品：下单前向供货平台刷新库存（5 分钟缓存）；卡密在站长确认收款、后台进货以后显示在「查订单」里。
+// 买家页面从不显示供货平台的名字、成本、商品编号或错误信息。
 
 declare(strict_types=1);
 
@@ -186,11 +188,17 @@ try {
     // ---------- order form / create ----------
     if ($a === 'order' && $method !== 'POST') {
         $p = shop_product_by_slug(in_str('p', 60));
-        if ($p === null || !$p['on_sale'] || !$p['photos']) {
+        if ($p === null || !shop_product_live($p, $settings)) {
             shop_msg(404, '找不到这件商品', '这件商品已经下架了，或者网址不对。');
         }
         if (!$ss['enabled']) {
             shop_msg(503, '暂停营业', '商城暂停营业，现在不能下单。已经下的订单照常处理，可以在「查订单」里看进度。');
+        }
+        if ($p['type'] === 'supply') {
+            if (!supply_ready($settings)) {
+                shop_msg(503, '暂时不能买', '这件商品暂时不能买，过一会儿再来看看。');
+            }
+            $p = supply_refresh_product($p['id']) ?? $p;   // the supplier's stock, at most 5 minutes old
         }
         if ($p['stock'] !== null && $p['stock'] <= 0) {
             shop_msg(410, '售罄了', '这件商品已经卖完了。补货以后会重新开放购买。');
@@ -205,8 +213,11 @@ try {
         }
         form_ok('order');
         $p = shop_product_by_slug(in_str('p', 60));
-        if ($p === null || !$p['on_sale'] || !$p['photos']) {
+        if ($p === null || !shop_product_live($p, $settings)) {
             shop_msg(404, '找不到这件商品', '这件商品已经下架了，这次没有下单。');
+        }
+        if ($p['type'] === 'supply') {
+            $p = supply_refresh_product($p['id'], 60) ?? $p;   // check the supplier's stock again right before the order
         }
         $in = [];
         foreach (['qty', 'name', 'phone', 'address', 'email', 'note', 'consent'] as $k) {
@@ -221,7 +232,7 @@ try {
             $o = shop_create_order($p['slug'], $clean);
         } catch (ShopError $e) {
             $fresh = shop_product_by_slug($p['slug']);
-            if ($fresh !== null && $fresh['on_sale'] && $e->code_ === 'stock' && ($fresh['stock'] ?? 1) > 0) {
+            if ($fresh !== null && shop_product_live($fresh, $settings) && $e->code_ === 'stock' && ($fresh['stock'] ?? 1) > 0) {
                 shop_out(409, '下单：' . $p['name'], shop_order_form_html($fresh, $ss, $in, $e->fields, $e->getMessage()));
             }
             shop_msg($e->code_ === 'busy' ? 503 : 409, '没有下单', $e->getMessage());
@@ -287,6 +298,13 @@ try {
             shop_out(400, '查订单', shop_lookup_form_html($id, MSG_LOOKUP_BAD));
         }
         rl_clear('shop-lookup-order', $id);
+        if ($o['type'] === 'supply' && !empty($o['supply']['pending'])) {
+            try {
+                $o = supply_poll($o['id']) ?? $o;   // a card that was not out yet: ask the 货源 again (once a minute per order)
+            } catch (Throwable $e) {
+                error_log('shop.php poll: ' . get_class($e));
+            }
+        }
         $product = shop_product_get($o['product_id']);
         $dl = null;
         if ($o['type'] === 'digital' && in_array($o['status'], ['confirmed', 'completed'], true) && $product !== null && $product['delivery']['file'] !== null) {

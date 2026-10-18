@@ -127,6 +127,9 @@
 .dl-text p{margin:0 0 .8em;line-height:1.8;overflow-wrap:anywhere}
 .dl-url{margin:6px 0 12px;font-size:13px;color:var(--text-secondary)}
 .dlbox .btn{margin:4px 8px 4px 0}
+.card-secret{margin:6px 0 10px;padding:12px 14px;border:1px solid var(--line-strong);border-left:3px solid var(--accent);background:rgba(255,255,255,.03)}
+.card-secret p{margin:0 0 .4em;font-size:16px;line-height:1.7}
+.card-secret p:last-child{margin-bottom:0}
 
 @media (min-width:900px){
   .smain{padding-top:40px}

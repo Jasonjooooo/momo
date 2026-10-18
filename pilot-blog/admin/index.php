@@ -6,6 +6,7 @@ define('BLOG_APP', true);
 require __DIR__ . '/../app/lib/bootstrap.php';
 require __DIR__ . '/../app/lib/admin.php';
 require __DIR__ . '/../app/lib/admin_shop.php';
+require __DIR__ . '/../app/lib/admin_supply.php';
 
 try {
     app_init('admin');
