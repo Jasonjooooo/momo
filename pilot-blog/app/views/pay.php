@@ -82,6 +82,10 @@ $kinds = ['wechat' => '微信收款码', 'alipay' => '支付宝收款码'];
     <p class="hint">显示在首页商城、商品页和下单页上面。</p>
     <p class="ferr"<?php if (!$err('notice')): ?> hidden<?php endif; ?>><?= h((string) $err('notice')) ?></p>
   </div>
+  <div class="field">
+    <label class="check"><input type="checkbox" name="pay_sub" value="1"<?php if (!empty($ss['pay_sub'])): ?> checked<?php endif; ?>> 付款页用单独的网址（pay. 开头）</label>
+    <p class="hint">打开后，买家下单后会跳到 pay.你的域名 上付款。打开前要先在域名解析里加好 pay 这条记录，并在服务器上配好证书，否则买家会打不开付款页。</p>
+  </div>
   <div class="bar bar-static">
     <button class="btn btn-primary btn-wide" type="submit">保存</button>
   </div>

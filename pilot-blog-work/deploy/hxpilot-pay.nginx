@@ -1,0 +1,19 @@
+# pay.hxpilot.com: serves only the shop pay page (and the files it needs); everything else goes to the main site.
+# Lives at /etc/nginx/sites-available/hxpilot-pay; certbot --nginx adds the 443 part.
+server {
+    listen 80;
+    listen [::]:80;
+    server_name pay.hxpilot.com;
+    root /var/www/hxpilot/public;
+    charset utf-8;
+    client_max_body_size 1m;
+
+    location = /api/shop.php { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
+    location ^~ /assets/ { location ~ \.php$ { deny all; } expires 30d; }
+    location ^~ /uploads/shop/ {
+        location ~* \.(php\d*|phtml|phar|pht|cgi|pl|py|sh|shtml|html?|svg|js)$ { deny all; }
+        add_header Content-Security-Policy "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    }
+    location / { return 301 https://hxpilot.com$request_uri; }
+}

@@ -14,7 +14,7 @@ function settings_defaults(): array
         'subscribe' => ['enabled' => true],
         'home' => ['leg_limit' => 6],
         'stats' => ['enabled' => true],
-        'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'qr' => ['wechat' => null, 'alipay' => null]],
+        'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'pay_sub' => false, 'qr' => ['wechat' => null, 'alipay' => null]],
     ];
 }
 
@@ -31,6 +31,7 @@ function settings_normalize(array $s): array
     $out['home']['leg_limit'] = (int) $out['home']['leg_limit'];
     $out['stats']['enabled'] = (bool) $out['stats']['enabled'];
     $out['shop']['enabled'] = (bool) $out['shop']['enabled'];
+    $out['shop']['pay_sub'] = (bool) $out['shop']['pay_sub'];
     foreach (['shipping', 'free_over', 'cancel_hours'] as $k) {
         $out['shop'][$k] = (int) $out['shop'][$k];
     }

@@ -350,7 +350,7 @@ function admin_pay_save(): void
             admin_pay($errors, $form);
             return;
         }
-        $patch = ['shop' => ['shipping' => $ship, 'free_over' => $free, 'cancel_hours' => (int) $hours, 'notice' => $form['notice']]];
+        $patch = ['shop' => ['shipping' => $ship, 'free_over' => $free, 'cancel_hours' => (int) $hours, 'notice' => $form['notice'], 'pay_sub' => post_str('pay_sub', 2) === '1']];
     }
     try {
         settings_save($patch, $rev);

@@ -115,6 +115,20 @@ function form_ok(string $purpose): void
     }
 }
 
+/** https://example.com from the live site address, or null while it is still the placeholder. */
+function shop_main_origin(): ?string
+{
+    $o = (string) (site_live()['fields']['site.origin'] ?? '');
+    return preg_match('#^https://[a-z0-9.-]+$#', $o) && !str_contains($o, 'DEPLOY-DOMAIN') ? $o : null;
+}
+
+/** https://pay.example.com when the owner turned on the separate pay address, else null. */
+function shop_pay_origin(array $ss): ?string
+{
+    $main = shop_main_origin();
+    return !empty($ss['pay_sub']) && $main !== null ? 'https://pay.' . substr($main, 8) : null;
+}
+
 function order_id_input(string $raw): string
 {
     $s = strtoupper(str_replace([' ', "\u{3000}", "\u{2014}", "\u{FF0D}", '_'], ['', '', '-', '-', '-'], ascii_numbers($raw)));
@@ -154,6 +168,20 @@ try {
 try {
     $settings = settings_get();
     $ss = $settings['shop'];
+
+    // ---------- separate pay address (pay.<domain>) ----------
+    // The pay host only serves the pay page and 我已付款; anything else goes back to the main site.
+    // With the feature on, the pay page on the main host moves to the pay host so there is one address.
+    $mainOrigin = shop_main_origin();
+    $payOrigin = shop_pay_origin($ss);
+    $onPayHost = str_starts_with(strtolower((string) ($_SERVER['HTTP_HOST'] ?? '')), 'pay.');
+    $uri = (string) ($_SERVER['REQUEST_URI'] ?? '/api/shop.php');
+    if ($onPayHost && $mainOrigin !== null && ($payOrigin === null || !in_array($a, ['pay', 'paid'], true)) && $method !== 'POST') {
+        see_other($mainOrigin . $uri);
+    }
+    if (!$onPayHost && $payOrigin !== null && $a === 'pay' && $method !== 'POST') {
+        see_other($payOrigin . $uri);
+    }
 
     // ---------- order form / create ----------
     if ($a === 'order' && $method !== 'POST') {
@@ -201,7 +229,7 @@ try {
         rl_hit('shop-order-made', $v, RL_ORDER_MADE_DAY, 86400);
         rl_hit('shop-order-site', local_day(), RL_ORDER_SITE_DAY, 2 * 86400, true);
         shop_republish_if_changed($before);
-        see_other('shop.php?a=pay&o=' . rawurlencode($o['id']) . '&k=' . shop_pay_token($o['id']));
+        see_other(($payOrigin !== null ? $payOrigin . '/api/' : '') . 'shop.php?a=pay&o=' . rawurlencode($o['id']) . '&k=' . shop_pay_token($o['id']));
     }
 
     // ---------- pay page / 我已付款 ----------
