@@ -3,6 +3,7 @@
 // Usage: php pilot-blog/app/bin/check-template.php
 //        php pilot-blog/app/bin/check-template.php --rebaseline "reason"   (deliberate design change outside the hero)
 //        php pilot-blog/app/bin/check-template.php --init-hero-reference    (one time; refuses to overwrite)
+//        php pilot-blog/app/bin/check-template.php --hero-fix "reason"      (a deliberate, tested hero bug fix: re-freezes both)
 declare(strict_types=1);
 PHP_SAPI === 'cli' || exit;
 define('BLOG_APP', true);
@@ -26,6 +27,22 @@ if (($args[0] ?? '') === '--init-hero-reference') {
     }
     json_write_atomic($ref, hero_reference_from($base), 0644);
     echo "hero-reference.json written\n";
+    exit(0);
+}
+
+if (($args[0] ?? '') === '--hero-fix') {
+    // The hero stays frozen against accidents; a real bug found on a device is fixed on purpose, logged with its reason,
+    // and the reference and baseline are re-frozen from the fixed template so T1/T3 guard the new state.
+    $reason = trim((string) ($args[1] ?? ''));
+    if ($reason === '') {
+        fwrite(STDERR, "give a reason: --hero-fix \"why\"\n");
+        exit(1);
+    }
+    $html = render_baseline();
+    json_write_atomic(app_path('seed', 'hero-reference.json'), hero_reference_from($html), 0644);
+    file_put_contents($baselineFile, $html);
+    file_put_contents(app_path('seed', 'rebaseline.log'), now_iso() . ' sha256 ' . hash('sha256', $html) . ' HERO FIX: ' . $reason . "\n", FILE_APPEND);
+    echo "hero reference and baseline re-frozen: $reason\n";
     exit(0);
 }
 

@@ -1972,6 +1972,9 @@ function unloadVideo() {
 async function loadHeroBlob(v, seq) {
   if (location.protocol === 'file:') throw new Error('file');   // browsers block fetch on file://; the still hero is the designed state
   const S = HERO_SRC[v];
+  // WeChat's in-app WebKit downloads the Blob but never decodes a blob: video (readyState stays 0), so go straight to the
+  // file there: it streams with Range and paints in well under a second (diag on iPhone WeChat 8.0.79, 2026-10-18).
+  if (/MicroMessenger/i.test(navigator.userAgent)) { diag('wechat: direct'); loadDirect(v, seq); return; }
   let blob = blobCache[v];
   if (!blob) {
     const ctrl = loadCtrl = new AbortController();
@@ -2059,7 +2062,7 @@ function setSource(url, path, seq) {
     diag('no frame after 15s on ' + path + ', readyState ' + video.readyState);
     videoTrouble();
   };
-  readyWatch = setTimeout(watch, 15000);
+  readyWatch = setTimeout(watch, path === 'blob' ? 4000 : 15000);   // a blob is local: no frame in 4s means the element won't take it
 }
 function videoTrouble() {
   if (srcPath === 'blob' && !directTried) loadDirect(variant, loadSeq);

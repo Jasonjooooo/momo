@@ -88,7 +88,7 @@ function pub(string $rel): string
 function group_template(): void
 {
     $baseline = (string) file_get_contents(APP_DIR . '/seed/baseline-index.html');
-    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (rebaselined 2026-10-17 for the owner\'s shop, SPEC §18 item 26)');
+    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (re-frozen 2026-10-18 for the WeChat hero fix, rebaseline.log)');
     $r = render_baseline();
     ok($r === $baseline, 'T1 baseline render is byte-identical', $r === $baseline ? '' : first_diff($r, $baseline));
     $launch = render_launch();
