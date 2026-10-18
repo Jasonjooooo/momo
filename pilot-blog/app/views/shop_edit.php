@@ -136,6 +136,7 @@ $isSupply = $p['type'] === 'supply';
   <div class="field<?= h($err('summary') ? ' has-err' : '') ?>">
     <label for="s-sum">一句话介绍（可留空）</label>
     <input id="s-sum" name="summary" type="text" maxlength="80" value="<?= h($v('summary', $p['summary'])) ?>">
+    <p class="hint">也是微信分享卡片上的那句简介。留空时，卡片上显示「商品名，¥价格」。卡片小图用第一张照片。</p>
     <p class="ferr"<?php if (!$err('summary')): ?> hidden<?php endif; ?>><?= h((string) $err('summary')) ?></p>
   </div>
 
