@@ -2309,7 +2309,7 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
 <!--{if has_album}-->/* ============ 01: INSET A as a small album (only rendered when the owner keeps 2+ photos) ============ */
 /* The strip is a native scroll-snap row, so swiping works without script; the script adds prev/next, dots, arrow keys and
    keeps the caption with the photo in view. Nothing moves on its own. */
-(function album() {
+(function album() { try {
   const fig = $('[data-album]');
   if (!fig) return;
   const track = $('.alb-track', fig), slides = $$('.alb-slide', fig), dots = $$('.alb-dot', fig), cap = $('.alb-cap', fig);
@@ -2343,13 +2343,13 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
     settle = setTimeout(() => show(clamp(Math.round(track.scrollLeft / (track.clientWidth || 1)), 0, slides.length - 1)), 90);
   }, { passive: true });
   show(0);
-})();
+} catch (e) { diag('album failed: ' + (e && e.message)); } })();   // a broken album must never stop the hero below
 
 <!--{/if}--><!--{if has_shop_cats}-->/* ============ 04 商城: 大类 tabs and 小类 chips filter the goods (only rendered when a category holds a product on sale) ============ */
 /* Without script every product shows and the rows stay hidden. The choice lives in the address as #shop/c/<id> (a 大类, a
    小类 or "other"), written with replaceState so it never scrolls or adds history; opening such a link (the product
    page breadcrumb) picks the category and brings the shop into view. #ai and the other nav anchors are left alone. */
-(function shopCats() {
+(function shopCats() { try {
   const box = $('[data-shop-cats]'), shop = $('#shop');
   if (!box || !shop) return;
   const goods = $$('.goods > .good', shop), tabs = $$('.cat-tab', box), rows = $$('.cat-chips', box), live = $('[data-cat-status]', box);
@@ -2414,7 +2414,7 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
     addEventListener('load', () => { if (!moved) toShop(); }, { once: true });
   }
   addEventListener('hashchange', () => { if (fromHash()) toShop(); });
-})();
+} catch (e) { diag('shop categories failed: ' + (e && e.message)); } })();
 
 <!--{/if}-->/* ============ NAV: the 机型 item goes before 日志, the page order (CSS order already shows it; this fixes tab order) ============ */
 (function navOrder() {
