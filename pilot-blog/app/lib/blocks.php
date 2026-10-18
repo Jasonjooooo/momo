@@ -28,7 +28,7 @@ function block_render(string $name, array $ctx, string $indent): string
         case 'shop_grid':
             return render_shop_grid($ctx['shop'] ?? shop_ctx_empty(), $indent);
         case 'extra_css':
-            if (!cond_eval('subscribe_live', $ctx) && !cond_eval('has_published', $ctx) && !cond_eval('has_album', $ctx)) {
+            if (!cond_eval('subscribe_live', $ctx) && !cond_eval('has_published', $ctx) && !cond_eval('has_album', $ctx) && !cond_eval('has_shop_cats', $ctx)) {
                 return '';
             }
             return '<style id="extra-css">' . "\n" . trim((string) $ctx['extra_css']) . "\n</style>\n";
@@ -70,6 +70,8 @@ function cond_eval(string $cond, array $ctx): bool
             return (bool) ($ctx['stats_live'] ?? false);
         case 'has_album':
             return count($ctx['album'] ?? []) > 1;
+        case 'has_shop_cats':
+            return (bool) (($ctx['shop'] ?? null)['cats']['cats'] ?? []) && (bool) ($ctx['shop']['open'] ?? false);
     }
     throw new TemplateError('unknown condition ' . $cond);
 }
@@ -296,7 +298,7 @@ function extract_about_album(string $inner, string $ind): array
 /** The shop part of the home context: open/closed, notice, the products on sale (owner order), shipping. */
 function shop_ctx_empty(): array
 {
-    return ['open' => true, 'notice' => '', 'products' => []];
+    return ['open' => true, 'notice' => '', 'products' => [], 'cats' => ['cats' => [], 'other' => 0], 'ix' => []];
 }
 
 function render_shop_status(array $shop): string
@@ -320,6 +322,9 @@ function render_shop_grid(array $shop, string $ind): string
     }
     $ind2 = $ind . '  ';
     $items = [];
+    $tree = $shop['cats'] ?? ['cats' => [], 'other' => 0];
+    $ix = $shop['ix'] ?? [];
+    $withCats = (bool) $tree['cats'];
     foreach ($shop['products'] as $k => $p) {
         $ph = $p['photos'][0] ?? null;
         $dims = $ph ? album_dims($ph['src']) : null;
@@ -327,15 +332,53 @@ function render_shop_grid(array $shop, string $ind): string
         $avail = shop_avail($p);
         $label = shop_avail_label($p);
         $img = $ph ? '<img src="' . enc_attr($ph['src']) . '" width="' . $w . '" height="' . $h . '" loading="lazy" decoding="async" alt="' . enc_attr($ph['alt'] !== '' ? $ph['alt'] : $p['name']) . '">' : '';
-        $items[] = '<li class="good' . ($avail === 'out' ? ' out' : '') . '"><a class="good-a" href="shop/' . enc_attr($p['slug']) . '.html">'
+        $where = $withCats ? shop_cat_of($p, $ix) : null;
+        $data = $where === null ? '' : ' data-cat="' . enc_attr($where['top'] ?? SHOP_CAT_OTHER) . '" data-sub="' . enc_attr((string) $where['sub']) . '"';
+        $catLine = $where === null ? '' : '<span class="good-c">' . enc_text($where['top'] === null ? '其他' : shop_cat_label($p['cat'], $ix)) . '</span>';
+        $items[] = '<li class="good' . ($avail === 'out' ? ' out' : '') . '"' . $data . '><a class="good-a" href="shop/' . enc_attr($p['slug']) . '.html">'
             . '<span class="good-ph">' . $img . '<span class="good-ix" aria-hidden="true">S-' . sprintf('%02d', $k + 1) . '</span></span>'
-            . '<div class="good-body"><span class="good-tag' . ($p['type'] === 'digital' ? ' dg' : '') . '">' . SHOP_TYPES[$p['type']] . '</span>'
+            . '<div class="good-body"><span class="good-tag' . ($p['type'] === 'digital' ? ' dg' : '') . '">' . SHOP_TYPES[$p['type']] . '</span>' . $catLine
             . '<h3 class="good-n">' . enc_text($p['name']) . '</h3>'
             . ($p['summary'] !== '' ? '<p class="good-sum">' . enc_text($p['summary']) . '</p>' : '')
             . '<p class="good-row"><b class="good-p"><small>¥</small>' . shop_money($p['price']) . '</b>'
             . ($label !== null ? '<span class="good-s' . ($avail === 'low' ? ' low' : '') . '">' . enc_text($label) . '</span>' : '') . '</p></div></a></li>';
     }
-    return $notice . '<ul class="goods">' . "\n" . $ind2 . implode("\n" . $ind2, $items) . "\n" . $ind . '</ul>';
+    $tabs = $withCats ? render_shop_cat_tabs($tree, count($shop['products']), $ind) . "\n" . $ind : '';
+    return $notice . $tabs . '<ul class="goods">' . "\n" . $ind2 . implode("\n" . $ind2, $items) . "\n" . $ind . '</ul>';
+}
+
+/**
+ * The category filter above the grid: 大类 tabs (全部 first, 其他 last when some products have no category) and, per
+ * 大类 with 小类, a row of 小类 chips shown when that 大类 is picked. Buttons with aria-pressed; the home script does the
+ * filtering and keeps the choice in the address (#shop/c/<id>). Without script the rows stay hidden (CSS) and every
+ * product shows.
+ */
+function render_shop_cat_tabs(array $tree, int $total, string $ind): string
+{
+    $ind2 = $ind . '  ';
+    $tab = fn(string $id, string $name, int $n, bool $on) => '<button type="button" class="cat-tab" data-cat="' . enc_attr($id) . '" aria-pressed="' . ($on ? 'true' : 'false') . '">'
+        . enc_text($name) . '<span class="cat-n"><span class="cat-vh">（</span>' . $n . '<span class="cat-vh"> 件）</span></span></button>';
+    $tabs = [$tab('', '全部', $total, true)];
+    $rows = [];
+    foreach ($tree['cats'] as $c) {
+        $tabs[] = $tab($c['id'], $c['name'], $c['n'], false);
+        if (!$c['subs']) {
+            continue;
+        }
+        $chips = ['<button type="button" class="cat-chip" data-sub="" aria-pressed="true">全部</button>'];
+        foreach ($c['subs'] as $s) {
+            $chips[] = '<button type="button" class="cat-chip" data-sub="' . enc_attr($s['id']) . '" aria-pressed="false">' . enc_text($s['name']) . '</button>';
+        }
+        $rows[] = '<div class="cat-chips" role="group" aria-label="' . enc_attr('「' . $c['name'] . '」的小类') . '" data-subs-of="' . enc_attr($c['id']) . '" hidden>' . implode('', $chips) . '</div>';
+    }
+    if ($tree['other'] > 0) {
+        $tabs[] = $tab(SHOP_CAT_OTHER, '其他', $tree['other'], false);
+    }
+    return '<div class="shop-cats" data-shop-cats>' . "\n"
+        . $ind2 . '<div class="cat-tabs" role="group" aria-label="按大类筛选">' . implode('', $tabs) . '</div>' . "\n"
+        . ($rows ? $ind2 . implode("\n" . $ind2, $rows) . "\n" : '')
+        . $ind2 . '<p class="cat-live" data-cat-status aria-live="polite"></p>' . "\n"
+        . $ind . '</div>';
 }
 
 // ---------- shelf JSON ----------

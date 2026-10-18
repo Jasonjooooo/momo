@@ -1,7 +1,10 @@
 <?php
 defined('BLOG_APP') || exit;
 $ss = $settings['shop'];
+$all = count($products);
+$products = array_values(array_filter($products, fn($p) => admin_shop_cat_match($p, $cat_filter, $cat_ix)));
 $n = count($products);
+$filtered = $cat_filter !== '';
 ?>
 <h1 class="page-h">商品</h1>
 <div class="row-btns">
@@ -9,6 +12,7 @@ $n = count($products);
     <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
     <button class="btn btn-primary" type="submit">加一件商品</button>
   </form>
+  <a class="btn" href="<?= h(url('cats')) ?>">商品分类</a>
   <a class="btn" href="<?= h(url('orders')) ?>">订单</a>
   <a class="btn" href="<?= h(url('pay')) ?>">收款设置</a>
 </div>
@@ -20,7 +24,25 @@ $n = count($products);
 <?php endif; ?>
 <p class="where">首页「商城」按这里的顺序显示在卖的商品。实物由你寄快递；数字商品在买家付款、你确认收款以后，买家在「查订单」里看到你填的内容。</p>
 
-<?php if ($n === 0): ?>
+<?php if ($cats && $all > 0): ?>
+<nav class="chips" aria-label="按分类筛选">
+  <a class="fchip" href="<?= h(url('shop')) ?>"<?php if (!$filtered): ?> aria-current="page"<?php endif; ?>>全部</a>
+<?php foreach ($cats as $c): ?>
+  <a class="fchip" href="<?= h(url('shop', ['cat' => $c['id']])) ?>"<?php if ($cat_filter === $c['id']): ?> aria-current="page"<?php endif; ?>><?= h($c['name']) ?></a>
+<?php if (($cat_ix[$cat_filter]['top'] ?? '') === $c['id'] && $cat_ix[$cat_filter]['sub']): ?>
+  <a class="fchip" href="<?= h(url('shop', ['cat' => $cat_filter])) ?>" aria-current="page"><?= h($c['name'] . ' / ' . $cat_ix[$cat_filter]['name']) ?></a>
+<?php endif; ?>
+<?php endforeach; ?>
+  <a class="fchip" href="<?= h(url('shop', ['cat' => 'none'])) ?>"<?php if ($cat_filter === 'none'): ?> aria-current="page"<?php endif; ?>>不分类</a>
+</nav>
+<?php endif; ?>
+<?php if ($filtered): ?>
+<p class="where">只显示这个分类里的商品。调整顺序请回到「全部」。</p>
+<?php endif; ?>
+
+<?php if ($n === 0 && $filtered): ?>
+<p class="card muted">这个分类里没有商品。</p>
+<?php elseif ($n === 0): ?>
 <p class="card muted">还没有商品。点「加一件商品」开始。</p>
 <?php else: ?>
 <ul class="plist glist">
@@ -42,12 +64,16 @@ $n = count($products);
           <span class="chip chip-line"><?= h(SHOP_TYPES[$p['type']]) ?></span>
           <span class="mono">¥<?= h(shop_money($p['price'])) ?></span>
           <span class="mono"><?= h($p['stock'] === null ? '不限量' : '库存 ' . $p['stock']) ?></span>
+<?php if (($cl = shop_cat_label($p['cat'], $cat_ix)) !== ''): ?>
+          <span class="prow-cat"><?= h($cl) ?></span>
+<?php endif; ?>
 <?php if ($label === '售罄'): ?>
           <span class="chip chip-warn">售罄</span>
 <?php endif; ?>
         </span>
       </span>
     </a>
+<?php if (!$filtered): ?>
     <div class="grow-move">
       <form method="post" action="<?= h(url('shop.move')) ?>">
         <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
@@ -62,6 +88,7 @@ $n = count($products);
         <button class="btn btn-ghost btn-sq" type="submit"<?php if ($i === $n - 1): ?> disabled<?php endif; ?> aria-label="<?= h('把「' . $p['name'] . '」下移') ?>">下移</button>
       </form>
     </div>
+<?php endif; ?>
   </li>
 <?php endforeach; ?>
 </ul>

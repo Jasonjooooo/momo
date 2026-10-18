@@ -59,7 +59,99 @@ function post_id(string $re, string $k = 'id'): string
 function admin_shop(): void
 {
     admin_shop_maintain();
-    view('shop', ['title' => '商品', 'products' => shop_products(), 'settings' => settings_get()]);
+    $cats = shop_cats();
+    $ix = shop_cat_index($cats);
+    $f = is_string($_GET['cat'] ?? null) ? $_GET['cat'] : '';
+    $f = $f === 'none' || isset($ix[$f]) ? $f : '';
+    view('shop', ['title' => '商品', 'products' => shop_products(), 'settings' => settings_get(), 'cats' => $cats, 'cat_ix' => $ix, 'cat_filter' => $f]);
+}
+
+/** Does product $p belong in the 商品 list filtered by $f ('' all, 'none' 不分类, or a category id)? */
+function admin_shop_cat_match(array $p, string $f, array $ix): bool
+{
+    if ($f === '') {
+        return true;
+    }
+    $w = shop_cat_of($p, $ix);
+    return $f === 'none' ? $w['top'] === null : ($w['top'] === $f || $w['sub'] === $f);
+}
+
+/** The category picker of the product editor and the 货源 import: one plain select (works without script);
+ *  admin.js turns it into a 大类 select and a dependent 小类 select that write into it. */
+function admin_cat_select(string $id, string $selected, ?string $err = null): string
+{
+    $cats = shop_cats();
+    $opts = '';
+    foreach (shop_cat_options($cats) as [$v, $label, $top, $sub]) {
+        $opts .= '<option value="' . h($v) . '"' . ($v !== '' ? ' data-top="' . h($top) . '"' . ($sub ? ' data-sub="1"' : '') : '')
+            . ($v === $selected ? ' selected' : '') . '>' . h($label) . '</option>';
+    }
+    return '<div class="field catpick' . ($err !== null ? ' has-err' : '') . '" data-catpick>'
+        . '<label for="' . h($id) . '">分类</label>'
+        . '<select id="' . h($id) . '" name="cat">' . $opts . '</select>'
+        . '<p class="hint">' . ($cats ? '可以放在大类里，也可以放在大类下面的小类里。首页商城按分类筛选。' : '还没有分类，商品都在「全部」里。') . ' <a href="' . h(url('cats')) . '">管理分类</a></p>'
+        . '<p class="ferr"' . ($err === null ? ' hidden' : '') . '>' . h((string) $err) . '</p></div>';
+}
+
+// ---------- 商品分类 ----------
+
+function admin_cats(): void
+{
+    $cats = shop_cats();
+    view('cats', ['title' => '商品分类', 'cats' => $cats, 'counts' => shop_cat_counts($cats, shop_products()), 'live' => shop_cat_counts($cats, array_filter(shop_products(), fn($p) => shop_product_live($p)))]);
+}
+
+function post_cat_id(string $k = 'id'): string
+{
+    $v = post_str($k, 20);
+    return preg_match(SHOP_CAT_ID_RE, $v) ? $v : '';
+}
+
+function admin_cats_add(): void
+{
+    $parent = post_cat_id('parent');
+    try {
+        $c = shop_cat_add(post_str('name', 400), $parent);
+        audit('shop_cat_added', $c['id']);
+        flash('ok', ($parent === '' ? '已添加大类「' : '已添加小类「') . $c['name'] . '」。');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有添加：');
+    }
+    redirect('cats');
+}
+
+function admin_cats_rename(): void
+{
+    try {
+        shop_cat_rename(post_cat_id(), post_str('name', 400));
+        flash('ok', '名称已保存，网站已经更新。');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有改名：');
+    }
+    redirect('cats');
+}
+
+function admin_cats_move(): void
+{
+    try {
+        shop_cat_move(post_cat_id(), post_str('dir', 5) === 'up' ? 'up' : 'down');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有调整：');
+    }
+    redirect('cats');
+}
+
+function admin_cats_delete(): void
+{
+    $id = post_cat_id();
+    try {
+        $c = shop_cat_delete($id);
+        audit('shop_cat_deleted', $id);
+        flash('ok', '已删除「' . $c['name'] . '」。');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有删除：');
+    }
+    redirect('cats');
 }
 
 function admin_shop_new(): void
@@ -111,7 +203,7 @@ function admin_shop_save(): void
 {
     $id = post_id(PRODUCT_ID_RE);
     $in = [];
-    foreach (['name', 'slug', 'type', 'price', 'stock', 'stock_seen', 'unlimited', 'on_sale', 'summary', 'body', 'dl_text', 'dl_link'] as $k) {
+    foreach (['name', 'slug', 'type', 'price', 'stock', 'stock_seen', 'unlimited', 'on_sale', 'summary', 'body', 'dl_text', 'dl_link', 'cat'] as $k) {
         $in[$k] = post_str($k, 20000);
     }
     $alts = $_POST['photo_alt'] ?? [];

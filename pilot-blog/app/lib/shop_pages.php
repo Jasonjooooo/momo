@@ -72,7 +72,7 @@ function shop_how_html(string $type): string
 }
 
 /** Static product page (shop/<slug>.html). $k: its position on the home grid (S-01 …). */
-function render_product_page(array $p, int $k, array $site, array $settings): string
+function render_product_page(array $p, int $k, array $site, array $settings, array $shop = []): string
 {
     $ss = $settings['shop'];
     $n = count($p['photos']);
@@ -92,7 +92,8 @@ function render_product_page(array $p, int $k, array $site, array $settings): st
     }
     $notice = $ss['notice'] !== '' ? '<p class="shop-notice">' . enc_text($ss['notice']) . '</p>' : '';
     $body = $p['body'] !== '' ? '<div class="pbody prod-body">' . "\n" . md_render($p['body'], ['base' => '../']) . "\n" . '</div>' : '';
-    $main = '<article class="prod">' . "\n"
+    $main = shop_crumbs_html($p, $shop)
+        . '<article class="prod">' . "\n"
         . '<div class="gal">' . "\n"
         . '<div class="gal-track"' . ($n > 1 ? ' tabindex="0" role="region" aria-label="商品照片，共 ' . $n . ' 张，左右滑动"' : '') . '>' . implode('', $slides) . '</div>' . "\n"
         . ($n > 1 ? '<p class="gal-hint" aria-hidden="true">共 ' . $n . ' 张 · 左右滑动</p>' . "\n" : '')
@@ -123,6 +124,31 @@ function render_product_page(array $p, int $k, array $site, array $settings): st
         'og_image' => is_string($og) ? $og : 'assets/og.jpg',
         'url' => 'shop/' . $p['slug'] . '.html',
     ]);
+}
+
+/**
+ * 商城 / 大类 / 小类 above a product, each part a link to the home shop filtered to it (#shop/c/<id>). Shown only when
+ * the home page has category tabs; a product without a category then sits under 其他.
+ */
+function shop_crumbs_html(array $p, array $shop): string
+{
+    $tree = $shop['cats'] ?? ['cats' => [], 'other' => 0];
+    if (!$tree['cats'] || !($shop['open'] ?? false)) {
+        return '';
+    }
+    $ix = $shop['ix'] ?? [];
+    $w = shop_cat_of($p, $ix);
+    $parts = ['<a href="../#shop">商城</a>'];
+    if ($w['top'] === null) {
+        $parts[] = '<a href="../#shop/c/' . SHOP_CAT_OTHER . '">其他</a>';
+    } else {
+        $parts[] = '<a href="../#shop/c/' . enc_attr($w['top']) . '">' . enc_text($ix[$w['top']]['name']) . '</a>';
+        if ($w['sub'] !== null) {
+            $parts[] = '<a href="../#shop/c/' . enc_attr($w['sub']) . '">' . enc_text($ix[$w['sub']]['name']) . '</a>';
+        }
+    }
+    $items = array_map(fn($a) => '<li>' . $a . '</li>', $parts);
+    return '<nav class="crumbs" aria-label="所在分类"><ol>' . implode('', $items) . '</ol></nav>' . "\n";
 }
 
 // ---------- the buyer's live pages (api/shop.php) ----------

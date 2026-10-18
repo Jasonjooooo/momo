@@ -352,3 +352,26 @@ fieldset.field .check{margin:6px 0}
 .sup-row .btn{flex:none}
 .card-secret-admin{margin:6px 0 10px;padding:10px 12px;border:1px solid var(--line-strong);border-radius:6px;background:var(--panel-2);overflow-wrap:anywhere}
 .card-secret-admin p{margin:0 0 4px}
+
+/* ---------- 商品分类 ---------- */
+.cat-add{display:flex;gap:10px;align-items:stretch;margin:0}
+.cat-add input[type=text]{flex:1;min-width:0}
+.cat-add .btn{flex:none}
+.cat-add-sub{margin-top:12px}
+.cat-row{display:flex;gap:10px;align-items:flex-start;justify-content:space-between}
+.cat-txt{min-width:0;flex:1}
+.cat-name{margin:0;font-weight:600;overflow-wrap:anywhere}
+h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
+.cat-k{display:inline-flex;align-items:center;min-height:22px;padding:0 7px;border:1px solid var(--line-strong);border-radius:3px;font:600 12px/1 var(--cjk);color:var(--text-2)}
+.cat-meta{margin:4px 0 0;font-size:14px;color:var(--text-2)}
+.cat-meta a{display:inline-flex;align-items:center;min-height:44px;color:var(--text-2)}
+.cat-subs{list-style:none;margin:0;padding:0;border-top:1px solid var(--line)}
+.cat-sub{padding:10px 0 4px 12px;border-bottom:1px solid var(--line);box-shadow:inset 2px 0 0 var(--line-strong)}
+.cat-more{margin:4px 0 0}
+.cat-more>summary{display:flex;align-items:center;min-height:44px;cursor:pointer;color:var(--text-2);font-size:15px}
+.cat-more[open]>summary{margin-bottom:8px}
+.cat-more form+form,.cat-more form+p{margin-top:12px}
+.catpick-two{display:grid;grid-template-columns:1fr;gap:12px}
+@media (min-width:560px){.catpick-two{grid-template-columns:1fr 1fr}}
+.catpick-two label{display:block;font-weight:600;margin:0 0 4px}
+.prow-cat{font-size:13px;color:var(--text-2)}

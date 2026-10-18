@@ -72,6 +72,7 @@ $v = fn(string $k, string $fallback) => $posted && is_string($form[$k] ?? null) 
     <input id="i-name" name="name" type="text" maxlength="60" value="<?= h($v('name', mb_substr($it['name'], 0, 40))) ?>">
     <p class="ferr"<?php if (!$err('name')): ?> hidden<?php endif; ?>><?= h((string) $err('name')) ?></p>
   </div>
+<?php echo admin_cat_select('i-cat', $v('cat', ''), $err('cat')); /* built with h() in admin_shop.php */ ?>
   <div class="field<?= h($err('price') ? ' has-err' : '') ?>">
     <label for="i-price">售价（元，每件）</label>
     <div class="affix"><span>¥</span><input id="i-price" name="price" type="text" inputmode="decimal" value="<?= h($v('price', $cost !== null ? shop_money((int) ceil($cost * 1.1)) : '')) ?>" placeholder="30.00"></div>

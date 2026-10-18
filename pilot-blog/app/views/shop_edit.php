@@ -93,6 +93,8 @@ $isSupply = $p['type'] === 'supply';
     <p class="ferr"<?php if (!$err('name')): ?> hidden<?php endif; ?>><?= h((string) $err('name')) ?></p>
   </div>
 
+<?php echo admin_cat_select('s-cat', $v('cat', $p['cat']), $err('cat')); /* built with h() in admin_shop.php */ ?>
+
 <?php if ($isSupply): ?>
   <input type="hidden" name="type" value="supply">
   <input type="hidden" name="stock" value="<?= h($stock) ?>">

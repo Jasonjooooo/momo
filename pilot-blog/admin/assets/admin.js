@@ -1242,6 +1242,47 @@
     });
   });
 
+  // ---------- category picker: the plain select (大类 and 「大类 / 小类」 options) becomes a 大类 select and a
+  // dependent 小类 select; both write into the original, which is what the form submits ----------
+  $$('[data-catpick]').forEach(function (box) {
+    var orig = $('select[name="cat"]', box);
+    if (!orig) return;
+    var tops = [], subsOf = {};
+    Array.prototype.forEach.call(orig.options, function (o) {
+      var top = o.getAttribute('data-top');
+      if (!top) return;
+      if (o.getAttribute('data-sub')) {
+        var label = o.textContent, cut = label.indexOf(' / ');
+        (subsOf[top] = subsOf[top] || []).push({ id: o.value, name: cut >= 0 ? label.slice(cut + 3) : label });
+      } else tops.push({ id: o.value, name: o.textContent });
+    });
+    if (!tops.length) return;   // nothing to choose but 不分类: keep the plain select
+    var base = orig.id || 'cat';
+    var topSel = el('select', { id: base + '-top' }, [el('option', { value: '', text: '不分类' })].concat(tops.map(function (t) { return el('option', { value: t.id, text: t.name }); })));
+    var subSel = el('select', { id: base + '-sub' });
+    var subWrap = el('div', {}, [el('label', { 'for': base + '-sub', text: '小类' }), subSel]);
+    var two = el('div', { class: 'catpick-two' }, [el('div', {}, [el('label', { 'for': base + '-top', text: '大类' }), topSel]), subWrap]);
+    function fillSubs(top, chosen) {
+      while (subSel.firstChild) subSel.removeChild(subSel.firstChild);
+      var list = subsOf[top] || [];
+      subWrap.hidden = !list.length;
+      subSel.appendChild(el('option', { value: top, text: '不选小类（直接放在大类里）' }));
+      list.forEach(function (s) { subSel.appendChild(el('option', { value: s.id, text: s.name })); });
+      subSel.value = chosen || top;
+    }
+    function sync() { orig.value = topSel.value === '' ? '' : (subWrap.hidden ? topSel.value : subSel.value); orig.dispatchEvent(new Event('input', { bubbles: true })); }
+    var cur = orig.options[orig.selectedIndex];
+    var curTop = cur ? (cur.getAttribute('data-top') || '') : '';
+    topSel.value = curTop;
+    fillSubs(curTop, cur && cur.getAttribute('data-sub') ? cur.value : curTop);
+    topSel.addEventListener('change', function () { fillSubs(topSel.value, topSel.value); sync(); });
+    subSel.addEventListener('change', sync);
+    var lab = $('label[for="' + orig.id + '"]', box);
+    if (lab) lab.hidden = true;
+    orig.hidden = true;
+    orig.after(two);
+  });
+
   // ---------- page start ----------
   var page = d.body.getAttribute('data-page');
   var dataEl = $('#editor-data');

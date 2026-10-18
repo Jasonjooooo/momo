@@ -183,7 +183,7 @@ function admin_supply_item(array $form = [], array $errors = []): void
 function admin_supply_import(): void
 {
     $code = post_str('code', 80);
-    $in = ['race' => post_str('race', 400), 'name' => post_str('name', 400), 'price' => post_str('price', 40), 'body' => post_str('body', 20000), 'on_sale' => post_str('on_sale', 2)];
+    $in = ['race' => post_str('race', 400), 'name' => post_str('name', 400), 'price' => post_str('price', 40), 'body' => post_str('body', 20000), 'on_sale' => post_str('on_sale', 2), 'cat' => post_str('cat', 40)];
     try {
         $p = supply_import($code, $in);
         flash('ok', $p['on_sale'] ? '已上架《' . $p['name'] . '》，首页商城已经更新。可以在这里换照片、改介绍。' : '已加到商品里（没上架）。改好以后勾选「上架」保存。');

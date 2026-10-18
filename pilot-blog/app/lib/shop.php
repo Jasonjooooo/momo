@@ -144,6 +144,7 @@ function shop_product_normalize(array $p): array
         'photos' => $photos,
         'delivery' => ['text' => (string) ($dl['text'] ?? ''), 'link' => (string) ($dl['link'] ?? ''), 'file' => $file],
         'supply' => $type === 'supply' ? supply_link_normalize($p['supply'] ?? null) : null,
+        'cat' => is_string($p['cat'] ?? null) && preg_match(SHOP_CAT_ID_RE, $p['cat']) ? $p['cat'] : '',   // '' = 不分类 (products saved before categories)
         'rev' => (int) ($p['rev'] ?? 1),
         'created_at' => (string) ($p['created_at'] ?? now_iso()),
         'updated_at' => (string) ($p['updated_at'] ?? now_iso()),
@@ -852,6 +853,12 @@ function shop_product_input(array $cur, array $in, array $all): array
         $c['stock'] = (int) $stockRaw;
     }
     $c['on_sale'] = ($in['on_sale'] ?? '') === '1';
+    if (array_key_exists('cat', $in)) {   // a caller that does not send the field keeps the category
+        [$c['cat'], $catErr] = shop_cat_input($in['cat'], shop_cats());
+        if ($catErr !== null) {
+            $e['cat'] = $catErr;
+        }
+    }
     $c['summary'] = shop_clean_line($in['summary'] ?? '', 60);
     if (mb_strlen($c['summary']) > 60) {
         $e['summary'] = '一句话介绍最多 60 个字。';

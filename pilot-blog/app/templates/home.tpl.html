@@ -2345,6 +2345,77 @@ RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { u
   show(0);
 })();
 
+<!--{/if}--><!--{if has_shop_cats}-->/* ============ 04 商城: 大类 tabs and 小类 chips filter the goods (only rendered when a category holds a product on sale) ============ */
+/* Without script every product shows and the rows stay hidden. The choice lives in the address as #shop/c/<id> (a 大类, a
+   小类 or "other"), written with replaceState so it never scrolls or adds history; opening such a link (the product
+   page breadcrumb) picks the category and brings the shop into view. #ai and the other nav anchors are left alone. */
+(function shopCats() {
+  const box = $('[data-shop-cats]'), shop = $('#shop');
+  if (!box || !shop) return;
+  const goods = $$('.goods > .good', shop), tabs = $$('.cat-tab', box), rows = $$('.cat-chips', box), live = $('[data-cat-status]', box);
+  const HASH = /^#shop\/c\/(c[0-9a-f]{8}|other)$/;
+  const parentOf = {};
+  rows.forEach(r => $$('.cat-chip', r).forEach(c => { if (c.dataset.sub) parentOf[c.dataset.sub] = r.dataset.subsOf; }));
+  let top = '';
+  function edge(row) {
+    if (row.hidden) return;
+    if (row.scrollWidth - row.clientWidth - row.scrollLeft > 4) row.setAttribute('data-more', '');
+    else row.removeAttribute('data-more');
+  }
+  function reveal(btn) {
+    const row = btn.parentElement, l = btn.offsetLeft - row.offsetLeft, r = l + btn.offsetWidth;
+    if (l < row.scrollLeft) row.scrollLeft = l - 12;
+    else if (r > row.scrollLeft + row.clientWidth) row.scrollLeft = r - row.clientWidth + 12;
+  }
+  function apply(t, s, write) {
+    top = t;
+    tabs.forEach(b => { const on = b.dataset.cat === t; b.setAttribute('aria-pressed', on ? 'true' : 'false'); if (on) reveal(b); });
+    rows.forEach(r => {
+      r.hidden = r.dataset.subsOf !== t;
+      if (!r.hidden) $$('.cat-chip', r).forEach(c => { const on = c.dataset.sub === s; c.setAttribute('aria-pressed', on ? 'true' : 'false'); if (on) reveal(c); });
+      edge(r);
+    });
+    let n = 0;
+    goods.forEach(g => { const show = !t || (g.dataset.cat === t && (!s || g.dataset.sub === s)); g.hidden = !show; if (show) n++; });
+    live.textContent = '显示 ' + n + ' 件商品';
+    if (write) {
+      try { history.replaceState(history.state, '', s ? '#shop/c/' + s : t ? '#shop/c/' + t : '#shop'); } catch (e) {}
+    }
+  }
+  function fromHash() {
+    const m = HASH.exec(location.hash);
+    if (!m) return false;
+    const id = m[1];
+    if (tabs.some(b => b.dataset.cat === id)) apply(id, '', false);
+    else if (parentOf[id]) apply(parentOf[id], id, false);
+    else apply('', '', false);   // nothing on sale there any more: show everything
+    return true;
+  }
+  function toShop() {
+    const html = document.documentElement, y = Math.max(0, shop.getBoundingClientRect().top + scrollY - 72);
+    html.style.scrollBehavior = 'auto';
+    scrollTo(0, y);
+    html.style.scrollBehavior = '';
+  }
+  tabs.forEach(b => b.addEventListener('click', () => apply(b.dataset.cat, '', true)));
+  rows.forEach(r => {
+    $$('.cat-chip', r).forEach(c => c.addEventListener('click', () => apply(top, c.dataset.sub, true)));
+    r.addEventListener('scroll', () => edge(r), { passive: true });
+  });
+  const tabRow = $('.cat-tabs', box);
+  tabRow.addEventListener('scroll', () => edge(tabRow), { passive: true });
+  addEventListener('resize', () => [tabRow].concat(rows).forEach(edge), { passive: true });
+  edge(tabRow);
+  if (fromHash()) {
+    toShop();
+    let moved = false;
+    const mark = () => { moved = true; };
+    ['wheel', 'touchstart', 'keydown', 'pointerdown'].forEach(ev => addEventListener(ev, mark, { passive: true, once: true }));
+    addEventListener('load', () => { if (!moved) toShop(); }, { once: true });
+  }
+  addEventListener('hashchange', () => { if (fromHash()) toShop(); });
+})();
+
 <!--{/if}-->/* ============ NAV: the 机型 item goes before 日志, the page order (CSS order already shows it; this fixes tab order) ============ */
 (function navOrder() {
   const t = $('#nav-links a[href="#type"]'), l = $('#nav-links a[href="#log"]');

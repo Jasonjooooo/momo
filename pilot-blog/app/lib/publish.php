@@ -37,17 +37,13 @@ function build_home_ctx(array $site, array $shelf, array $posts, array $settings
         'stats_live' => stats_enabled($settings),
         'site_published_at' => (string) ($site['published_at'] ?? $site['updated_at'] ?? now_iso()),
         'extra_css' => (string) file_get_contents(app_path('templates', 'home-extra.css')),
-        'shop' => [
-            'open' => (bool) $settings['shop']['enabled'],
-            'notice' => (string) $settings['shop']['notice'],
-            'products' => array_values(array_filter($products, fn($p) => shop_product_live($p, $settings))),
-        ],
+        'shop' => shop_home_ctx($products, $settings),
     ];
     $base = $ctx;
     foreach (['chat_live', 'subscribe_endpoint', 'log_count'] as $v) {
         $ctx['values'][$v] = value_render($v, $base);
     }
-    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live', 'has_album'] as $c) {
+    foreach (['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'stats_live', 'has_album', 'has_shop_cats'] as $c) {
         $ctx['conds'][$c] = cond_eval($c, $base);
     }
     foreach (['legs', 'faq_rows', 'type_facts', 'extra_css', 'about_album', 'shop_status', 'shop_grid'] as $b) {
@@ -186,12 +182,12 @@ function render_site(array $site, array $shelf, array $posts, array $settings, b
             $files['posts/' . $p['slug'] . '.html'] = render_post_page($p, $base, $published[$i + 1] ?? null, $published[$i - 1] ?? null);
         }
         $files['posts/index.html'] = render_archive($base, $published);
-        $shown = array_values(array_filter($products, fn($p) => shop_product_live($p, $settings)));
-        foreach ($shown as $k => $p) {
+        $shop = shop_home_ctx($products, $settings);
+        foreach ($shop['products'] as $k => $p) {
             if (!preg_match(SLUG_RE, $p['slug']) || $p['slug'] === 'index') {
                 return ['ok' => false, 'errors' => ['shop' => '商品《' . $p['name'] . '》的网址不对。']];
             }
-            $files['shop/' . $p['slug'] . '.html'] = render_product_page($p, $k, $site, $settings);
+            $files['shop/' . $p['slug'] . '.html'] = render_product_page($p, $k, $site, $settings, $shop);
         }
         $home = render_home(build_home_ctx($site, $shelf, $posts, $settings, $chatKey, $products));
     } catch (TemplateError $e) {

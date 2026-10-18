@@ -12,7 +12,7 @@ const TPL_VALUES = ['chat_live', 'subscribe_endpoint', 'log_count', 'radio_act',
     'shop_title', 'shop_title_attr', 'shop_desc_attr', 'shop_css_href', 'shop_og_image', 'shop_url'];
 const TPL_BLOCKS = ['legs', 'faq_rows', 'type_facts', 'shelf_json', 'extra_css', 'about_album',
     'post_cover', 'post_body', 'post_tags', 'post_prevnext', 'post_tag_first', 'archive_list', 'shop_status', 'shop_grid', 'shop_main'];
-const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live', 'has_album', 'shop_private'];
+const TPL_CONDS = ['subscribe_live', 'has_teasers', 'has_published', 'origin_placeholder', 'has_cover', 'has_tags', 'has_prevnext', 'has_excerpt', 'stats_live', 'has_album', 'shop_private', 'has_shop_cats'];
 
 const LAT_RE = '/[A-Za-z0-9](?:[A-Za-z0-9.×\- ]*[A-Za-z0-9])?/u';
 

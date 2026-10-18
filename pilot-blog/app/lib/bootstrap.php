@@ -23,6 +23,7 @@ require_once __DIR__ . '/images.php';
 require_once __DIR__ . '/subscribers.php';
 require_once __DIR__ . '/stats.php';
 require_once __DIR__ . '/shop.php';
+require_once __DIR__ . '/shop_cats.php';
 require_once __DIR__ . '/shop_pages.php';
 require_once __DIR__ . '/supply.php';
 require_once __DIR__ . '/publish.php';

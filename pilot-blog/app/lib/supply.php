@@ -797,6 +797,10 @@ function supply_import(string $code, array $in): array
     } elseif (mb_strlen($body) > 5000) {
         $e['body'] = '介绍最多 5000 个字。';
     }
+    [$cat, $catErr] = shop_cat_input($in['cat'] ?? '', shop_cats());
+    if ($catErr !== null) {
+        $e['cat'] = $catErr;
+    }
     if ($e) {
         throw new ShopError('invalid', (string) reset($e), $e);
     }
@@ -817,7 +821,7 @@ function supply_import(string $code, array $in): array
     $st = supply_stock($code, $race);
     $stock = min(SHOP_STOCK_MAX, $st['ok'] ? $st['stock'] : max(0, $it['stock']));
     $photo = supply_default_photo();
-    $p = shop_mutate(function (array &$products) use ($it, $code, $race, $name, $price, $body, $cost, $stock, $photo, $in) {
+    $p = shop_mutate(function (array &$products) use ($it, $code, $race, $name, $price, $body, $cost, $stock, $photo, $in, $cat) {
         if (count($products) >= SHOP_PRODUCTS_MAX) {
             throw new ShopError('full', '商品最多 ' . SHOP_PRODUCTS_MAX . ' 件，先删掉不卖的再加。');
         }
@@ -828,7 +832,7 @@ function supply_import(string $code, array $in): array
         } while (isset($taken[$slug]));
         $p = shop_product_normalize([
             'id' => $id, 'slug' => $slug, 'name' => $name, 'type' => 'supply', 'price' => $price, 'stock' => $stock,
-            'on_sale' => ($in['on_sale'] ?? '') === '1', 'summary' => '', 'body' => $body,
+            'on_sale' => ($in['on_sale'] ?? '') === '1', 'summary' => '', 'body' => $body, 'cat' => $cat,
             'photos' => [['src' => $photo['src'], 'alt' => $name]],
             'supply' => ['code' => $code, 'race' => $race, 'src_name' => $it['name'] . ($race !== '' ? '（' . $race . '）' : ''), 'cost' => $cost, 'cost_at' => now_iso(),
                 'stock_at' => now_iso(), 'min' => $it['minimum'], 'max' => $it['maximum'], 'contact' => $it['contact_type'] === 2 ? 2 : 0, 'manual' => $it['delivery_way'] === 1],
