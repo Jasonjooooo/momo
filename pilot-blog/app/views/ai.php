@@ -1,6 +1,7 @@
 <?php
 defined('BLOG_APP') || exit;
 $c = $settings['chat'];
+$db = $c['provider'] === 'doubao';
 $errSum = fn(array $e) => (int) $e['disabled'] + (int) $e['not_configured'] + (int) $e['bad_request'] + (int) $e['upstream_busy'] + (int) $e['upstream_error'] + (int) $e['upstream_unreachable'] + (int) $e['empty_reply'];
 $rlSum = fn(array $e) => (int) $e['rate_limited_ip'] + (int) $e['daily_limit'];
 $tot = ['requests' => 0, 'answered' => 0, 'err' => 0, 'rl' => 0, 'in' => 0, 'out' => 0];
@@ -29,7 +30,7 @@ $num = fn(int $n) => number_format($n, 0, '.', ',');
 <?php if ($chat_live): ?>
   <p><span class="chip chip-ok">在线</span> 在线：访客现在能用。</p>
 <?php elseif ($c['enabled']): ?>
-  <p><span class="chip chip-warn">缺少密钥</span> 缺少 API 密钥：先在下面填好密钥。</p>
+  <p><span class="chip chip-warn">缺少密钥</span> 缺少 API 密钥<?= h($db ? '或模型' : '') ?>：先在下面填好。</p>
 <?php else: ?>
   <p><span class="chip">已关闭</span> 已关闭：对话框显示接入中，不会调用 AI。</p>
 <?php endif; ?>
@@ -42,8 +43,66 @@ $num = fn(int $n) => number_format($n, 0, '.', ',');
   </form>
 </section>
 
+<section class="card" aria-labelledby="ai-prov">
+  <h2 class="card-h" id="ai-prov">用哪家的 AI</h2>
+  <p>现在用的是 <b><?= h($db ? '豆包（火山引擎）' : 'Claude（Anthropic）') ?></b><?= h($db ? '，模型 / 接入点 ' : '') ?><?php if ($db): ?><b class="mono"><?= h($c['model']) ?></b><?php endif; ?>。</p>
+  <form method="post" action="<?= h(url('ai.save')) ?>" class="stack" data-guard novalidate>
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <input type="hidden" name="rev" value="<?= h((string) $settings['rev']) ?>">
+    <input type="hidden" name="part" value="provider">
+    <div class="field">
+      <label for="provider">AI 服务</label>
+      <select id="provider" name="provider">
+        <option value="doubao"<?php if ($db): ?> selected<?php endif; ?>>豆包（火山引擎），推荐</option>
+        <option value="anthropic"<?php if (!$db): ?> selected<?php endif; ?>>Claude（Anthropic），香港服务器上通常用不了</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="model">模型 / 接入点 ID（用豆包时填）</label>
+      <p class="where">在火山方舟控制台「开通管理」开通模型（例如 Doubao 轻量版 / lite），模型名称或「在线推理」里的接入点 ID（ep- 开头）填这里。</p>
+      <input id="model" name="model" type="text" maxlength="100" autocomplete="off" autocapitalize="off" spellcheck="false" value="<?= h($c['model']) ?>">
+    </div>
+    <button class="btn btn-primary" type="submit">保存选择</button>
+  </form>
+  <div class="row-btns">
+    <button type="button" class="btn" id="ai-test"<?php if (!$active_key): ?> disabled<?php endif; ?>>测试连接</button>
+  </div>
+  <p class="where" id="ai-test-msg" role="status" aria-live="polite"></p>
+<?php if ($last_error): ?>
+  <p class="where" id="ai-last-err">最近一次出错（<?= h(cn_time($last_error['at'])) ?>）：<?= h($last_error['reason']) ?></p>
+<?php endif; ?>
+</section>
+
+<section class="card" aria-labelledby="ai-dbkey">
+  <h2 class="card-h" id="ai-dbkey">豆包的 API Key</h2>
+  <p id="dbkey-status">
+<?php if ($db_hint !== null): ?>
+    已设置，结尾是 <b class="mono"><?= h($db_hint) ?></b><?= h($db_set_at ? '（' . cn_time($db_set_at, false) . '设置）' : '') ?>
+<?php else: ?>
+    还没有设置
+<?php endif; ?>
+  </p>
+  <form method="post" action="<?= h(url('ai.dbkey')) ?>" class="stack" data-guard>
+    <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+    <div class="field">
+      <label for="dbkey"><?= h($db_hint !== null ? '换一个新的 API Key' : '填写 API Key') ?></label>
+      <p class="where">在火山方舟控制台「API Key 管理」里创建。保存后这里只显示最后 4 位，谁也看不到完整的 Key。换成 Claude 时这个 Key 也会留着。</p>
+      <input id="dbkey" name="dbkey" type="password" autocomplete="off" autocapitalize="off" spellcheck="false" value="">
+    </div>
+    <button class="btn btn-primary" type="submit">保存 API Key</button>
+  </form>
+<?php if ($db_hint !== null): ?>
+  <div class="row-btns">
+    <form method="post" action="<?= h(url('ai.dbkey_remove')) ?>" data-confirm="确定删除豆包的 API Key？用豆包时，删除后助手就用不了了。" data-confirm-ok="删除 API Key" data-confirm-danger="1">
+      <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
+      <button class="btn btn-danger" type="submit">删除 API Key</button>
+    </form>
+  </div>
+<?php endif; ?>
+</section>
+
 <section class="card" aria-labelledby="ai-key">
-  <h2 class="card-h" id="ai-key">API 密钥</h2>
+  <h2 class="card-h" id="ai-key">Claude 的 API 密钥</h2>
   <p id="key-status">
 <?php if ($key_source === 'admin'): ?>
     已设置，结尾是 <b class="mono"><?= h((string) $key_hint) ?></b><?= h($key_set_at ? '（' . cn_time($key_set_at, false) . '设置）' : '') ?>
@@ -64,16 +123,14 @@ $num = fn(int $n) => number_format($n, 0, '.', ',');
     </div>
     <button class="btn btn-primary" type="submit">保存密钥</button>
   </form>
-  <div class="row-btns">
-    <button type="button" class="btn" id="ai-test"<?php if ($key_source === null): ?> disabled<?php endif; ?>>测试连接</button>
 <?php if ($key_source === 'admin'): ?>
-    <form method="post" action="<?= h(url('ai.key_remove')) ?>" data-confirm="删除后助手就用不了了（除非还有旧配置文件里的密钥）。确定删除密钥？" data-confirm-ok="删除密钥" data-confirm-danger="1">
+  <div class="row-btns">
+    <form method="post" action="<?= h(url('ai.key_remove')) ?>" data-confirm="删除后用 Claude 的助手就用不了了（除非还有旧配置文件里的密钥）。确定删除密钥？" data-confirm-ok="删除密钥" data-confirm-danger="1">
       <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
       <button class="btn btn-danger" type="submit">删除密钥</button>
     </form>
-<?php endif; ?>
   </div>
-  <p class="where" id="ai-test-msg" role="status" aria-live="polite"></p>
+<?php endif; ?>
 </section>
 
 <section class="card" aria-labelledby="ai-lim">

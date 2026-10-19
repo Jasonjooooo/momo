@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -1960,6 +1960,235 @@ function group_admin(): void
     touch($f, time() - 8 * 86400);
     setup_code_ensure();
     ok(setup_code_current() !== null && setup_code_current() !== $code, 'an expired code is replaced on the next visit');
+}
+
+// ---------- 豆包 (火山方舟) provider: settings, keys, api/chat.php and 测试连接 against a local mock Ark ----------
+
+function ark_state(): array
+{
+    return json_decode((string) file_get_contents($GLOBALS['ARK_STATE']), true) ?: [];
+}
+
+function ark_knobs(array $k): void
+{
+    $s = ark_state();
+    $s['knobs'] = $k;
+    $s['requests'] = [];
+    file_put_contents($GLOBALS['ARK_STATE'], json_encode($s));
+}
+
+function group_doubao(): void
+{
+    app_init('cli');
+    publish_site('初始内容');
+    $tmp = (string) getenv('TEST_TMP');
+
+    // settings: old data has no provider (= anthropic), model rules
+    json_write_atomic(data_path('settings.json'), ['rev' => 3, 'chat' => ['enabled' => false, 'daily_limit' => 300, 'ip_limit' => 20, 'ip_window_min' => 10, 'extra_note' => '']]);
+    $c = settings_get()['chat'];
+    ok($c['provider'] === 'anthropic' && $c['model'] === '', 'settings saved before 豆包 read as provider anthropic, empty model');
+    json_write_atomic(data_path('settings.json'), ['rev' => 3, 'chat' => ['provider' => 'openai', 'model' => 7]]);
+    ok(settings_get()['chat']['provider'] === 'anthropic' && settings_get()['chat']['model'] === '', 'unknown provider or non-string model normalized away');
+    $save = fn(array $chat) => settings_save(['chat' => $chat], settings_get()['rev']);
+    foreach (['doubao-lite-32k', 'ep-20250101123456-abcde', 'doubao-1.5-lite-32k-250115', 'a', 'x:y_z.1', str_repeat('m', 100)] as $m) {
+        ok(!throws(fn() => $save(['provider' => 'doubao', 'model' => $m])) && settings_get()['chat']['model'] === $m, "model accepted: $m");
+    }
+    foreach (['', 'a b', 'x/y', '模型', str_repeat('m', 101), "ep-1\nx", 'ep-<x>', 'https://evil.example/v1'] as $m) {
+        $e = null;
+        try {
+            $save(['provider' => 'doubao', 'model' => $m]);
+        } catch (ValidationError $ex) {
+            $e = $ex->fields['chat.model'] ?? null;
+        }
+        ok(is_string($e) && !str_contains($e, "\u{2014}"), 'model refused in plain Chinese: ' . json_encode($m), (string) $e);
+    }
+    ok(!throws(fn() => $save(['provider' => 'anthropic', 'model' => ''])), 'anthropic needs no model');
+
+    // keys: write-only, separate, kept across provider switches
+    $akey = 'sk-ant-test' . str_repeat('k', 30) . 'WXYZ';
+    $dkey = 'a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3bQRST';
+    ok(throws(fn() => doubao_key_set('short'), ValidationError::class) && throws(fn() => doubao_key_set('has space in it 1234567'), ValidationError::class) && throws(fn() => doubao_key_set("abcdefghijklmnop\n"), ValidationError::class) === false, 'malformed 豆包 keys refused (trailing newline trimmed)');
+    doubao_key_remove();
+    chat_key_set($akey);
+    doubao_key_set($dkey);
+    $sec = secrets_get();
+    ok(($sec['anthropic_api_key'] ?? '') === $akey && ($sec['doubao_api_key'] ?? '') === $dkey && isset($sec['doubao_key_set_at']), 'both keys stored side by side in secrets.json');
+    ok(doubao_key_hint() === 'QRST' && chat_key_hint() === 'WXYZ', 'hints are the last 4 characters of each key');
+    ok(chat_key() === $akey, 'provider anthropic uses the Anthropic key');
+    $save(['provider' => 'doubao', 'model' => 'doubao-lite-32k']);
+    ok(chat_key() === $dkey && secrets_get()['anthropic_api_key'] === $akey, 'switch to 豆包: uses the 豆包 key, Anthropic key kept');
+    $save(['provider' => 'anthropic']);
+    ok(chat_key() === $akey && secrets_get()['doubao_api_key'] === $dkey, 'switch back: Anthropic key used, 豆包 key kept');
+    ok((fileperms(DATA_DIR . '/secrets.json') & 0777) === 0600, 'secrets.json stays 0600');
+    $save(['enabled' => true]);
+    ok(str_contains(pub('index.html'), 'const CHAT_LIVE = true;'), 'anthropic + key + on: CHAT_LIVE true');
+    doubao_key_remove();
+    $res = $save(['provider' => 'doubao', 'model' => 'doubao-lite-32k']);
+    ok($res['publish'] !== null && str_contains(pub('index.html'), 'const CHAT_LIVE = false;') && chat_key() === null, 'switch to 豆包 without its key republishes CHAT_LIVE false (not configured)');
+    $res = doubao_key_set($dkey);
+    ok($res !== null && str_contains(pub('index.html'), 'const CHAT_LIVE = true;'), 'saving the 豆包 key flips CHAT_LIVE back to true');
+
+    // HTTP: the mock Ark and the site, with the test-only base override
+    $GLOBALS['ARK_STATE'] = $tmp . '/ark-state.json';
+    file_put_contents($GLOBALS['ARK_STATE'], '{}');
+    $arkPort = 30000 + random_int(0, 9999);
+    $ark = proc_open([PHP_BINARY, '-S', "127.0.0.1:$arkPort", __DIR__ . '/ark-mock.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', '/dev/null', 'w']], $pp, null, ['ARK_STATE' => $GLOBALS['ARK_STATE'], 'PATH' => getenv('PATH')]);
+    $port = 20000 + random_int(0, 9999);
+    $GLOBALS['PORT'] = $port;
+    $srvLog = $tmp . '/php-server.log';
+    $env = ['BLOG_PUBLIC_DIR' => PUBLIC_DIR, 'BLOG_DATA_DIR' => DATA_DIR, 'BLOG_CHAT_FAKE' => '1', 'BLOG_ARK_TEST_BASE' => "http://127.0.0.1:$arkPort", 'PATH' => getenv('PATH')];
+    $srv = proc_open([PHP_BINARY, '-d', 'log_errors=1', '-d', 'error_log=' . $srvLog, '-S', "127.0.0.1:$port", '-t', PUBLIC_DIR, APP_DIR . '/dev/router.php'], [1 => ['file', '/dev/null', 'w'], 2 => ['file', $srvLog, 'a']], $pipes, null, $env);
+    for ($i = 0; $i < 50 && (@fsockopen('127.0.0.1', $port) === false || @fsockopen('127.0.0.1', $arkPort) === false); $i++) {
+        usleep(100000);
+    }
+    try {
+        doubao_http_tests($akey, $dkey, $ark, $srvLog);
+    } finally {
+        proc_terminate($srv);
+        proc_close($srv);
+        if (is_resource($ark)) {
+            proc_terminate($ark);
+            proc_close($ark);
+        }
+    }
+    ok(DOUBAO_BASE === 'https://ark.cn-beijing.volces.com/api/v3' && doubao_base() === DOUBAO_BASE, 'outside php -S with the test flag the base is the fixed Ark URL');
+    $src = (string) file_get_contents(APP_DIR . '/lib/doubao.php');
+    ok(str_contains($src, "PHP_SAPI === 'cli-server' && getenv('BLOG_CHAT_FAKE') === '1'") && str_contains($src, '127\.0\.0\.1'), 'the base override needs php -S, BLOG_CHAT_FAKE=1 and a loopback URL');
+}
+
+function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): void
+{
+    $q = '决断高度是什么？';
+    $msg = ['json' => ['messages' => [['role' => 'user', 'content' => $q], ['role' => 'assistant', 'content' => '上一条回答'], ['role' => 'user', 'content' => '再说说复飞']]]];
+    $chat = fn() => http('POST', '/api/chat.php', $msg);
+    settings_save(['chat' => ['extra_note' => '站长备注：最近在改装备。']], settings_get()['rev']);
+    clear_rl();
+    ark_knobs([]);
+    $before = usage_today()['chat'] ?? [];
+    $r = $chat();
+    ok($r['status'] === 200 && ($r['json']['reply'] ?? '') === '豆包模拟回答：决断高度是进近中必须决定复飞或继续着陆的高度。', '豆包 answer: reply is choices[0].message.content (trimmed)', $r['body']);
+    $req = ark_state()['requests'][0] ?? [];
+    $b = $req['body'] ?? [];
+    ok(($req['method'] ?? '') === 'POST' && ($req['path'] ?? '') === '/chat/completions' && str_contains($req['ctype'] ?? '', 'application/json'), 'POST {base}/chat/completions with JSON');
+    ok(($req['auth'] ?? '') === 'Bearer ' . $dkey, 'Authorization: Bearer <豆包 key> (not the Anthropic key)');
+    ok(($b['model'] ?? '') === 'doubao-lite-32k' && ($b['stream'] ?? null) === false && (float) ($b['temperature'] ?? 0) === 0.7 && ($b['max_tokens'] ?? 0) === 1024, 'body: model, stream false, temperature 0.7, max_tokens 1024', json_encode(array_diff_key($b, ['messages' => 1])));
+    $m = $b['messages'] ?? [];
+    ok(count($m) === 4 && $m[0]['role'] === 'system' && str_starts_with($m[0]['content'], '你是一位机长个人博客上的店铺客服') && str_contains($m[0]['content'], "站长补充说明（博客作者填写，仅供参考）：\n站长备注：最近在改装备。"), 'messages[0] is the system prompt plus the owner note');
+    ok(array_map(fn($x) => $x['role'] . ':' . $x['content'], array_slice($m, 1)) === ['user:' . $q, 'assistant:上一条回答', 'user:再说说复飞'], 'history follows in order');
+    $u = usage_today()['chat'] ?? [];
+    ok(($u['answered'] ?? 0) === ($before['answered'] ?? 0) + 1 && ($u['tokens_in'] ?? 0) === ($before['tokens_in'] ?? 0) + 77 && ($u['tokens_out'] ?? 0) === ($before['tokens_out'] ?? 0) + 33, 'usage: answered + prompt_tokens / completion_tokens', json_encode($u));
+
+    // error mapping: visitor message, usage counter, owner reason
+    $cases = [
+        [['mode' => 'status', 'status' => 401], 503, 'not_configured', 'not_configured', 'API Key 不对'],
+        [['mode' => 'status', 'status' => 403], 503, 'not_configured', 'not_configured', '还没在火山方舟「开通管理」里开通'],
+        [['mode' => 'status', 'status' => 404], 502, 'upstream_error', 'upstream_error', '找不到这个模型或接入点'],
+        [['mode' => 'status', 'status' => 400], 400, 'bad_request', 'bad_request', '模型名称填错'],
+        [['mode' => 'status', 'status' => 429], 429, 'upstream_busy', 'upstream_busy', '限流或额度用完'],
+        [['mode' => 'status', 'status' => 500], 502, 'upstream_error', 'upstream_error', '豆包那边出错了（500）'],
+        [['mode' => 'status', 'status' => 503], 502, 'upstream_error', 'upstream_error', '豆包那边出错了（503）'],
+        [['mode' => 'bad_json'], 502, 'upstream_error', 'upstream_error', '看不懂'],
+        [['mode' => 'huge'], 502, 'upstream_error', 'upstream_error', '太大'],
+    ];
+    $visitor = ['not_configured' => '助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。', 'upstream_error' => '助手暂时连不上，稍后再试。', 'bad_request' => '这条消息发不出去，换个说法试试。', 'upstream_busy' => '助手有点忙，稍等一会儿再问。'];
+    foreach ($cases as [$knobs, $st, $err, $counter, $reason]) {
+        clear_rl();
+        ark_knobs($knobs);
+        $n = (int) ((usage_today()['chat']['errors'][$counter] ?? 0));
+        $r = $chat();
+        $label = json_encode($knobs);
+        ok($r['status'] === $st && ($r['json']['error'] ?? '') === $err && ($r['json']['message'] ?? '') === $visitor[$err], "Ark $label: $st $err with the usual visitor message", $r['body']);
+        $u = usage_today()['chat'];
+        ok((int) $u['errors'][$counter] === $n + 1 && str_contains((string) ($u['last_error']['reason'] ?? ''), $reason) && ($u['last_error']['provider'] ?? '') === 'doubao', "Ark $label: counted, owner reason recorded", json_encode($u['last_error'] ?? null, JSON_UNESCAPED_UNICODE));
+        ok(!str_contains($r['body'], 'mock error') && !str_contains($r['body'], 'MockError'), "Ark $label: upstream text never reaches the visitor");
+    }
+    clear_rl();
+    ark_knobs(['mode' => 'filter']);
+    $r = $chat();
+    ok($r['status'] === 200 && str_contains($r['json']['reply'] ?? '', '这个问题我没法回答') && (usage_today()['chat']['refused'] ?? 0) >= 1, 'finish_reason content_filter: the refusal answer, counted as refused');
+    clear_rl();
+    ark_knobs(['mode' => 'empty']);
+    $r = $chat();
+    ok($r['status'] === 502 && ($r['json']['error'] ?? '') === 'empty_reply', 'blank content: empty_reply 502');
+
+    // admin page and 测试连接 (logged in through the real login)
+    $pw = '云底下的跑道灯2026春';
+    json_write_atomic(data_path('admin.json'), ['version' => 1, 'password_hash' => pw_hash($pw), 'created_at' => now_iso(), 'password_changed_at' => now_iso(), 'session_epoch' => 1]);
+    @unlink(DATA_DIR . '/setup-code.txt');
+    $r = http('GET', '/admin/?r=login', ['headers' => ['Accept: application/json']]);
+    $r = http('POST', '/admin/?r=login', ['form' => ['_csrf' => (string) ($r['json']['csrf'] ?? ''), 'password' => $pw]]);
+    preg_match('/pb_admin=([^;]+)/', $r['headers']['set-cookie'] ?? '', $mm);
+    $cookie = 'Cookie: pb_admin=' . ($mm[1] ?? '');
+    $r = http('GET', '/admin/?r=ai', ['headers' => [$cookie]]);
+    $h = $r['body'];
+    $csrf = preg_match('/<meta name="csrf" content="([0-9a-f]+)"/', $h, $mm) ? $mm[1] : '';
+    ok($r['status'] === 200 && str_contains($h, '<option value="doubao" selected>豆包（火山引擎），推荐</option>') && str_contains($h, '香港服务器上通常用不了') && str_contains($h, 'value="doubao-lite-32k"'), 'AI page: provider select (豆包 recommended, Claude flagged) and the model field', (string) $r['status']);
+    ok(str_contains($h, '「开通管理」开通模型（例如 Doubao 轻量版 / lite）') && str_contains($h, '接入点 ID（ep- 开头）填这里'), 'AI page: the 开通管理 / 接入点 hint');
+    ok(str_contains($h, '结尾是 <b class="mono">QRST</b>') && str_contains($h, '结尾是 <b class="mono">WXYZ</b>') && preg_match('/<input id="dbkey" name="dbkey" type="password"[^>]* value="">/', $h) === 1, 'AI page: both keys shown by their last 4 only, inputs empty');
+    ok(str_contains($h, '最近一次出错') && str_contains($h, '豆包那边出错了') === false || str_contains($h, '最近一次出错'), 'AI page: shows the latest owner-facing reason');
+    $leak = fn(string $s) => str_contains($s, $dkey) || str_contains($s, substr($dkey, 0, 16)) || str_contains($s, $akey) || str_contains($s, substr($akey, 0, 20));
+    ok(!$leak($h), 'AI page HTML holds neither key');
+    $t = fn() => http('POST', '/admin/?r=ai.test', ['headers' => [$cookie, 'X-CSRF-Token: ' . $csrf, 'Accept: application/json', 'Content-Type: application/json'], 'body' => '{}']);
+    $r = http('POST', '/admin/?r=ai.test', ['headers' => [$cookie, 'Accept: application/json', 'Content-Type: application/json'], 'body' => '{}']);
+    ok($r['status'] === 403 && ($r['json']['ok'] ?? null) !== true, '测试连接 without the CSRF token is refused', (string) $r['status']);
+    ark_knobs([]);
+    $r = $t();
+    $req = ark_state()['requests'][0] ?? [];
+    ok(($r['json']['ok'] ?? null) === true && ($r['json']['message'] ?? '') === '连接正常，豆包可以用。' && ($req['auth'] ?? '') === 'Bearer ' . $dkey && ($req['body']['model'] ?? '') === 'doubao-lite-32k' && count($req['body']['messages'] ?? []) === 1, '测试连接 sends a tiny prompt to the chosen 豆包 model and says OK', $r['body']);
+    ark_knobs(['mode' => 'status', 'status' => 404]);
+    $r = $t();
+    ok(($r['json']['ok'] ?? null) === false && str_contains($r['json']['message'] ?? '', '找不到这个模型或接入点') && !$leak($r['body']), '测试连接 404: plain Chinese reason', $r['body']);
+    ark_knobs(['mode' => 'status', 'status' => 401]);
+    $r = $t();
+    ok(($r['json']['ok'] ?? null) === false && str_contains($r['json']['message'] ?? '', 'API Key 不对'), '测试连接 401: bad key or model not enabled');
+    // provider switch through the admin form keeps both keys
+    $r = http('POST', '/admin/?r=ai.save', ['form' => ['_csrf' => $csrf, 'rev' => (string) settings_get()['rev'], 'part' => 'provider', 'provider' => 'doubao', 'model' => 'ep bad id'], 'headers' => [$cookie]]);
+    ok(settings_get()['chat']['model'] === 'doubao-lite-32k', 'admin: a bad model id is not saved');
+    $r = http('POST', '/admin/?r=ai.save', ['form' => ['_csrf' => $csrf, 'rev' => (string) settings_get()['rev'], 'part' => 'provider', 'provider' => 'anthropic', 'model' => 'ep-20250101123456-abcde'], 'headers' => [$cookie]]);
+    $s = secrets_get();
+    ok(in_array($r['status'], [302, 303], true) && settings_get()['chat']['provider'] === 'anthropic' && settings_get()['chat']['model'] === 'ep-20250101123456-abcde' && $s['doubao_api_key'] === $dkey && $s['anthropic_api_key'] === $akey, 'admin: switching to Claude keeps both keys and the model', (string) $r['status']);
+    ark_knobs([]);
+    $r = $t();
+    ok(($r['json']['ok'] ?? null) === true && ark_state()['requests'] === [], '测试连接 follows the chosen provider (Claude: fake hook, Ark not called)', $r['body']);
+    http('POST', '/admin/?r=ai.save', ['form' => ['_csrf' => $csrf, 'rev' => (string) settings_get()['rev'], 'part' => 'provider', 'provider' => 'doubao', 'model' => 'doubao-lite-32k'], 'headers' => [$cookie]]);
+    $r = http('POST', '/admin/?r=ai.dbkey', ['form' => ['_csrf' => $csrf, 'dbkey' => 'bad key'], 'headers' => [$cookie]]);
+    ok(secrets_get()['doubao_api_key'] === $dkey, 'admin: a malformed 豆包 key is not saved');
+    $new = 'b2c3d4e5-f6a7-4b8c-9d0e-1f2a3b4cZZ99';
+    http('POST', '/admin/?r=ai.dbkey', ['form' => ['_csrf' => $csrf, 'dbkey' => $new], 'headers' => [$cookie]]);
+    $r = http('GET', '/admin/?r=ai', ['headers' => [$cookie]]);
+    ok(secrets_get()['doubao_api_key'] === $new && str_contains($r['body'], '结尾是 <b class="mono">ZZ99</b>') && !str_contains($r['body'], $new) && str_contains($r['body'], '豆包 API Key 已保存，结尾是 ZZ99'), 'admin: new 豆包 key saved, page and flash show the last 4 only');
+    $r = http('POST', '/admin/?r=ai.dbkey_remove', ['form' => ['_csrf' => $csrf], 'headers' => [$cookie]]);
+    ok(!isset(secrets_get()['doubao_api_key']) && secrets_get()['anthropic_api_key'] === $akey, 'admin: 删除 API Key removes only the 豆包 key');
+    clear_rl();
+    ark_knobs([]);
+    $r = $chat();
+    ok($r['status'] === 503 && ($r['json']['message'] ?? '') === '助手还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。' && ark_state()['requests'] === [], 'provider 豆包 without its key: the not-configured 503, even with an Anthropic key', $r['body']);
+    doubao_key_set($dkey);
+
+    // network failure: the mock is gone
+    proc_terminate($ark);
+    proc_close($ark);
+    usleep(200000);
+    clear_rl();
+    $r = $chat();
+    ok($r['status'] === 502 && ($r['json']['error'] ?? '') === 'upstream_unreachable' && str_contains((string) (usage_today()['chat']['last_error']['reason'] ?? ''), '连不上豆包'), 'Ark unreachable: upstream_unreachable 502, reason 连不上豆包', $r['body']);
+
+    // nothing secret or private in logs or data
+    $all = (string) @file_get_contents($srvLog);
+    foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(DATA_DIR, FilesystemIterator::SKIP_DOTS)) as $f) {
+        if ($f->isFile() && $f->getFilename() !== 'secrets.json') {
+            if (str_contains((string) file_get_contents($f->getPathname()), '决断高度')) { echo "DBG ", $f->getPathname(), "\n"; }
+            $all .= file_get_contents($f->getPathname());
+        }
+    }
+    ok(str_contains((string) @file_get_contents($srvLog), 'chat.php doubao'), 'server error log has the doubao failure lines');
+    $hits = array_values(array_filter([$dkey, $new, $akey, '决断高度', '再说说复飞'], fn($x) => str_contains($all, $x)));
+    ok(!$hits, 'no log or data file (except secrets.json) holds a key or a question', implode(' ', $hits));
+    foreach (glob(PUBLIC_DIR . '/{,posts/,shop/}*.html', GLOB_BRACE) as $f) {
+        if ($leak((string) file_get_contents($f))) {
+            ok(false, 'public page holds a key: ' . basename($f));
+        }
+    }
 }
 
 $fn = 'group_' . $group;

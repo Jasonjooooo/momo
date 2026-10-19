@@ -5,8 +5,8 @@ declare(strict_types=1);
 defined('BLOG_APP') || exit;
 
 const DOUBAO_BASE = 'https://ark.cn-beijing.volces.com/api/v3';
-const DOUBAO_MODEL_RE = '/^[A-Za-z0-9._:\-]{1,100}$/';
-const DOUBAO_KEY_RE = '/^[A-Za-z0-9_.\-]{16,200}$/';
+const DOUBAO_MODEL_RE = '/^[A-Za-z0-9._:\-]{1,100}$/D';
+const DOUBAO_KEY_RE = '/^[A-Za-z0-9_.\-]{16,200}$/D';
 const DOUBAO_TIMEOUT = 20;
 const DOUBAO_MAX_BYTES = 1048576;
 
