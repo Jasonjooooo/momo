@@ -19,6 +19,7 @@ require_once __DIR__ . '/blocks.php';
 require_once __DIR__ . '/posts.php';
 require_once __DIR__ . '/shelf.php';
 require_once __DIR__ . '/settings.php';
+require_once __DIR__ . '/doubao.php';
 require_once __DIR__ . '/images.php';
 require_once __DIR__ . '/subscribers.php';
 require_once __DIR__ . '/stats.php';

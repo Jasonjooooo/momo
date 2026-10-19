@@ -1,5 +1,5 @@
 <?php
-// 博客 AI 助手的后端：把聊天框的消息转给 Claude，API 密钥只留在服务器上。
+// 博客 AI 助手的后端：把聊天框的消息转给 Claude 或豆包（火山方舟，后台选），API 密钥只留在服务器上。
 //
 // 开关、密钥、限额和补充说明在后台「AI 助手」页面设置，保存在 public_html 同级的 blog-data 文件夹里。
 // 旧的配置文件 chat-config.php（同样放在 public_html 的同级）还认：后台没有保存密钥时，用它里面的 api_key。
@@ -93,7 +93,7 @@ try {
 usage_add(['chat.requests' => 1]);
 
 $settings = settings_get()['chat'];
-$apiKey = chat_key();
+$apiKey = chat_key($settings);
 if (!$settings['enabled']) {
     // switched off in the admin; before any key exists the page is still in its "接入中" state
     $msg = $apiKey === null ? MSG_NOT_CONFIGURED : '站长暂时关掉了助手，这个问题暂时没有回答。';
@@ -157,8 +157,36 @@ if ($note !== '') {
 }
 
 // 本地测试钩子：只在 php -S 开发服务器里、并且设了 BLOG_CHAT_FAKE=1 时生效，不调用 API。
-if (PHP_SAPI === 'cli-server' && getenv('BLOG_CHAT_FAKE') === '1') {
+// 同一个开关下，豆包可以改连本机的模拟方舟（BLOG_ARK_TEST_BASE，见 app/lib/doubao.php）。
+$doubao = $settings['provider'] === 'doubao';
+if (PHP_SAPI === 'cli-server' && getenv('BLOG_CHAT_FAKE') === '1' && !($doubao && doubao_mock_active())) {
     respond(200, ['reply' => '（测试回答）'], 'chat.answered', ['chat.tokens_in' => 120, 'chat.tokens_out' => 40]);
+}
+
+if ($doubao) {
+    // 豆包（火山方舟）：OpenAI 风格的 chat/completions，系统提示放在第一条 system 消息里。
+    $r = doubao_chat($apiKey, (string) $settings['model'], array_merge([['role' => 'system', 'content' => $system]], $messages), min(MAX_TOKENS, 1024));
+    if (!$r['ok']) {
+        // 给站长看的原因（中文、不含提问内容和密钥）记进今天的用量文件和服务器错误日志
+        usage_note_error('doubao', $r['reason']);
+        error_log('chat.php doubao ' . $r['kind'] . ' ' . $r['status']);
+        [$st, $err, $msg, $count] = match ($r['kind']) {
+            'auth' => [503, 'not_configured', MSG_NOT_CONFIGURED, 'chat.errors.not_configured'],
+            'bad_request' => [400, 'bad_request', '这条消息发不出去，换个说法试试。', 'chat.errors.bad_request'],
+            'rate' => [429, 'upstream_busy', '助手有点忙，稍等一会儿再问。', 'chat.errors.upstream_busy'],
+            'network' => [502, 'upstream_unreachable', '助手暂时连不上，稍后再试。', 'chat.errors.upstream_unreachable'],
+            default => [502, 'upstream_error', '助手暂时连不上，稍后再试。', 'chat.errors.upstream_error'],
+        };
+        respond($st, ['error' => $err, 'message' => $msg], $count);
+    }
+    $tokens = ['chat.tokens_in' => $r['in'], 'chat.tokens_out' => $r['out']];
+    if ($r['finish'] === 'content_filter') {
+        respond(200, ['reply' => '这个问题我没法回答。可以换个角度问问商城或者飞行相关的事。'], 'chat.refused', $tokens);
+    }
+    if ($r['text'] === '') {
+        respond(502, ['error' => 'empty_reply', 'message' => '助手这次没想好怎么回答，再问一次试试。'], 'chat.errors.empty_reply', $tokens);
+    }
+    respond(200, ['reply' => $r['text']], 'chat.answered', $tokens);
 }
 
 require __DIR__ . '/vendor/autoload.php';

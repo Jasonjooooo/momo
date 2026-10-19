@@ -238,7 +238,7 @@ function publish_site(string $reason, array $opts = []): array
         $shelf = shelf_live();
         $posts = posts_all();
         $settings = settings_get();
-        $r = render_site($site, $shelf, $posts, $settings, chat_key() !== null, shop_products());
+        $r = render_site($site, $shelf, $posts, $settings, chat_key($settings['chat']) !== null, shop_products());
         if (!$r['ok']) {
             return ['ok' => false, 'errors' => $r['errors']];
         }
@@ -508,7 +508,7 @@ function preview_home(array $siteDraft, array $shelfDraft): string
     }
     $settings = settings_get();
     $settings['stats']['enabled'] = false;   // a preview is not a visit
-    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), $settings, chat_key() !== null, shop_products()));
+    $html = render_home(build_home_ctx($site, $shelfDraft, posts_all(), $settings, chat_key($settings['chat']) !== null, shop_products()));
     return inject_preview($html, '../', PREVIEW_BANNER_HOME);
 }
 

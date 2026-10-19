@@ -1,16 +1,17 @@
 <?php
-// Settings (SPEC §5.5), the write-only Anthropic key (§5.6, §10) and usage counters (§5.9).
+// Settings (SPEC §5.5), the write-only Anthropic and 豆包 keys (§5.6, §10) and usage counters (§5.9).
 declare(strict_types=1);
 defined('BLOG_APP') || exit;
 
 const CHAT_KEY_RE = '/^sk-ant-[A-Za-z0-9_\-]{20,200}$/';
+const CHAT_PROVIDERS = ['anthropic', 'doubao'];
 
 function settings_defaults(): array
 {
     return [
         'rev' => 0,
         'updated_at' => null,
-        'chat' => ['enabled' => false, 'daily_limit' => 300, 'ip_limit' => 20, 'ip_window_min' => 10, 'extra_note' => ''],
+        'chat' => ['enabled' => false, 'provider' => 'anthropic', 'model' => '', 'daily_limit' => 300, 'ip_limit' => 20, 'ip_window_min' => 10, 'extra_note' => ''],
         'subscribe' => ['enabled' => true],
         'home' => ['leg_limit' => 6],
         'stats' => ['enabled' => true],
@@ -27,6 +28,9 @@ function settings_normalize(array $s): array
     $out['chat']['daily_limit'] = (int) $out['chat']['daily_limit'];
     $out['chat']['ip_limit'] = (int) $out['chat']['ip_limit'];
     $out['chat']['ip_window_min'] = 10;
+    // data saved before 豆包 existed has no provider: it was Anthropic
+    $out['chat']['provider'] = in_array($out['chat']['provider'], CHAT_PROVIDERS, true) ? $out['chat']['provider'] : 'anthropic';
+    $out['chat']['model'] = is_string($out['chat']['model']) ? trim($out['chat']['model']) : '';
     $out['chat']['extra_note'] = str_replace(["\r\n", "\r", "\t"], ["\n", "\n", ' '], (string) $out['chat']['extra_note']);
     $out['subscribe']['enabled'] = (bool) $out['subscribe']['enabled'];
     $out['home']['leg_limit'] = (int) $out['home']['leg_limit'];
@@ -62,6 +66,11 @@ function settings_validate(array $s): array
     }
     if ($s['chat']['ip_limit'] < 1 || $s['chat']['ip_limit'] > 200) {
         $e['chat.ip_limit'] = '每位访客 10 分钟内最多次数填 1 到 200。';
+    }
+    if ($s['chat']['model'] !== '' && !preg_match(DOUBAO_MODEL_RE, $s['chat']['model'])) {
+        $e['chat.model'] = '模型 / 接入点 ID 只能是字母、数字和 . _ : -，最多 100 位。';
+    } elseif ($s['chat']['provider'] === 'doubao' && $s['chat']['model'] === '') {
+        $e['chat.model'] = '用豆包要先填「模型 / 接入点 ID」。';
     }
     if (mb_strlen($s['chat']['extra_note']) > 1000) {
         $e['chat.extra_note'] = '补充说明最多 1000 个字。';
@@ -105,7 +114,7 @@ function settings_page_state(array $s): array
 {
     $shop = $s['shop'];
     unset($shop['qr']);   // the 收款码 only appear on the pay page (served live), not on the static pages
-    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key() !== null, $s['stats']['enabled'], $shop, $s['supply']['enabled']];
+    return [$s['subscribe']['enabled'], $s['home']['leg_limit'], $s['chat']['enabled'] && chat_key($s['chat']) !== null, $s['stats']['enabled'], $shop, $s['supply']['enabled']];
 }
 
 /**
@@ -134,7 +143,7 @@ function settings_save(array $patch, int $rev): array
     });
 }
 
-// ---------- Anthropic key: server side only ----------
+// ---------- API keys: server side only. Anthropic (admin / legacy file / env) and 豆包 (admin only) ----------
 
 function chat_legacy_config(): array
 {
@@ -146,6 +155,7 @@ function chat_legacy_config(): array
     return is_array($cfg) ? $cfg : [];
 }
 
+/** Where the Anthropic key comes from: 'admin', 'legacy', 'env' or null. */
 function chat_key_source(): ?string
 {
     $s = secrets_get();
@@ -160,7 +170,7 @@ function chat_key_source(): ?string
     return is_string($env) && $env !== '' ? 'env' : null;
 }
 
-function chat_key(): ?string
+function anthropic_key(): ?string
 {
     switch (chat_key_source()) {
         case 'admin':
@@ -173,10 +183,32 @@ function chat_key(): ?string
     return null;
 }
 
-/** Last 4 characters, for the admin status line. */
+function doubao_key(): ?string
+{
+    $k = secrets_get()['doubao_api_key'] ?? null;
+    return is_string($k) && $k !== '' ? $k : null;
+}
+
+/** The key of the provider chosen in the settings (豆包 also needs a model), or null: not configured. */
+function chat_key(?array $chat = null): ?string
+{
+    $chat ??= settings_get()['chat'];
+    if ($chat['provider'] === 'doubao') {
+        return $chat['model'] !== '' ? doubao_key() : null;
+    }
+    return anthropic_key();
+}
+
+/** Last 4 characters of the Anthropic key, for the admin status line. */
 function chat_key_hint(): ?string
 {
-    $k = chat_key();
+    $k = anthropic_key();
+    return $k === null ? null : substr($k, -4);
+}
+
+function doubao_key_hint(): ?string
+{
+    $k = doubao_key();
     return $k === null ? null : substr($k, -4);
 }
 
@@ -185,18 +217,23 @@ function chat_key_set_at(): ?string
     return secrets_get()['key_set_at'] ?? null;
 }
 
-/** Store a new key (validated). Republishes when the assistant's live state flips. Returns the publish result or null. */
-function chat_key_set(string $key): ?array
+function doubao_key_set_at(): ?string
 {
-    $key = trim($key);
-    if (!preg_match(CHAT_KEY_RE, $key)) {
-        throw new ValidationError(['key' => '这不像是 Anthropic 的 API 密钥（应该以 sk-ant- 开头）。']);
-    }
-    return with_lock('publish', function () use ($key) {
+    return secrets_get()['doubao_key_set_at'] ?? null;
+}
+
+/** Store one secret (and its time), or remove it ($key null). Republishes when the assistant's live state flips. */
+function chat_secret_put(string $field, string $atField, ?string $key): ?array
+{
+    return with_lock('publish', function () use ($field, $atField, $key) {
         $before = chat_live();
-        secrets_update(function (array $s) use ($key) {
-            $s['anthropic_api_key'] = $key;
-            $s['key_set_at'] = now_iso();
+        secrets_update(function (array $s) use ($field, $atField, $key) {
+            if ($key === null) {
+                unset($s[$field], $s[$atField]);
+            } else {
+                $s[$field] = $key;
+                $s[$atField] = now_iso();
+            }
             return $s;
         });
         @chmod(data_path('secrets.json'), 0600);
@@ -204,21 +241,40 @@ function chat_key_set(string $key): ?array
     });
 }
 
+/** Store a new Anthropic key (validated). Returns the publish result or null. */
+function chat_key_set(string $key): ?array
+{
+    $key = trim($key);
+    if (!preg_match(CHAT_KEY_RE, $key)) {
+        throw new ValidationError(['key' => '这不像是 Anthropic 的 API 密钥（应该以 sk-ant- 开头）。']);
+    }
+    return chat_secret_put('anthropic_api_key', 'key_set_at', $key);
+}
+
 function chat_key_remove(): ?array
 {
-    return with_lock('publish', function () {
-        $before = chat_live();
-        secrets_update(function (array $s) {
-            unset($s['anthropic_api_key'], $s['key_set_at']);
-            return $s;
-        });
-        return chat_live() !== $before ? publish_site('设置变更', ['version' => false]) : null;
-    });
+    return chat_secret_put('anthropic_api_key', 'key_set_at', null);
+}
+
+/** Store a new 豆包 (火山方舟) API Key (validated). */
+function doubao_key_set(string $key): ?array
+{
+    $key = trim($key);
+    if (!preg_match(DOUBAO_KEY_RE, $key)) {
+        throw new ValidationError(['key' => '这不像是火山方舟的 API Key（在方舟控制台「API Key 管理」里创建，只含字母、数字和短横线）。']);
+    }
+    return chat_secret_put('doubao_api_key', 'doubao_key_set_at', $key);
+}
+
+function doubao_key_remove(): ?array
+{
+    return chat_secret_put('doubao_api_key', 'doubao_key_set_at', null);
 }
 
 function chat_live(): bool
 {
-    return settings_get()['chat']['enabled'] && chat_key() !== null;
+    $chat = settings_get()['chat'];
+    return $chat['enabled'] && chat_key($chat) !== null;
 }
 
 // ---------- usage (Beijing days, kept 90 days, never message contents) ----------
@@ -268,6 +324,32 @@ function usage_add(array $delta, ?string $day = null): void
     } catch (Throwable $e) {
         error_log('usage_add: ' . get_class($e));
     }
+}
+
+/** The latest upstream failure, as a plain Chinese reason for the owner (no message text, no key). Never throws. */
+function usage_note_error(string $provider, string $reason): void
+{
+    try {
+        json_update(data_path('usage', local_day() . '.json'), function ($d) use ($provider, $reason) {
+            $d = array_replace_recursive(usage_empty(local_day()), is_array($d) ? $d : []);
+            $d['chat']['last_error'] = ['at' => now_iso(), 'provider' => $provider, 'reason' => mb_substr($reason, 0, 200)];
+            return $d;
+        }, null);
+    } catch (Throwable $e) {
+        error_log('usage_note_error: ' . get_class($e));
+    }
+}
+
+/** The newest last_error within the given usage days (newest first), or null. */
+function usage_last_error(array $usage): ?array
+{
+    foreach ($usage as $u) {
+        $e = $u['chat']['last_error'] ?? null;
+        if (is_array($e) && is_string($e['reason'] ?? null) && is_string($e['at'] ?? null)) {
+            return $e;
+        }
+    }
+    return null;
 }
 
 function usage_gc(): void

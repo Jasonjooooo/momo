@@ -23,7 +23,7 @@ $asked = (int) $today['chat']['requests'];
 <?php endif; ?>
 </div>
 <?php endif; ?>
-<?php if ($chatOn && $key_source === null): ?>
+<?php if ($chatOn && !$has_key): ?>
 <p class="notice notice-warn">AI 助手开着，但还没有密钥。<a href="<?= h(url('ai')) ?>">去填密钥</a></p>
 <?php endif; ?>
 

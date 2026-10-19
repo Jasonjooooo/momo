@@ -68,6 +68,8 @@ const ADMIN_ROUTES = [
     'ai.save' => ['admin_ai_save', ['POST'], 'auth', false],
     'ai.key' => ['admin_ai_key', ['POST'], 'auth', false],
     'ai.key_remove' => ['admin_ai_key_remove', ['POST'], 'auth', false],
+    'ai.dbkey' => ['admin_ai_dbkey', ['POST'], 'auth', false],
+    'ai.dbkey_remove' => ['admin_ai_dbkey_remove', ['POST'], 'auth', false],
     'ai.test' => ['admin_ai_test', ['POST'], 'auth', true],
     'versions' => ['admin_versions', ['GET'], 'auth', false],
     'versions.view' => ['admin_versions_view', ['GET'], 'auth', false],
@@ -417,7 +419,7 @@ function admin_dashboard(): void
         'subs_week' => sub_count_since(time() - 7 * 86400),
         'settings' => $settings,
         'chat_live' => chat_live(),
-        'key_source' => chat_key_source(),
+        'has_key' => chat_key($settings['chat']) !== null,
         'today' => $today,
         'stats_on' => stats_enabled($settings),
         'stats_today' => stats_day(local_day()),
@@ -958,6 +960,7 @@ function admin_stats_toggle(): void
 function admin_ai(): void
 {
     $s = settings_get();
+    $usage = usage_range(30);
     view('ai', [
         'title' => 'AI 助手',
         'settings' => $s,
@@ -965,7 +968,11 @@ function admin_ai(): void
         'key_source' => chat_key_source(),
         'key_hint' => chat_key_hint(),
         'key_set_at' => chat_key_set_at(),
-        'usage' => usage_range(30),
+        'db_hint' => doubao_key_hint(),
+        'db_set_at' => doubao_key_set_at(),
+        'active_key' => chat_key($s['chat']) !== null,
+        'usage' => $usage,
+        'last_error' => usage_last_error($usage),
     ]);
 }
 
@@ -973,18 +980,26 @@ function admin_ai_save(): void
 {
     $rev = (int) post_str('rev', 20);
     $part = post_str('part', 10);
-    $patch = $part === 'switch'
-        ? ['chat' => ['enabled' => post_str('enabled', 2) === '1']]
-        : ['chat' => [
+    $patch = match ($part) {
+        'switch' => ['chat' => ['enabled' => post_str('enabled', 2) === '1']],
+        'provider' => ['chat' => [
+            'provider' => post_str('provider', 20) === 'doubao' ? 'doubao' : 'anthropic',
+            'model' => trim(post_str('model', 400)),
+        ]],
+        default => ['chat' => [
             'daily_limit' => ctype_digit(ascii_digits(post_str('daily_limit', 40))) ? (int) ascii_digits(post_str('daily_limit', 40)) : -1,
             'ip_limit' => ctype_digit(ascii_digits(post_str('ip_limit', 40))) ? (int) ascii_digits(post_str('ip_limit', 40)) : -1,
             'extra_note' => trim(str_replace(["\r\n", "\r"], "\n", post_str('extra_note', 20000))),
-        ]];
+        ]],
+    };
     try {
         settings_save($patch, $rev);
         if ($part === 'switch') {
             $on = $patch['chat']['enabled'];
             flash('ok', $on ? (chat_key() === null ? '助手已打开，但还没有密钥，访客那边仍显示接入中。先在下面填好密钥。' : '助手已打开，网站已经更新。') : '助手已关闭，网站已经更新。');
+        } elseif ($part === 'provider') {
+            $db = $patch['chat']['provider'] === 'doubao';
+            flash('ok', '已改用' . ($db ? '豆包' : 'Claude') . '。' . (chat_key() === null ? ($db ? '还没有豆包的 API Key，先在下面填好。' : '还没有 Anthropic 密钥，先在下面填好。') : '可以点「测试连接」试一下。'));
         } else {
             flash('ok', '已保存限额和补充说明。');
         }
@@ -1025,9 +1040,58 @@ function admin_ai_key_remove(): void
     redirect('ai');
 }
 
+function admin_ai_dbkey(): void
+{
+    $key = post_str('dbkey', 1000);
+    try {
+        doubao_key_set($key);
+        audit('doubao_key_set');
+        flash('ok', '豆包 API Key 已保存，结尾是 ' . (string) doubao_key_hint() . '。');
+    } catch (ValidationError $e) {
+        flash('error', '没有保存：' . (string) reset($e->fields));
+    } catch (Throwable $e) {
+        error_log('admin ai.dbkey: ' . get_class($e));
+        flash('error', '没有保存：服务器出错了。');
+    }
+    redirect('ai');
+}
+
+function admin_ai_dbkey_remove(): void
+{
+    try {
+        doubao_key_remove();
+        audit('doubao_key_removed');
+        flash('ok', '豆包 API Key 已删除。' . (settings_get()['chat']['provider'] === 'doubao' ? '助手现在用不了，访客那边显示接入中。' : ''));
+    } catch (Throwable $e) {
+        error_log('admin ai.dbkey_remove: ' . get_class($e));
+        flash('error', '没有删除：服务器出错了。');
+    }
+    redirect('ai');
+}
+
+/** 测试连接: the provider chosen in the settings, with a tiny prompt (豆包) or a model lookup (Anthropic). */
 function admin_ai_test(): void
 {
-    $key = chat_key();
+    $chat = settings_get()['chat'];
+    if ($chat['provider'] === 'doubao') {
+        $key = doubao_key();
+        if ($chat['model'] === '') {
+            json_out(200, ['ok' => false, 'message' => '还没有填「模型 / 接入点 ID」，先填好再测试。']);
+        }
+        if ($key === null) {
+            json_out(200, ['ok' => false, 'message' => '还没有豆包的 API Key，先保存再测试。']);
+        }
+        if (PHP_SAPI === 'cli-server' && getenv('BLOG_CHAT_FAKE') === '1' && !doubao_mock_active()) {
+            json_out(200, ['ok' => true, 'message' => '连接正常，豆包可以用。']);
+        }
+        $r = doubao_chat($key, $chat['model'], [['role' => 'user', 'content' => '你好，请只回复「收到」两个字。']], 16, 15);
+        if ($r['ok']) {
+            json_out(200, ['ok' => true, 'message' => '连接正常，豆包可以用。']);
+        }
+        error_log('admin ai.test doubao ' . $r['kind'] . ' ' . $r['status']);
+        json_out(200, ['ok' => false, 'message' => $r['reason']]);
+    }
+    $key = anthropic_key();
     if ($key === null) {
         json_out(200, ['ok' => false, 'message' => '还没有密钥，先保存密钥再测试。']);
     }
