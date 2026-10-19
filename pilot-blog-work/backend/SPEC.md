@@ -974,6 +974,30 @@ launch content = baseline + this patch. `pilot-blog/index.html` in the repo is r
   a server-rendered inline SVG bar chart of requests per day (presentation attributes only, no inline
   styles, no JS). Note: 「这里只记次数和用量，不记访客问了什么。」
 
+### 10.1a Provider: 豆包 (火山方舟) or Claude (added 2026-10-19)
+
+The Hong Kong server usually cannot reach Anthropic, so the owner can switch the assistant to 豆包.
+- `settings.chat.provider` `anthropic` | `doubao` (missing or unknown → `anthropic`, so older data reads as before);
+  `settings.chat.model` (豆包 模型名称 or 接入点 ID `ep-…`): empty, or `^[A-Za-z0-9._:\-]{1,100}$`; required when
+  the provider is `doubao`.
+- `secrets.json` gets `doubao_api_key` + `doubao_key_set_at` beside the Anthropic key (write-only, last 4 shown,
+  `^[A-Za-z0-9_.\-]{16,200}$`). Switching provider keeps both keys. `chat_key()` = the chosen provider's key
+  (豆包 also needs a model); `chat_live` and `CHAT_LIVE` follow it.
+- Admin 「用哪家的 AI」 card (select + 模型 / 接入点 ID + hint, `ai.save` part `provider`), 「豆包的 API Key」 card
+  (`ai.dbkey`, `ai.dbkey_remove`), 「Claude 的 API 密钥」 card as before. 测试连接 (`ai.test`, POST + CSRF) tests
+  the chosen provider; for 豆包 it sends a tiny prompt (max_tokens 16, 15 s) and shows the plain Chinese reason.
+- `api/chat.php` with `doubao`: `app/lib/doubao.php` POSTs `https://ark.cn-beijing.volces.com/api/v3/chat/completions`
+  (fixed), `Authorization: Bearer <key>`, `{model, messages:[system (prompt + catalog + owner note), …history],
+  max_tokens: 1024, temperature: 0.7, stream: false}`; curl, 20 s timeout, TLS verified, https only, no redirects,
+  1 MB cap. Reply = `choices[0].message.content`; tokens from `usage.prompt_tokens` / `completion_tokens`;
+  `finish_reason` `content_filter` → the refusal answer (`refused`). Errors: 401/403 → `not_configured` 503;
+  400 → `bad_request`; 404, 5xx, bad JSON, too large → `upstream_error` 502; 429 → `upstream_busy`; network →
+  `upstream_unreachable`. The owner reason (plain Chinese, no message text, no key) goes to
+  `usage/<day>.json` `chat.last_error {at, provider, reason}` (shown on the AI page as 最近一次出错) and
+  `error_log` gets `chat.php doubao <kind> <status>`.
+- Test-only: under `php -S` with `BLOG_CHAT_FAKE=1`, `BLOG_ARK_TEST_BASE=http://127.0.0.1:<port>` points 豆包 at
+  `tests/ark-mock.php` (and the fake reply is skipped for 豆包). Never possible on Hostinger.
+
 ### 10.2 `api/chat.php` changes
 
 Keep the request validation, model (`claude-opus-5-5`), effort, fallbacks, the user-facing messages and

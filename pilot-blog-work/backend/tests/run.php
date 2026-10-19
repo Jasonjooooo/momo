@@ -1935,7 +1935,7 @@ function group_admin(): void
     ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
     $copy = '';
     foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php',
-        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_cats.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
+        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_cats.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', APP_DIR . '/lib/doubao.php', APP_DIR . '/lib/settings.php', PUBLIC_DIR . '/api/chat.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
         $copy .= (string) file_get_contents($f);
     }
     ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');
@@ -2058,8 +2058,8 @@ function group_doubao(): void
 
 function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): void
 {
-    $q = '决断高度是什么？';
-    $msg = ['json' => ['messages' => [['role' => 'user', 'content' => $q], ['role' => 'assistant', 'content' => '上一条回答'], ['role' => 'user', 'content' => '再说说复飞']]]];
+    $q = '豆包测试问题甲乙丙是什么？';
+    $msg = ['json' => ['messages' => [['role' => 'user', 'content' => $q], ['role' => 'assistant', 'content' => '上一条回答'], ['role' => 'user', 'content' => '再说说复飞测试丁戊']]]];
     $chat = fn() => http('POST', '/api/chat.php', $msg);
     settings_save(['chat' => ['extra_note' => '站长备注：最近在改装备。']], settings_get()['rev']);
     clear_rl();
@@ -2074,7 +2074,7 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
     ok(($b['model'] ?? '') === 'doubao-lite-32k' && ($b['stream'] ?? null) === false && (float) ($b['temperature'] ?? 0) === 0.7 && ($b['max_tokens'] ?? 0) === 1024, 'body: model, stream false, temperature 0.7, max_tokens 1024', json_encode(array_diff_key($b, ['messages' => 1])));
     $m = $b['messages'] ?? [];
     ok(count($m) === 4 && $m[0]['role'] === 'system' && str_starts_with($m[0]['content'], '你是一位机长个人博客上的店铺客服') && str_contains($m[0]['content'], "站长补充说明（博客作者填写，仅供参考）：\n站长备注：最近在改装备。"), 'messages[0] is the system prompt plus the owner note');
-    ok(array_map(fn($x) => $x['role'] . ':' . $x['content'], array_slice($m, 1)) === ['user:' . $q, 'assistant:上一条回答', 'user:再说说复飞'], 'history follows in order');
+    ok(array_map(fn($x) => $x['role'] . ':' . $x['content'], array_slice($m, 1)) === ['user:' . $q, 'assistant:上一条回答', 'user:再说说复飞测试丁戊'], 'history follows in order');
     $u = usage_today()['chat'] ?? [];
     ok(($u['answered'] ?? 0) === ($before['answered'] ?? 0) + 1 && ($u['tokens_in'] ?? 0) === ($before['tokens_in'] ?? 0) + 77 && ($u['tokens_out'] ?? 0) === ($before['tokens_out'] ?? 0) + 33, 'usage: answered + prompt_tokens / completion_tokens', json_encode($u));
 
@@ -2125,7 +2125,7 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
     ok($r['status'] === 200 && str_contains($h, '<option value="doubao" selected>豆包（火山引擎），推荐</option>') && str_contains($h, '香港服务器上通常用不了') && str_contains($h, 'value="doubao-lite-32k"'), 'AI page: provider select (豆包 recommended, Claude flagged) and the model field', (string) $r['status']);
     ok(str_contains($h, '「开通管理」开通模型（例如 Doubao 轻量版 / lite）') && str_contains($h, '接入点 ID（ep- 开头）填这里'), 'AI page: the 开通管理 / 接入点 hint');
     ok(str_contains($h, '结尾是 <b class="mono">QRST</b>') && str_contains($h, '结尾是 <b class="mono">WXYZ</b>') && preg_match('/<input id="dbkey" name="dbkey" type="password"[^>]* value="">/', $h) === 1, 'AI page: both keys shown by their last 4 only, inputs empty');
-    ok(str_contains($h, '最近一次出错') && str_contains($h, '豆包那边出错了') === false || str_contains($h, '最近一次出错'), 'AI page: shows the latest owner-facing reason');
+    ok(preg_match('#<p class="where" id="ai-last-err">最近一次出错（[^）]+）：豆包#u', $h) === 1, 'AI page: shows the latest owner-facing reason');
     $leak = fn(string $s) => str_contains($s, $dkey) || str_contains($s, substr($dkey, 0, 16)) || str_contains($s, $akey) || str_contains($s, substr($akey, 0, 20));
     ok(!$leak($h), 'AI page HTML holds neither key');
     $t = fn() => http('POST', '/admin/?r=ai.test', ['headers' => [$cookie, 'X-CSRF-Token: ' . $csrf, 'Accept: application/json', 'Content-Type: application/json'], 'body' => '{}']);
@@ -2177,12 +2177,11 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
     $all = (string) @file_get_contents($srvLog);
     foreach (new RecursiveIteratorIterator(new RecursiveDirectoryIterator(DATA_DIR, FilesystemIterator::SKIP_DOTS)) as $f) {
         if ($f->isFile() && $f->getFilename() !== 'secrets.json') {
-            if (str_contains((string) file_get_contents($f->getPathname()), '决断高度')) { echo "DBG ", $f->getPathname(), "\n"; }
             $all .= file_get_contents($f->getPathname());
         }
     }
     ok(str_contains((string) @file_get_contents($srvLog), 'chat.php doubao'), 'server error log has the doubao failure lines');
-    $hits = array_values(array_filter([$dkey, $new, $akey, '决断高度', '再说说复飞'], fn($x) => str_contains($all, $x)));
+    $hits = array_values(array_filter([$dkey, $new, $akey, '豆包测试问题甲乙丙', '再说说复飞测试丁戊', '豆包模拟回答'], fn($x) => str_contains($all, $x)));
     ok(!$hits, 'no log or data file (except secrets.json) holds a key or a question', implode(' ', $hits));
     foreach (glob(PUBLIC_DIR . '/{,posts/,shop/}*.html', GLOB_BRACE) as $f) {
         if ($leak((string) file_get_contents($f))) {
