@@ -92,7 +92,7 @@ const ADMIN_MENU = [
     'password' => '修改密码',
 ];
 
-const ADMIN_FAVICON = 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' viewBox=\'0 0 32 32\'%3E%3Crect width=\'32\' height=\'32\' rx=\'6\' fill=\'%230A1733\'/%3E%3Cpath d=\'M5 8 L22 22\' stroke=\'%23A9A8C0\' stroke-width=\'2\' stroke-linecap=\'round\'/%3E%3Cpath d=\'M19 24 H29\' stroke=\'%23ECE9F1\' stroke-width=\'2.6\' stroke-linecap=\'round\'/%3E%3Ccircle cx=\'11\' cy=\'12.9\' r=\'2.8\' fill=\'%23EA4C22\'/%3E%3C/svg%3E';
+const ADMIN_FAVICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230A1733'/%3E%3Cg transform='translate%282 12.56%29 scale%280.01697%29 translate%28-245 -258%29' fill='none' stroke='%23ECE9F1' stroke-width='70' stroke-linejoin='round'%3E%3Cpath d='M250,566 C262,550 292,534 334,531 C420,518 510,503 578,496 L636,460 C660,446 690,440 730,438 C900,436 1100,446 1236,458 C1310,452 1390,440 1438,427 L1518,292 L1606,292 L1573,462 L1548,530 C1500,562 1420,592 1360,604 C1240,616 1060,632 880,650 C760,654 560,652 470,646 C420,644 370,642 352,638 C340,628 336,612 334,600 C300,597 268,584 250,566 Z'/%3E%3Cpath d='M880,612 C1100,608 1500,603 1745,601 L1862,553 L1882,554 L1787,618 C1500,626 1150,636 990,648 C940,652 900,650 880,640 Z'/%3E%3Cpath d='M1372,284 C1420,276 1480,272 1520,270 L1790,262 L1840,267 L1790,276 L1560,282 C1480,286 1410,290 1372,284 Z'/%3E%3C/g%3E%3C/svg%3E";
 
 const MSG_SAVED_SITE = '已保存草稿。网站还没变，点「保存并发布」才会更新。';
 const MSG_SAVED_POST = '已保存草稿。网站还没变，点「发布」才会更新。';

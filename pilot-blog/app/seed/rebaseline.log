@@ -2,3 +2,4 @@
 2026-10-17T16:02:03Z sha256 31c740bc08e56f5451a5788d62ddd2597cf6ec01c0fe2fe4a7c42ff8cabac8fb owner-approved 2026-10-17: the AI 超市 shelf is replaced by the 商城 (shop) section with the 店铺客服 chat (SPEC §18 item 26)
 2026-10-18T15:50:55Z sha256 28657bec2d9b7e56445a5ba22b479481d2473d2065e85514c72a757f5b0e9413 HERO FIX: WeChat iOS never decodes a blob: video (diag 2026-10-18: readyState 0 for 15s, direct src paints in 0.6s): go direct in WeChat, blob watchdog 4s
 2026-10-19T09:57:50Z sha256 86c6f86db1b64ca40891fac608656be45a73b88a8604649557b4c1b918d5d3cb HERO FIX: owner: the hero's orange button now goes to the shop (#ai) instead of 订阅; its text is the owner's own
+2026-10-19T10:08:45Z sha256 e973059ffd2315c39609fd30d735ebdf8defbdaa6829ab18946c8731f17752e1 HERO FIX: owner: favicon is now the PC-12 outline from the 机型 section (head region holds the icon)
