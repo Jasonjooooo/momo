@@ -1767,6 +1767,16 @@ Added by the categories pass (2026-10-18, owner request):
    `pilot-blog/index.html` was re-rendered (diff = the new CSS lines). T3 unchanged. The home script keeps a chat array
    named `history`, so the filter calls `window.history.replaceState`. No Nginx or .htaccess change (no new entry point).
 
+Added by the dashboard and referral pass (2026-10-20, owner request):
+
+31. **经营总览 and 推广链接.** Owner-approved. A 经营总览 page (menu item right before 商品, the first of the shop items) and a
+   single-level 推广 program (menu 推广 after 货源). Details in §20 「经营总览」 and 「推广」. Product `cost` (成本价, optional) and the
+   order snapshot `cost_unit`; refunds get an optional `amount` (fen; older notes like 「已退 ¥10」 are read for their amount).
+   Owner decision: no site-wide default commission rate; the rate is required per 推广人 (0 to 50 %) and changes apply to new
+   orders only. New public routes live in the existing `api/shop.php` (`a=ref`, `a=partner`): no new entry point, no Nginx or
+   .htaccess change, no T1/T2/T3 change (home template untouched; only `assets/shop.css` grew, which the product pages pick up
+   on their next render).
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
@@ -1930,6 +1940,67 @@ region, and writes `#shop/c/<id>` (or `#shop` for 全部) with `replaceState`; o
 scrolled); an unknown id shows everything. `#ai` and the other anchors are untouched. Product pages show
 `商城 / 大类 / 小类` (or `商城 / 其他`) linking to `../#shop` and `../#shop/c/<id>`, only when the home page has tabs.
 
+### 经营总览 (dashboard, 2026-10-20)
+
+**Code.** `app/lib/biz.php` (range, report, chart), `app/lib/admin_biz.php` (`admin_biz`), view `biz`; CSS `.biz-*` in
+`admin.css`. Tests: `run.php` group `biz`, `tests/biz-ref.e2e.js` (+ `biz-fixture.php`, screenshots in
+`pilot-blog-work/screens/dashboard/`).
+
+**Range.** `?r=biz&q=today|7|30|month` or `&from=&to=` (Y-m-d, Beijing). Default today; swapped dates are put in order; over
+92 days → the 92 days ending at `to`, with a note; impossible dates → today with a note. An order counts on its Beijing
+creation day; a refund on the Beijing day it was recorded.
+
+**Numbers** (one pass over `orders.json`; 5000 orders in a few ms, no cache needed). Paid = `confirmed | shipped | completed |
+failed` (failed: the owner confirmed the money, the 货源 purchase failed). 实付成交额 = Σ `amount` of paid orders (cancelled,
+pending, claimed excluded). 商品毛利 = Σ (`amount` - cost) over paid orders whose cost is known; cost = the supplier's
+`supply.amount` once bought, else `cost_unit` × qty (orders older than 成本价: the product's current `cost`); orders without a
+cost are counted and named (「N 单没有成本，没算进去」). 支付订单数, 支付成功率 = paid / created in range, 客单价 = 成交额 / paid, 新增访客 =
+Σ daily `visitors` from 访问统计, 退款金额 = Σ refund amounts recorded in range (+ count without an amount), 在售商品数 (now),
+推广成交额 = Σ `subtotal` of paid orders with a non-self 推广, 待结算佣金 = everything due now (not by range). Plain note: 毛利 is not
+net profit (refunds, shipping, packaging, fees and commissions not subtracted). Trend: inline SVG (no script), one slot per day,
+成交额 bars and 毛利 as a line of level marks (works for 1 day and 92; negative 毛利 under the zero line; per-day `<title>`).
+待处理事项 (now): 待确认收款 → `orders&f=claimed`, 待发货 → `f=to_ship`, 进货失败 → `f=failed`, 库存不足 (on sale, stock ≤ 3, supply =
+cached supplier stock) → `shop&cat=low` (new filter), 待结算佣金 → `ref`. 热销排行: top 5 products by paid quantity, then amount.
+
+### 推广 (single-level referral, 2026-10-20)
+
+**Code.** `app/lib/referral.php`, controllers in `admin_biz.php`, views `ref`, `ref_edit`, the 推广 card in `order`, `api/shop.php`
+routes `a=ref` and `a=partner`, CSS `.ref-*` in `shop.css` and `admin.css`, copy buttons (`[data-copy]`) in `admin.js`. Tests:
+`run.php` group `ref`, `tests/biz-ref.e2e.js`.
+
+**Scope.** One level only (no 下线, no sub-sites, no wallets, no withdrawals). The owner pays commissions by hand outside the site
+and records it. Setting `settings.ref.enabled` (default false; not part of the page state, so toggling does not republish).
+Off: links still redirect but set no cookie and orders are not attributed. Legal/privacy copy on the admin page.
+
+**Data.** `blog-data/shop/ref.json` (0600, `with_lock('ref')`): `{rev, partners:[{id r+8hex, code 7 of
+ABCDEFGHJKMNPQRSTUVWXYZ23456789, token 32 hex (random_bytes 16), name ≤20, contact ≤40 (owner only), rate_bp 0..5000, enabled,
+clicks, clicks_m {YYYY-MM: n} (24 months), rev}], settlements:[{id s+8hex, pid, at, amount, note ≤100, items [[order id, fen]]}]}`.
+Partners are never deleted (disable instead). 换一个查看页链接 issues a new token; the old one stops at once.
+
+**Link and attribution.** `GET api/shop.php?a=ref&c=<code>[&to=…]`: `to` must be exactly `''`, `/`, `shop/<slug>.html`,
+`posts/` or `posts/<slug>.html` (regex on the decoded value; anything else → home), so the 302 `Location` is always `../#ai` or
+`../<that path>` on this site. While the program is on and the code names an enabled 推广人 (case-insensitive): cookie
+`pb_ref=<code>` (30 days, path = site base, HttpOnly, SameSite=Lax, Secure over https; last click wins) and a click counted unless
+bot/no UA, prefetch, the owner's browser (`pb_nostat`) or HEAD; limits: once per visitor and 推广人 per 30 min, 20 per visitor per
+hour, 20 000 site-wide per day. No order maintenance on this path. The pay host redirects it to the main host first (existing
+rule). `POST a=order` reads the cookie (validated by regex, then looked up; disabled/unknown/off → ignored) and stores
+`order.ref = {pid, code, rate_bp, self}`; `self` is true when the buyer's phone or email equals a phone or email in the 推广人's
+contact (also written inside text like 「微信 138 0013 8000」). Admin order page shows the 推广 card; orders CSV gets 推广码.
+
+**Commission** (`ref_commission`, from the order alone): base = `subtotal` (no shipping, no 识别尾数) minus recorded refunds (a
+refund without an amount → 0); amount = ⌊base × rate_bp / 10000⌋. States: unpaid (pending/claimed), pending 待确认
+(confirmed/shipped/failed), ok 可结算 (completed: physical after 完成 or 30-day auto-complete, digital at 确认收款, cards when
+delivered), void (cancelled), self (0). Due per order = commission (ok/void/self) - already settled; a refund after settlement
+makes it negative and it is netted in the next settlement. 标记已结算 (`ref_settle`, under the ref lock) records all non-zero dues
+only when their total is > 0 and equals the amount the page showed (a second tap or a stale page is refused). CSV
+`?r=ref.export`: one row per order per settlement (BOM, CRLF, `csv_cell`).
+
+**View page** `GET api/shop.php?a=partner&t=<token>` (shop page chrome, `script-src 'none'`, noindex, no-store, no-referrer):
+their link (home + each product on sale, long-press copy), clicks, paid orders, 成交额, 待确认 / 可结算 / 已结算, per month,
+the last 50 orders with the number masked (`20261020-K7****`), product, amount, commission and state, settlement history (date,
+count, note, amount). Never buyer names, phones, addresses, emails, full order numbers or costs. Limits per visitor: 30 opens per
+10 min; after 20 wrong tokens in an hour → 429. Unknown tokens get the generic 「找不到这一页」.
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -1958,6 +2029,10 @@ ONLY_CATS=1 node pilot-blog-work/backend/tests/shop.e2e.js   # screenshots in sc
 
 # 货源 in Chromium against the mock supplier: import, buy, confirm, card reveal; screenshots in screens/supplier/
 node pilot-blog-work/backend/tests/supply.e2e.js       # or: ... supply.e2e.js 390
+
+# 经营总览 and 推广 in Chromium: 成本价, 推广人, link → cookie → order → complete → settle → view page, dashboard ranges
+# (screenshots in screens/dashboard/)
+node pilot-blog-work/backend/tests/biz-ref.e2e.js
 
 # the owner's end-to-end QA: every admin flow at 1440 and 390 on a throwaway site (~2.5 min)
 PORT=9300 node pilot-blog-work/backend/e2e.js         # or: ... e2e.js 390   (add keep to leave the temp dirs)
