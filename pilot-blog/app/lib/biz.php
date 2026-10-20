@@ -32,7 +32,7 @@ function biz_day_add(string $day, int $n): string
 function biz_range(array $q, ?int $now = null): array
 {
     $today = local_day($now);
-    $preset = is_string($q['q'] ?? null) && isset(BIZ_PRESETS[$q['q']]) ? $q['q'] : '';
+    $preset = is_string($q['q'] ?? null) && in_array($q['q'], array_map('strval', array_keys(BIZ_PRESETS)), true) ? $q['q'] : '';
     $from = $to = $today;
     $error = null;
     $hasDates = is_string($q['from'] ?? null) && is_string($q['to'] ?? null) && ($q['from'] !== '' || $q['to'] !== '');

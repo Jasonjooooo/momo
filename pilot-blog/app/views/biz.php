@@ -35,7 +35,7 @@ $items = [
   <h2 class="vh" id="biz-r-h">选日期</h2>
   <input type="hidden" name="r" value="biz">
   <nav class="chips biz-quick" aria-label="快速选择">
-<?php foreach (BIZ_PRESETS as $k => $label): ?>
+<?php foreach (BIZ_PRESETS as $k => $label): $k = (string) $k; /* '7' and '30' are int keys in PHP */ ?>
     <a class="fchip" href="<?= h(url('biz', ['q' => $k])) ?>"<?php if ($range['preset'] === $k): ?> aria-current="page"<?php endif; ?>><?= h($label) ?></a>
 <?php endforeach; ?>
   </nav>
@@ -60,7 +60,7 @@ $items = [
 <?php foreach ($kpis as [$id, $label, $val, $sub, $big]): ?>
   <div class="biz-kpi<?= h($big ? ' biz-kpi-big' : '') ?>" id="<?= h($id) ?>">
     <p class="biz-k"><?= h($label) ?></p>
-    <p class="biz-v mono"><?= h($val) ?></p>
+    <p class="biz-v"><?= h($val) ?></p>
     <p class="biz-s"><?= h($sub) ?></p>
   </div>
 <?php endforeach; ?>
@@ -88,9 +88,9 @@ $items = [
   <h2 class="card-h" id="biz-todo-h">待处理事项（现在）</h2>
   <ul class="biz-todo">
 <?php foreach ($items as [$id, $label, $n, $unit, $href, $btn]): ?>
-    <li id="<?= h($id) ?>"><span class="biz-todo-t"><?= h($label) ?></span><span class="biz-todo-n mono<?= h($n > 0 ? ' num-hot' : '') ?>"><?= h($n . ' ' . $unit) ?></span><a class="btn btn-tool<?= h($n > 0 ? ' btn-primary' : '') ?>" href="<?= h($href) ?>"><?= h($btn) ?></a></li>
+    <li id="<?= h($id) ?>"><span class="biz-todo-t"><?= h($label) ?></span><span class="biz-todo-n<?= h($n > 0 ? ' num-hot' : '') ?>"><?= h($n . ' ' . $unit) ?></span><a class="btn btn-tool<?= h($n > 0 ? ' btn-primary' : '') ?>" href="<?= h($href) ?>"><?= h($btn) ?></a></li>
 <?php endforeach; ?>
-    <li id="t-ref"><span class="biz-todo-t">待结算佣金<?php if ($todo['ref_due_n'] > 0): ?><span class="biz-todo-sub"><?= h($todo['ref_due_n'] . ' 位推广人') ?></span><?php endif; ?></span><span class="biz-todo-n mono<?= h($todo['ref_due'] > 0 ? ' num-hot' : '') ?>"><?= h(biz_money($todo['ref_due'])) ?></span><a class="btn btn-tool<?= h($todo['ref_due'] > 0 ? ' btn-primary' : '') ?>" href="<?= h(url('ref')) ?>">去结算</a></li>
+    <li id="t-ref"><span class="biz-todo-t">待结算佣金<?php if ($todo['ref_due_n'] > 0): ?><span class="biz-todo-sub"><?= h($todo['ref_due_n'] . ' 位推广人') ?></span><?php endif; ?></span><span class="biz-todo-n<?= h($todo['ref_due'] > 0 ? ' num-hot' : '') ?>"><?= h(biz_money($todo['ref_due'])) ?></span><a class="btn btn-tool<?= h($todo['ref_due'] > 0 ? ' btn-primary' : '') ?>" href="<?= h(url('ref')) ?>">去结算</a></li>
   </ul>
 <?php if ($lowN > 0): ?>
   <p class="where"><?= h('库存不足：' . implode('、', array_map(fn($p) => $p['name'] . '（' . $p['stock'] . '）', array_slice($todo['low'], 0, 6))) . ($lowN > 6 ? ' 等' : '') . '。货源商品的库存是供货平台的，几分钟更新一次。') ?></p>
@@ -104,7 +104,7 @@ $items = [
 <?php else: ?>
   <ol class="toplist biz-top" id="biz-top">
 <?php foreach ($rep['top'] as $i => $t): ?>
-    <li><span class="tl-name"><span class="mono biz-rank"><?= h((string) ($i + 1)) ?></span> <?= h($t['name']) ?></span><span class="tl-num mono"><?= h($t['qty'] . ' 件 · ' . biz_money($t['fen'])) ?></span></li>
+    <li><span class="tl-name"><span class="mono biz-rank"><?= h((string) ($i + 1)) ?></span> <?= h($t['name']) ?></span><span class="tl-num biz-num"><?= h($t['qty'] . ' 件 · ' . biz_money($t['fen'])) ?></span></li>
 <?php endforeach; ?>
   </ol>
 <?php endif; ?>

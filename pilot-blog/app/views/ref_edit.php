@@ -106,7 +106,7 @@ $link = ref_link($p, $to);
 <?php else: ?>
   <ul class="vlist hist" id="re-orders">
 <?php foreach (array_slice($sum['lines'], 0, 100) as $l): $c = $l['c']; ?>
-    <li><a class="mono" href="<?= h(url('order', ['id' => $l['o']['id']])) ?>"><?= h($l['o']['id']) ?></a> <span><?= h($l['o']['name'] . ' × ' . $l['o']['qty'] . '，¥' . shop_money((int) $l['o']['subtotal'])) ?></span> <span class="chip<?= h($c['state'] === 'ok' ? ' chip-ok' : ($c['state'] === 'pending' ? ' chip-warn' : '')) ?>"><?= h(REF_STATE[$c['state']]) ?></span> <span class="mono"><?= h('佣金 ' . biz_money($c['amount']) . '（' . ref_rate_text($c['rate_bp']) . '）' . ($l['settled'] !== 0 ? '，已结 ' . biz_money($l['settled']) : '')) ?></span></li>
+    <li><a class="mono" href="<?= h(url('order', ['id' => $l['o']['id']])) ?>"><?= h($l['o']['id']) ?></a> <span><?= h($l['o']['name'] . ' × ' . $l['o']['qty'] . '，¥' . shop_money((int) $l['o']['subtotal'])) ?></span> <span class="chip<?= h($c['state'] === 'ok' ? ' chip-ok' : ($c['state'] === 'pending' ? ' chip-warn' : '')) ?>"><?= h(ref_line_label($l)) ?></span> <span class="mono"><?= h('佣金 ' . biz_money($c['amount']) . '（' . ref_rate_text($c['rate_bp']) . '）') ?></span></li>
 <?php endforeach; ?>
   </ul>
 <?php endif; ?>

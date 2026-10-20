@@ -391,7 +391,7 @@ h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
 .biz-kpi-big .biz-v{color:var(--accent-hover)}
 @media (min-width:1024px){.biz-kpi-big{grid-column:span 2}}
 .biz-k{margin:0;font-size:13px;color:var(--text-2)}
-.biz-v{margin:2px 0;font-size:20px;line-height:1.35;font-weight:700;overflow-wrap:anywhere}
+.biz-v{margin:2px 0;font-variant-numeric:tabular-nums;font-size:20px;line-height:1.35;font-weight:700;overflow-wrap:anywhere}
 .biz-kpi-big .biz-v{font-size:24px}
 .biz-s{margin:0;font-size:13px;line-height:1.5;color:var(--text-2)}
 .biz-chart svg{height:180px}
@@ -418,3 +418,4 @@ h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
 .ref-kv .num{font-size:17px}
 .amt-mid{font-size:22px;color:var(--accent-hover)}
 .ref-due li a,.hist li a.mono{display:inline-flex;align-items:center;min-height:44px}
+.biz-todo-n,.biz-num{font-variant-numeric:tabular-nums}

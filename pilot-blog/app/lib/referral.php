@@ -609,6 +609,19 @@ function ref_money_signed(int $fen): string
     return ($fen < 0 ? '-¥' : '¥') . shop_money(abs($fen));
 }
 
+/** 可结算 / 已结算 / 已结 ¥x，待扣回 ¥y … for one order line of a summary. */
+function ref_line_label(array $l): string
+{
+    $st = $l['c']['state'];
+    if ($l['settled'] !== 0 && $l['due'] === 0) {
+        return '已结算 ' . ref_money_signed($l['settled']);
+    }
+    if ($l['settled'] !== 0) {
+        return '已结 ' . ref_money_signed($l['settled']) . '，' . ($l['due'] < 0 ? '下次扣回 ' . ref_money_signed(-$l['due']) : '还可结算 ' . ref_money_signed($l['due']));
+    }
+    return REF_STATE[$st];
+}
+
 /** Per month (order month, Beijing): pending, due, settled; newest first. */
 function ref_months(array $sum): array
 {
@@ -670,7 +683,7 @@ function ref_partner_page_html(array $p, array $sum, array $settlements, array $
             $o = $l['o'];
             $h .= '<li><span class="mono">' . enc_text(ref_mask_order($o['id'])) . '</span><span>' . enc_text(local_time((string) $o['created_at'], 'n月j日') . ' ' . $o['name'] . ' × ' . (int) $o['qty']) . '</span>'
                 . '<span class="mono">' . enc_text('¥' . shop_money((int) $o['subtotal']) . ' → 佣金 ¥' . shop_money($l['c']['amount'])) . '</span>'
-                . '<span class="ref-st">' . enc_text(REF_STATE[$l['c']['state']] . ($l['settled'] !== 0 ? '，已结 ' . ref_money_signed($l['settled']) : '')) . '</span></li>' . "\n";
+                . '<span class="ref-st">' . enc_text(ref_line_label($l)) . '</span></li>' . "\n";
         }
         $h .= '</ul>' . "\n";
     }

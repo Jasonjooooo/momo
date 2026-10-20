@@ -422,7 +422,7 @@ function group_ref(): void
         $ord = http('GET', '/admin/?r=order&id=' . $self['id'], ['headers' => $h]);
         ok(str_contains($ord['body'], 'id="o-ref"') && str_contains($ord['body'], '本人下单'), 'admin order page shows the 推广 card (and the self-dealing note)');
         $biz = http('GET', '/admin/?r=biz', ['headers' => $h]);
-        ok(preg_match('/id="k-refsales".*?biz-v mono">([^<]+)</s', $biz['body'], $mm) === 1 && $mm[1] !== '¥0.00', '经营总览 shows 推广成交额', $mm[1] ?? '');
+        ok(preg_match('/id="k-refsales".*?biz-v">([^<]+)</s', $biz['body'], $mm) === 1 && $mm[1] !== '¥0.00', '经营总览 shows 推广成交额', $mm[1] ?? '');
     });
     // privacy: no buyer data in ref.json
     $raw = (string) file_get_contents(ref_path());
