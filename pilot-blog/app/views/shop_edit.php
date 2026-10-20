@@ -126,6 +126,12 @@ $isSupply = $p['type'] === 'supply';
   </div>
 <?php if (!$isSupply): ?>
   <label class="check"><input type="checkbox" name="unlimited" value="1"<?php if ($unlimited): ?> checked<?php endif; ?>> 数字商品不限量（库存不用填）</label>
+  <div class="field<?= h($err('cost') ? ' has-err' : '') ?>">
+    <label for="s-cost">成本价（元，每件，可以不填）</label>
+    <div class="affix"><span>¥</span><input id="s-cost" name="cost" type="text" inputmode="decimal" value="<?= h($v('cost', $p['cost'] !== null ? shop_money($p['cost']) : '')) ?>" placeholder="不知道就空着"></div>
+    <p class="hint">只有你能看到，买家看不到。填了以后，「经营总览」能算出这件商品的毛利；只对以后的订单有效。</p>
+    <p class="ferr"<?php if (!$err('cost')): ?> hidden<?php endif; ?>><?= h((string) $err('cost')) ?></p>
+  </div>
 <?php endif; ?>
 
   <div class="field<?= h($err('on_sale') ? ' has-err' : '') ?>">

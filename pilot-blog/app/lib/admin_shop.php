@@ -62,7 +62,7 @@ function admin_shop(): void
     $cats = shop_cats();
     $ix = shop_cat_index($cats);
     $f = is_string($_GET['cat'] ?? null) ? $_GET['cat'] : '';
-    $f = $f === 'none' || isset($ix[$f]) ? $f : '';
+    $f = $f === 'none' || $f === 'low' || isset($ix[$f]) ? $f : '';   // low: 库存不足 (from 经营总览)
     view('shop', ['title' => '商品', 'products' => shop_products(), 'settings' => settings_get(), 'cats' => $cats, 'cat_ix' => $ix, 'cat_filter' => $f]);
 }
 
@@ -71,6 +71,9 @@ function admin_shop_cat_match(array $p, string $f, array $ix): bool
 {
     if ($f === '') {
         return true;
+    }
+    if ($f === 'low') {
+        return $p['on_sale'] && $p['stock'] !== null && $p['stock'] <= BIZ_LOW_STOCK;
     }
     $w = shop_cat_of($p, $ix);
     return $f === 'none' ? $w['top'] === null : ($w['top'] === $f || $w['sub'] === $f);
@@ -203,7 +206,7 @@ function admin_shop_save(): void
 {
     $id = post_id(PRODUCT_ID_RE);
     $in = [];
-    foreach (['name', 'slug', 'type', 'price', 'stock', 'stock_seen', 'unlimited', 'on_sale', 'summary', 'body', 'dl_text', 'dl_link', 'cat'] as $k) {
+    foreach (['name', 'slug', 'type', 'price', 'cost', 'stock', 'stock_seen', 'unlimited', 'on_sale', 'summary', 'body', 'dl_text', 'dl_link', 'cat'] as $k) {
         $in[$k] = post_str($k, 20000);
     }
     $alts = $_POST['photo_alt'] ?? [];
@@ -398,7 +401,7 @@ function admin_order_act(): void
         return;
     }
     try {
-        $o = shop_owner_action($id, $act, ['courier' => post_str('courier', 200), 'tracking' => post_str('tracking', 200), 'reason' => post_str('reason', 500), 'note' => post_str('note', 500)]);
+        $o = shop_owner_action($id, $act, ['courier' => post_str('courier', 200), 'tracking' => post_str('tracking', 200), 'reason' => post_str('reason', 500), 'note' => post_str('note', 500), 'amount' => post_str('amount', 40)]);
         audit('order_' . $act, $id);
         if ($act === 'confirm' && $o['type'] === 'supply') {
             // paid and confirmed by the owner: now buy the card (once; see supply_fulfill)

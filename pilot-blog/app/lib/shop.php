@@ -137,6 +137,7 @@ function shop_product_normalize(array $p): array
         'name' => (string) ($p['name'] ?? ''),
         'type' => $type,
         'price' => max(0, (int) ($p['price'] ?? 0)),
+        'cost' => $type !== 'supply' && is_int($p['cost'] ?? null) && $p['cost'] >= 0 ? $p['cost'] : null,   // 成本价 (owner's, optional; null = not filled in)
         'stock' => $stock === null ? null : max(0, (int) $stock),
         'on_sale' => (bool) ($p['on_sale'] ?? false),
         'summary' => (string) ($p['summary'] ?? ''),
@@ -512,16 +513,43 @@ function shop_release(array &$o, array &$products): void
     $o['held'] = false;
 }
 
+/** The amount written in a refund note (「已退 ¥10 差价」「退了 99.03 元」), for refunds recorded without the amount field. */
+function shop_refund_amount_in(string $note): ?int
+{
+    $n = ascii_numbers($note);
+    if (preg_match('/[¥￥]\s*(\d{1,7}(?:\.\d{1,2})?)/u', $n, $m) || preg_match('/(\d{1,7}(?:\.\d{1,2})?)\s*元/u', $n, $m)) {
+        $v = shop_parse_money($m[1]);
+        return $v !== null && $v > 0 ? $v : null;
+    }
+    return null;
+}
+
+/** Refunds recorded on an order: ['fen' => sum of known amounts, 'n' => count, 'unknown' => count without an amount]. */
+function shop_refunded(array $o): array
+{
+    $r = ['fen' => 0, 'n' => 0, 'unknown' => 0];
+    foreach (is_array($o['refunds'] ?? null) ? $o['refunds'] : [] as $x) {
+        $r['n']++;
+        $amt = array_key_exists('amount', $x) ? $x['amount'] : shop_refund_amount_in((string) ($x['note'] ?? ''));
+        if (is_int($amt) && $amt > 0) {
+            $r['fen'] += $amt;
+        } else {
+            $r['unknown']++;
+        }
+    }
+    return $r;
+}
+
 /**
  * Create an order: server-side price, shipping and payable amount, stock reserved under the shop lock.
  * $c: the cleaned form (shop_order_input). Returns the order. Throws ShopError.
  */
-function shop_create_order(string $slug, array $c, ?int $now = null): array
+function shop_create_order(string $slug, array $c, ?int $now = null, ?array $partner = null): array
 {
     $now ??= time();
     $settings = settings_get();
     $ss = $settings['shop'];
-    return shop_mutate(function (array &$products, array &$orders) use ($slug, $c, $now, $ss, $settings) {
+    return shop_mutate(function (array &$products, array &$orders) use ($slug, $c, $now, $ss, $settings, $partner) {
         shop_maintain_in($products, $orders, $now, $ss);
         if (!$ss['enabled']) {
             throw new ShopError('closed', '商城暂停营业，这次没有下单。');
@@ -564,6 +592,7 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
             'name' => $p['name'],
             'type' => $p['type'],
             'price' => $p['price'],
+            'cost_unit' => $supply ? null : $p['cost'],   // 成本价 at order time (经营总览 毛利); a card's cost is what the 货源 charged
             'qty' => $c['qty'],
             'subtotal' => $subtotal,
             'shipping' => $shipping,
@@ -586,6 +615,9 @@ function shop_create_order(string $slug, array $c, ?int $now = null): array
         ];
         if ($supply) {
             $o['supply'] = supply_order_init($p, $c['email']);
+        }
+        if ($partner !== null) {
+            $o['ref'] = ref_order_stamp($partner, $c);   // 推广: the code from the buyer's cookie, the rate as it is now
         }
         shop_hist($o, 'pending', 'buyer', '', $now);
         if ($p['stock'] !== null && !$supply) {
@@ -734,7 +766,16 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                 if ($st === 'pending') {
                     throw new ShopError('state', '还没付款的订单不用记录退款，直接取消就行。');
                 }
-                $o['refunds'][] = ['t' => $stamp, 'note' => $note];
+                $amtRaw = trim((string) ($args['amount'] ?? ''));
+                $amt = $amtRaw !== '' ? shop_parse_money($amtRaw) : shop_refund_amount_in($note);
+                $left = (int) $o['amount'] - shop_refunded($o)['fen'];
+                if ($amtRaw !== '' && ($amt === null || $amt < 1)) {
+                    throw new ShopError('invalid', '退款金额请填像 99.03 这样的数字（元）。', ['amount' => '退款金额格式不对。']);
+                }
+                if ($amt !== null && $amt > $left) {
+                    throw new ShopError('invalid', '退款金额比这个订单还没退的钱（¥' . shop_money(max(0, $left)) . '）还多，请再核对一下。', ['amount' => '退款金额太大了。']);
+                }
+                $o['refunds'][] = ['t' => $stamp, 'note' => $note, 'amount' => $amt];
                 break;
             default:
                 throw new ShopError('invalid', '没有这个操作。');
@@ -840,6 +881,15 @@ function shop_product_input(array $cur, array $in, array $all): array
         $e['price'] = '价格请填像 99 或 99.50 这样的数字（元），最多两位小数。';
     } else {
         $c['price'] = $price;
+    }
+    if (!$supply && array_key_exists('cost', $in)) {   // 成本价: optional; a caller that does not send it keeps it
+        $costRaw = trim(is_string($in['cost']) ? $in['cost'] : '');
+        $cost = $costRaw === '' ? null : shop_parse_money($costRaw);
+        if ($costRaw !== '' && ($cost === null || $cost > SHOP_PRICE_MAX)) {
+            $e['cost'] = '成本价请填像 35 或 35.50 这样的数字（元），不知道就空着。';
+        } else {
+            $c['cost'] = $cost;
+        }
     }
     $unlimited = ($in['unlimited'] ?? '') === '1' && $c['type'] === 'digital';
     $stockRaw = ascii_numbers(is_string($in['stock'] ?? null) ? $in['stock'] : '');
@@ -1287,7 +1337,7 @@ function shop_order_matches(array $o, string $q): bool
 /** All orders as CSV: UTF-8 with BOM, CRLF, every cell quoted, formula-looking cells defused. */
 function shop_csv(array $orders): string
 {
-    $head = ['订单号', '下单时间', '状态', '商品', '类型', '单价', '数量', '商品金额', '运费', '识别尾数', '应付金额', '收货人', '手机号', '收货地址', '邮箱', '买家备注', '付款备注', '快递公司', '快递单号', '取消原因', '退款记录'];
+    $head = ['订单号', '下单时间', '状态', '商品', '类型', '单价', '数量', '商品金额', '运费', '识别尾数', '应付金额', '收货人', '手机号', '收货地址', '邮箱', '买家备注', '付款备注', '快递公司', '快递单号', '取消原因', '退款记录', '推广码'];
     $rows = ["\u{FEFF}" . implode(',', array_map('csv_cell', $head))];
     foreach ($orders as $o) {
         $rows[] = implode(',', array_map('csv_cell', [
@@ -1296,6 +1346,7 @@ function shop_csv(array $orders): string
             shop_money((int) $o['offset']), shop_money((int) $o['amount']), $o['buyer']['name'], $o['buyer']['phone'], $o['buyer']['address'],
             $o['buyer']['email'], $o['note'], $o['payer'], $o['courier'], $o['tracking'], $o['cancel_reason'],
             implode('；', array_map(fn($r) => local_time($r['t']) . ' ' . $r['note'], $o['refunds'])),
+            (string) ($o['ref']['code'] ?? ''),
         ]));
     }
     return implode("\r\n", $rows) . "\r\n";

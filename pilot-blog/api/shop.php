@@ -10,6 +10,8 @@
 // GET  ?a=lookup[&o=<订单号>]           查订单表单
 // POST ?a=lookup                       订单号 + 手机号后 4 位（或邮箱 @ 前面的部分）→ 进度、快递、数字内容
 // GET  ?a=dl&o=…&e=…&s=…               数字商品文件（30 分钟有效的签名链接）
+// GET  ?a=ref&c=<推广码>[&to=shop/<slug>.html]   推广链接：记下推广码（30 天的 cookie，最后一次点击为准），302 到本站页面
+// GET  ?a=partner&t=<查看令牌>          推广人自己的查看页（点击、订单、佣金、结算记录；不显示买家信息）
 // 自动发卡（货源）商品：下单前向供货平台刷新库存（5 分钟缓存）；卡密在站长确认收款、后台进货以后显示在「查订单」里。
 // 买家页面从不显示供货平台的名字、成本、商品编号或错误信息。
 
@@ -27,6 +29,8 @@ const RL_LOOKUP_DAY = 60;
 const RL_LOOKUP_ORDER_HOUR = 8;  // guesses against one order number per hour, from anywhere
 const RL_PAID_HOUR = 20;
 const RL_DL_HOUR = 30;
+const RL_PARTNER_10MIN = 30;     // 推广人 view page opens per visitor
+const RL_PARTNER_BAD_HOUR = 20;  // wrong view tokens per visitor per hour
 const MSG_BUSY = '提交得有点频繁，过一会儿再试。';
 const MSG_RETRY = '这次没有提交成功。请回到上一页，刷新以后再试一次。';
 const MSG_LOOKUP_BAD = '订单号或验证信息不对。请检查后再试；数字商品请填邮箱 @ 前面的部分。';
@@ -161,10 +165,12 @@ if ($method === 'POST') {
     same_origin_or_die();
 }
 
-try {
-    shop_maintain();
-} catch (Throwable $e) {
-    error_log('shop.php maintain: ' . get_class($e));
+if ($a !== 'ref') {   // a share-link click only sets a cookie and redirects: no order maintenance on that path
+    try {
+        shop_maintain();
+    } catch (Throwable $e) {
+        error_log('shop.php maintain: ' . get_class($e));
+    }
 }
 
 try {
@@ -183,6 +189,42 @@ try {
     }
     if (!$onPayHost && $payOrigin !== null && $a === 'pay' && $method !== 'POST') {
         see_other($payOrigin . $uri);
+    }
+
+    // ---------- 推广链接: remember the code, count the click, send the visitor to a page of this site ----------
+    if ($a === 'ref') {
+        if ($method === 'POST') {
+            header('Allow: GET');
+            shop_msg(405, '打不开', '这个地址不能这样打开。');
+        }
+        $target = ref_target(in_str('to', 200));   // strictly a path on this site, never another host
+        $p = ref_partner_by_code(in_str('c', 20));
+        if ($p !== null && $p['enabled'] && ref_enabled($settings) && $method === 'GET') {
+            ref_set_cookie($p['code']);   // last click wins
+            ref_click($p, visitor(), (string) ($_SERVER['HTTP_USER_AGENT'] ?? ''));
+        }
+        header('Cache-Control: no-store');
+        header('X-Robots-Tag: noindex, nofollow');
+        header('Location: ../' . ($target === null || $target === '' ? '#ai' : $target), true, 302);
+        exit;
+    }
+
+    // ---------- 推广人 view page ----------
+    if ($a === 'partner' && $method !== 'POST') {
+        $v = visitor();
+        limit('shop-partner', $v, RL_PARTNER_10MIN, 600);
+        if (rl_count('shop-partner-bad', $v, 3600) >= RL_PARTNER_BAD_HOUR) {
+            shop_msg(429, '请稍后再试', MSG_BUSY, '../', '去网站首页');
+        }
+        $p = ref_partner_by_token(in_str('t', 64));
+        if ($p === null) {
+            rl_hit('shop-partner-bad', $v, RL_PARTNER_BAD_HOUR, 3600);
+            shop_msg(404, '找不到这一页', '这个链接不对，或者已经换了新的。请向店主要新的链接。', '../', '去网站首页');
+        }
+        $doc = ref_doc();
+        $sum = ref_partner_summary($p, shop_orders(), ref_settled_map($doc['settlements']));
+        $mine = array_values(array_filter($doc['settlements'], fn($x) => $x['pid'] === $p['id']));
+        shop_out(200, '我的推广', ref_partner_page_html($p, $sum, $mine, shop_products(), ref_enabled($settings)));
     }
 
     // ---------- order form / create ----------
@@ -229,7 +271,8 @@ try {
         }
         $before = shop_page_signature(shop_products());
         try {
-            $o = shop_create_order($p['slug'], $clean);
+            // 推广: the code this browser's cookie holds (a disabled or unknown code, or the program switched off, is ignored)
+            $o = shop_create_order($p['slug'], $clean, null, ref_partner_from_cookie($settings));
         } catch (ShopError $e) {
             $fresh = shop_product_by_slug($p['slug']);
             if ($fresh !== null && shop_product_live($fresh, $settings) && $e->code_ === 'stock' && ($fresh['stock'] ?? 1) > 0) {

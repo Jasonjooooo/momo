@@ -36,11 +36,15 @@ $filtered = $cat_filter !== '';
   <a class="fchip" href="<?= h(url('shop', ['cat' => 'none'])) ?>"<?php if ($cat_filter === 'none'): ?> aria-current="page"<?php endif; ?>>不分类</a>
 </nav>
 <?php endif; ?>
-<?php if ($filtered): ?>
+<?php if ($cat_filter === 'low'): ?>
+<p class="notice notice-warn" id="shop-low">只显示在卖、库存 <?= h((string) BIZ_LOW_STOCK) ?> 件及以下的商品。自己的商品点进去改库存；货源商品的库存是供货平台的。<a href="<?= h(url('shop')) ?>">看全部商品</a></p>
+<?php elseif ($filtered): ?>
 <p class="where">只显示这个分类里的商品。调整顺序请回到「全部」。</p>
 <?php endif; ?>
 
-<?php if ($n === 0 && $filtered): ?>
+<?php if ($n === 0 && $cat_filter === 'low'): ?>
+<p class="card muted">没有库存不足的商品。</p>
+<?php elseif ($n === 0 && $filtered): ?>
 <p class="card muted">这个分类里没有商品。</p>
 <?php elseif ($n === 0): ?>
 <p class="card muted">还没有商品。点「加一件商品」开始。</p>

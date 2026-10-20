@@ -1213,6 +1213,30 @@
     });
   }
 
+  // ---------- 推广: copy a link from its read-only box (data-copy = the input's id) ----------
+  $$('[data-copy]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var inp = d.getElementById(btn.getAttribute('data-copy'));
+      if (!inp) return;
+      var text = inp.value;
+      var label = btn.textContent;
+      var done = function () { btn.textContent = '已复制'; setTimeout(function () { btn.textContent = label; }, 2000); };
+      var ok = false;
+      try {
+        inp.focus();
+        inp.select();
+        inp.setSelectionRange(0, text.length);
+        ok = d.execCommand('copy');
+      } catch (e) { ok = false; }
+      if (ok) { done(); return; }
+      var manual = function () {
+        sheet({ title: '手动复制', text: '这台设备不让网页直接复制。长按下面的文字，选「全选」，再选「拷贝」。', inputs: [{ label: '链接', type: 'textarea', value: text, readonly: true }], cancel: '关闭', selectAll: true });
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, manual);
+      else manual();
+    });
+  });
+
   // ---------- AI 助手: test the key ----------
   var testBtn = $('#ai-test');
   if (testBtn) {

@@ -17,6 +17,7 @@ function settings_defaults(): array
         'stats' => ['enabled' => true],
         'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'pay_sub' => false, 'qr' => ['wechat' => null, 'alipay' => null]],
         'supply' => ['enabled' => false, 'base_url' => '', 'app_id' => ''],
+        'ref' => ['enabled' => false],   // 推广链接; the commission rate is set per 推广人 (referral.php)
     ];
 }
 
@@ -54,6 +55,7 @@ function settings_normalize(array $s): array
         'base_url' => is_string($out['supply']['base_url'] ?? null) ? trim($out['supply']['base_url']) : '',
         'app_id' => is_string($out['supply']['app_id'] ?? null) ? trim($out['supply']['app_id']) : '',
     ];
+    $out['ref'] = ['enabled' => (bool) (is_array($out['ref']) ? ($out['ref']['enabled'] ?? false) : false)];
     $out['rev'] = (int) $out['rev'];
     return $out;
 }

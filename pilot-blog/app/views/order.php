@@ -153,6 +153,21 @@ $bought = $isSupply && $sp['trade_no'] !== '';
 </section>
 <?php endif; ?>
 
+<?php if (($rc = ref_commission($o)) !== null): $rp = ref_partner_get((string) $o['ref']['pid']); ?>
+<section class="card" aria-labelledby="o-ref-h" id="o-ref">
+  <h2 class="card-h" id="o-ref-h">推广（买家看不到这里）</h2>
+  <dl class="kv">
+    <div><dt>推广人</dt><dd><?php if ($rp !== null): ?><a href="<?= h(url('ref.edit', ['id' => $rp['id']])) ?>"><?= h($rp['name']) ?></a><?php else: ?>（已不存在）<?php endif; ?> <span class="mono"><?= h((string) $o['ref']['code']) ?></span></dd></div>
+    <div><dt>佣金</dt><dd><span class="mono"><?= h('¥' . shop_money($rc['amount']) . '（' . ref_rate_text($rc['rate_bp']) . '，按下单时的比例）') ?></span> <span class="chip<?= h($rc['state'] === 'ok' ? ' chip-ok' : '') ?>"><?= h(REF_STATE[$rc['state']]) ?></span></dd></div>
+  </dl>
+<?php if ($rc['state'] === 'self'): ?>
+  <p class="where">买家的手机号或邮箱和推广人的联系方式一样，是推广人自己下的单，不计佣金。</p>
+<?php else: ?>
+  <p class="where">佣金按商品金额（不含运费）减去退款算；订单完成以后才能结算。</p>
+<?php endif; ?>
+</section>
+<?php endif; ?>
+
 <section class="card" aria-labelledby="o-buyer">
   <h2 class="card-h" id="o-buyer">买家</h2>
 <?php if ($red): ?>
@@ -192,7 +207,7 @@ $bought = $isSupply && $sp['trade_no'] !== '';
 <section class="card" aria-labelledby="o-ref">
   <h2 class="card-h" id="o-ref">退款记录</h2>
 <?php foreach ($o['refunds'] as $r): ?>
-  <p><span class="mono"><?= h(cn_time($r['t'])) ?></span> <?= h($r['note']) ?></p>
+  <p><span class="mono"><?= h(cn_time($r['t'])) ?></span> <?php if (is_int($r['amount'] ?? null)): ?><span class="mono"><?= h('¥' . shop_money($r['amount'])) ?></span> <?php endif; ?><?= h($r['note']) ?></p>
 <?php endforeach; ?>
 <?php if ($st !== 'pending'): ?>
   <p class="where">退款要你自己在微信或支付宝里操作。退了以后在这里记一笔，买家查订单时能看到。不要写买家的个人信息。</p>
@@ -200,6 +215,11 @@ $bought = $isSupply && $sp['trade_no'] !== '';
     <input type="hidden" name="_csrf" value="<?= h(csrf_token()) ?>">
     <input type="hidden" name="id" value="<?= h($o['id']) ?>">
     <input type="hidden" name="act" value="refund">
+    <div class="field">
+      <label for="o-ramt">退了多少钱（元）</label>
+      <div class="affix"><span>¥</span><input id="o-ramt" name="amount" type="text" inputmode="decimal" placeholder="<?= h(shop_money((int) $o['amount'])) ?>"></div>
+      <p class="hint">「经营总览」的退款金额和推广佣金按这个数算。</p>
+    </div>
     <div class="field">
       <label for="o-note">退款记录</label>
       <input id="o-note" name="note" type="text" maxlength="100" placeholder="<?= h('例如 已退 ' . $amount . '，微信原路退回') ?>">

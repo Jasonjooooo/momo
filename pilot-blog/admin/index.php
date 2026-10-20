@@ -7,6 +7,7 @@ require __DIR__ . '/../app/lib/bootstrap.php';
 require __DIR__ . '/../app/lib/admin.php';
 require __DIR__ . '/../app/lib/admin_shop.php';
 require __DIR__ . '/../app/lib/admin_supply.php';
+require __DIR__ . '/../app/lib/admin_biz.php';
 
 try {
     app_init('admin');

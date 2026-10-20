@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'biz', 'ref', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -1935,7 +1935,7 @@ function group_admin(): void
     ok(str_contains($css, 'url(../../assets/fonts/'), 'admin fonts are the self-hosted site fonts');
     $copy = '';
     foreach (array_merge($views, [PUBLIC_DIR . '/admin/assets/admin.js', APP_DIR . '/lib/admin.php', APP_DIR . '/lib/security.php', APP_DIR . '/lib/view.php',
-        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_cats.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/shop_pages.php', APP_DIR . '/lib/doubao.php', APP_DIR . '/lib/settings.php', PUBLIC_DIR . '/api/chat.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
+        APP_DIR . '/lib/admin_shop.php', APP_DIR . '/lib/shop.php', APP_DIR . '/lib/shop_cats.php', APP_DIR . '/lib/supply.php', APP_DIR . '/lib/admin_supply.php', APP_DIR . '/lib/admin_biz.php', APP_DIR . '/lib/biz.php', APP_DIR . '/lib/referral.php', APP_DIR . '/lib/shop_pages.php', APP_DIR . '/lib/doubao.php', APP_DIR . '/lib/settings.php', PUBLIC_DIR . '/api/chat.php', PUBLIC_DIR . '/api/shop.php', APP_DIR . '/templates/shop.tpl.html']) as $f) {
         $copy .= (string) file_get_contents($f);
     }
     ok(!str_contains($copy, "\u{2014}"), 'admin copy has no em dash');
@@ -2189,6 +2189,8 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
         }
     }
 }
+
+require __DIR__ . '/biz-ref-tests.php';   // groups biz (经营总览) and ref (推广链接)
 
 $fn = 'group_' . $group;
 try {
