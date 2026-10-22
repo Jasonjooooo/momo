@@ -264,6 +264,12 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;margin:0;flex:none
 .usage tr.zero td,.usage tr.zero th{color:#6F7090}
 .usage tfoot th,.usage tfoot td{font-weight:700;border-bottom:0}
 
+/* 小游戏排行榜 */
+.gtbl th,.gtbl td{text-align:left;vertical-align:middle}
+.gtbl tbody th{font-weight:500;white-space:normal;overflow-wrap:anywhere;min-width:7em}
+.gtbl td.g-dec{font-family:var(--cjk)}
+.gtbl form{margin:0}
+
 /* visitor stats */
 .toplist{list-style:none;margin:0;padding:0}
 .toplist li{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline;gap:4px 12px;min-height:44px;padding:10px 0;border-bottom:1px solid var(--line)}

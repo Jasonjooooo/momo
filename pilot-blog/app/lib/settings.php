@@ -18,6 +18,7 @@ function settings_defaults(): array
         'shop' => ['enabled' => true, 'shipping' => 0, 'free_over' => 0, 'cancel_hours' => 24, 'notice' => '', 'pay_sub' => false, 'qr' => ['wechat' => null, 'alipay' => null]],
         'supply' => ['enabled' => false, 'base_url' => '', 'app_id' => ''],
         'ref' => ['enabled' => false],   // 推广链接; the commission rate is set per 推广人 (referral.php)
+        'game' => ['board' => true],     // 盲降挑战 leaderboard (api/game.php); the game itself always runs
     ];
 }
 
@@ -56,6 +57,7 @@ function settings_normalize(array $s): array
         'app_id' => is_string($out['supply']['app_id'] ?? null) ? trim($out['supply']['app_id']) : '',
     ];
     $out['ref'] = ['enabled' => (bool) (is_array($out['ref']) ? ($out['ref']['enabled'] ?? false) : false)];
+    $out['game'] = ['board' => (bool) (is_array($out['game']) ? ($out['game']['board'] ?? true) : true)];
     $out['rev'] = (int) $out['rev'];
     return $out;
 }

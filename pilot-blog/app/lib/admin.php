@@ -73,6 +73,10 @@ const ADMIN_ROUTES = [
     'subs.export' => ['admin_subs_export', ['GET'], 'auth', false],
     'stats' => ['admin_stats', ['GET'], 'auth', false],
     'stats.toggle' => ['admin_stats_toggle', ['POST'], 'auth', false],
+    'game' => ['admin_game', ['GET'], 'auth', false],
+    'game.toggle' => ['admin_game_toggle', ['POST'], 'auth', false],
+    'game.delete' => ['admin_game_delete', ['POST'], 'auth', false],
+    'game.clear' => ['admin_game_clear', ['POST'], 'auth', false],
     'ai' => ['admin_ai', ['GET'], 'auth', false],
     'ai.save' => ['admin_ai_save', ['POST'], 'auth', false],
     'ai.key' => ['admin_ai_key', ['POST'], 'auth', false],
@@ -100,6 +104,7 @@ const ADMIN_MENU = [
     'ref' => '推广',
     'subs' => '订阅者',
     'stats' => '访问统计',
+    'game' => '小游戏排行榜',
     'ai' => 'AI 助手',
     'versions' => '版本记录',
     'password' => '修改密码',
@@ -965,6 +970,55 @@ function admin_stats_toggle(): void
         flash('error', '没有保存：服务器出错了。');
     }
     redirect('stats');
+}
+
+// ---------- 小游戏排行榜 (盲降挑战, api/game.php) ----------
+
+function admin_game(): void
+{
+    $settings = settings_get();
+    $items = game_entries();
+    view('game', [
+        'title' => '小游戏排行榜',
+        'settings' => $settings,
+        'on' => game_board_on($settings),
+        'total' => count($items),
+        'items' => array_slice(array_reverse($items), 0, 100),   // newest first
+    ]);
+}
+
+function admin_game_toggle(): void
+{
+    $on = post_str('enabled', 2) === '1';
+    try {
+        settings_save(['game' => ['board' => $on]], (int) post_str('rev', 20));
+        flash('ok', $on ? '排行榜已打开，玩家可以交成绩了。' : '排行榜已关闭。游戏还能玩，成绩不再记录，榜单不再显示。');
+    } catch (ConflictException $e) {
+        flash('error', '没有保存：设置在别处改过了，刷新页面再试。');
+    } catch (Throwable $e) {
+        error_log('admin game.toggle: ' . get_class($e));
+        flash('error', '没有保存：服务器出错了。');
+    }
+    redirect('game');
+}
+
+function admin_game_delete(): void
+{
+    $id = post_str('id', 40);
+    if (!preg_match(GAME_ID_RE, $id)) {
+        flash('error', '没有删除：找不到这条成绩。');
+        redirect('game');
+    }
+    flash('ok', game_delete($id) ? '已删除这条成绩。' : '没有删除：这条成绩已经不在了。');
+    redirect('game');
+}
+
+function admin_game_clear(): void
+{
+    $n = game_clear();
+    audit('game_cleared', (string) $n);
+    flash('ok', $n > 0 ? '排行榜已清空，删除了 ' . $n . ' 条成绩。' : '排行榜本来就是空的。');
+    redirect('game');
 }
 
 // ---------- AI 助手 ----------

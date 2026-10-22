@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>盲降挑战</title>
+<style>
+:root{
+  --canvas:#0A1733;--panel:#122452;
+  --accent:#EA4C22;--accent-hover:#FF6A3D;--accent-muted:#49262E;
+  --text-secondary:#A9A8C0;--text-primary:#ECE9F1;
+  --signal:#E6A948;--line:#2A3A66;--line-strong:#5E6EA2;--threshold:#4FD08A;--warn:#FF5A4F;
+  --cjk:"PingFang SC","Hiragino Sans GB","Microsoft YaHei","Noto Sans CJK SC","Source Han Sans SC";
+  --font-head:var(--cjk),sans-serif;
+  --font-mono:"B612 Mono",ui-monospace,Menlo,Consolas,var(--cjk),monospace;
+}
+*,*::before,*::after{box-sizing:border-box}
+[hidden]{display:none!important}
+body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1.7 var(--font-head);-webkit-font-smoothing:antialiased}
+.wrap{width:min(1100px,100% - 32px);margin:24px auto}
+
+/* ============ ILS CHALLENGE ============ */
+.ils{position:relative;border:1px solid var(--line-strong);background:#05080f;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ils-stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:#05080f}
+@media (max-width:640px){.ils-stage{aspect-ratio:4/5}}
+.ils.playing .ils-stage{touch-action:none;cursor:grab}
+.ils-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 45%;will-change:transform}
+.ils-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ils-hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-mono);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.ils-ra{position:absolute;left:16px;top:12px;font:700 13px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.ils-ra b{display:block;margin-top:6px;font-size:clamp(26px,4vw,40px);letter-spacing:.04em;color:var(--threshold)}
+.ils-wx{position:absolute;right:16px;top:12px;text-align:right;font:400 11px/1.7 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.ils-wx b{color:var(--text-primary);font-weight:700}
+/* deviation scales: the diamond shows where the beam is, so fly toward it */
+.ils-loc{position:absolute;left:50%;bottom:18px;width:min(260px,60%);height:18px;transform:translateX(-50%)}
+.ils-gs{position:absolute;right:18px;top:50%;width:18px;height:min(220px,46%);transform:translateY(-50%)}
+.ils-loc i,.ils-gs i{position:absolute;width:8px;height:8px;border:1.5px solid var(--text-primary);border-radius:50%;opacity:.8}
+.ils-loc i{top:5px;margin-left:-4px}
+.ils-gs i{left:5px;margin-top:-4px}
+.ils-loc::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--signal)}
+.ils-gs::before{content:"";position:absolute;top:50%;left:0;right:0;height:2px;margin-top:-1px;background:var(--signal)}
+.ils-dia{position:absolute;width:14px;height:14px;background:#E86BD6;transform:rotate(45deg);box-shadow:0 0 8px rgba(232,107,214,.7)}
+.ils-loc .ils-dia{top:2px;left:50%;margin-left:-7px}
+.ils-gs .ils-dia{left:2px;top:50%;margin-top:-7px}
+.ils-call{position:absolute;left:0;right:0;top:22%;text-align:center;font:700 clamp(18px,3vw,28px)/1 var(--font-mono);letter-spacing:.2em;color:var(--signal);opacity:0;transition:opacity .25s}
+.ils-call.on{opacity:1}
+.ils-call.warn{color:var(--warn)}
+.ils-hint{position:absolute;left:0;right:0;bottom:48px;text-align:center;font:400 13px/1.4 var(--font-head);color:var(--text-secondary);transition:opacity .6s}
+.ils-stick{position:absolute;width:84px;height:84px;margin:-42px 0 0 -42px;border:1.5px solid rgba(236,233,241,.35);border-radius:50%;opacity:0;transition:opacity .15s}
+.ils-stick.on{opacity:1}
+.ils-stick i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(234,76,34,.85)}
+/* decision at DA */
+.ils-dec{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);display:grid;gap:10px;justify-items:center;padding:12px 16px 12px;background:rgba(10,23,51,.78);border:1px solid var(--signal);pointer-events:auto;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.ils-dec p{margin:0;font:700 15px/1.3 var(--font-head);letter-spacing:.06em;text-align:center}
+.ils-dec .row{display:flex;gap:12px}
+.ils-dec .btn{min-width:96px}
+.ils-dec .tm{width:100%;height:3px;background:var(--accent-muted)}
+.ils-dec .tm i{display:block;height:100%;background:var(--signal);transform-origin:0 50%}
+.btn{display:inline-flex;white-space:nowrap;align-items:center;justify-content:center;min-height:46px;padding:0 22px;border:1px solid var(--line-strong);background:transparent;color:var(--text-primary);font:700 16px/1 var(--font-head);letter-spacing:.08em;cursor:pointer;border-radius:2px}
+.btn:hover{border-color:var(--text-primary)}
+.btn-a{background:var(--accent);border-color:var(--accent)}
+.btn-a:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn-ga{border-color:var(--signal);color:var(--signal)}
+/* brief and result cards */
+.ils-card{position:absolute;inset:0;display:grid;place-items:center;padding:20px;overflow:auto;background:rgba(6,12,28,.9);pointer-events:auto}
+.ils-card>div{width:min(460px,100%);display:grid;gap:12px}
+.ils-card .k{margin:0;font:400 11px/1.4 var(--font-mono);letter-spacing:.18em;color:var(--text-secondary)}
+.ils-card h3{margin:0;font:600 clamp(22px,3vw,30px)/1.25 var(--font-head);letter-spacing:.04em}
+.ils-card p{margin:0;color:var(--text-secondary);font-size:15px;line-height:1.7}
+.ils-card dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:4px 0;border:1px solid var(--line)}
+.ils-card dl>div{padding:8px 10px;border-right:1px solid var(--line)}
+.ils-card dl>div:last-child{border-right:0}
+.ils-card dt{font:400 10px/1.3 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.ils-card dd{margin:4px 0 0;font:700 15px/1.2 var(--font-mono);color:var(--text-primary);white-space:nowrap}
+.ils-card .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.ils-grade{font:700 clamp(64px,10vw,96px)/1 var(--font-mono);color:var(--accent)}
+.ils-res-top{display:flex;align-items:center;gap:20px}
+.ils-res-top h3{font-size:clamp(20px,2.6vw,26px)}
+.ils-snd{position:absolute;left:50%;top:10px;transform:translateX(-50%);min-height:30px;padding:0 12px;font:400 11px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary);background:rgba(10,23,51,.5);border:1px solid var(--line);border-radius:2px;pointer-events:auto;cursor:pointer}
+.ils-seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:2px}
+.ils-seg button{min-height:36px;padding:0 14px;border:0;background:transparent;color:var(--text-secondary);font:600 14px/1 var(--font-head);cursor:pointer}
+.ils-seg button[aria-pressed="true"]{background:var(--line-strong);color:var(--text-primary)}
+.ils-opts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:13px;color:var(--text-secondary)}
+.ils-sub{display:flex;gap:8px}
+.ils-sub input{flex:1;min-width:0;min-height:46px;padding:0 12px;background:rgba(10,23,51,.6);border:1px solid var(--line-strong);border-radius:2px;color:var(--text-primary);font:400 16px/1 var(--font-head)}
+.ils-sub input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.ils-msg{min-height:1.5em;font-size:13px!important}
+.ils-board{z-index:2;background:rgba(6,12,28,.97)}
+.ils-board ol{margin:0;padding:0;list-style:none;max-height:min(46vh,340px);overflow:auto;border-top:1px solid var(--line)}
+.ils-board li{display:grid;grid-template-columns:2.2em minmax(0,1fr) 2em 3.2em;gap:8px;align-items:baseline;padding:8px 4px;border-bottom:1px solid var(--line);font:400 14px/1.3 var(--font-mono)}
+.ils-board li .n{font-family:var(--font-head);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)}
+.ils-board li .r{color:var(--text-secondary)}
+.ils-board li .g{font-weight:700;color:var(--accent)}
+.ils-board li .s{text-align:right;color:var(--text-primary)}
+.ils-board li.me{background:rgba(234,76,34,.12)}
+.ils-board .empty{padding:18px 4px;color:var(--text-secondary);font-size:14px}
+.ils-shot{position:fixed;inset:0;z-index:50;display:grid;place-items:center;gap:12px;padding:20px;background:rgba(4,8,18,.92);align-content:center}
+.ils-shot img{max-width:min(420px,100%);max-height:72vh;border:1px solid var(--line-strong)}
+.ils-shot p{margin:0;color:var(--text-secondary);font-size:14px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<div class="ils" id="ils">
+  <div class="ils-stage" id="ils-stage">
+    <video class="ils-v" id="ils-v" src="approach-night.mp4" muted playsinline webkit-playsinline preload="auto"></video>
+    <canvas class="ils-fx" id="ils-fx"></canvas>
+    <div class="ils-hud" id="ils-hud" hidden>
+      <p class="ils-ra" style="margin:0">RA<b id="ils-alt">1000</b></p>
+      <p class="ils-wx" id="ils-wx" style="margin:0"></p>
+      <div class="ils-loc"><i style="left:0"></i><i style="left:25%"></i><i style="left:75%"></i><i style="left:100%"></i><span class="ils-dia" id="ils-dloc"></span></div>
+      <div class="ils-gs"><i style="top:0"></i><i style="top:25%"></i><i style="top:75%"></i><i style="top:100%"></i><span class="ils-dia" id="ils-dgs"></span></div>
+      <p class="ils-call" id="ils-call" style="margin:0"></p>
+      <p class="ils-hint" id="ils-hint" style="margin:0">拖动屏幕操纵：往哪拖，飞机往哪去。把两个紫色菱形保持在中线上。</p>
+      <span class="ils-stick" id="ils-stick"><i id="ils-knob"></i></span>
+      <button class="ils-snd" id="ils-snd-hud" type="button">SOUND ON</button>
+    </div>
+    <div class="ils-dec" id="ils-dec" hidden>
+      <p>决断高度 · 看得见进近灯吗？</p>
+      <div class="row"><button class="btn btn-a" id="ils-land" type="button">落地</button><button class="btn btn-ga" id="ils-ga" type="button">复飞</button></div>
+      <div class="tm"><i id="ils-tm"></i></div>
+    </div>
+    <div class="ils-card" id="ils-brief">
+      <div>
+        <p class="k">盲降挑战 · ILS APPROACH · NIGHT</p>
+        <h3>云底以下才看得见跑道。</h3>
+        <p>从 1000 英尺的云里开始，沿航向道和下滑道下降。拖动屏幕修正偏差。到 200 英尺决断高度：看见进近灯就落地，看不见就复飞。</p>
+        <dl id="ils-brief-wx"></dl>
+        <div class="ils-opts">
+          <span class="ils-seg" id="ils-ctl" hidden><button type="button" data-ctl="drag" aria-pressed="true">拖动</button><button type="button" data-ctl="tilt" aria-pressed="false">重力感应</button></span>
+          <span class="ils-seg"><button type="button" id="ils-snd" aria-pressed="true">声音</button></span>
+        </div>
+        <div class="acts"><button class="btn btn-a" id="ils-go" type="button">开始进近</button><button class="btn" id="ils-reroll" type="button">换个天气</button><button class="btn" data-board type="button">排行榜</button></div>
+      </div>
+    </div>
+    <div class="ils-card ils-board" id="ils-board" hidden>
+      <div>
+        <p class="k">LEADERBOARD · 盲降挑战</p>
+        <span class="ils-seg"><button type="button" data-tab="week" aria-pressed="true">本周</button><button type="button" data-tab="all" aria-pressed="false">总榜</button></span>
+        <ol id="ils-list"></ol>
+        <div class="acts"><button class="btn" id="ils-board-close" type="button">返回</button></div>
+      </div>
+    </div>
+    <div class="ils-card" id="ils-result" hidden>
+      <div>
+        <div class="ils-res-top"><span class="ils-grade" id="ils-grade">A</span><div><p class="k" id="ils-res-k">RESULT</p><h3 id="ils-res-h"></h3></div></div>
+        <p id="ils-res-p"></p>
+        <dl id="ils-res-dl"></dl>
+        <form class="ils-sub" id="ils-sub" hidden><input id="ils-name" maxlength="12" autocomplete="nickname" enterkeyhint="send" placeholder="你的昵称，1–12 个字" aria-label="昵称"><button class="btn btn-a" type="submit">上榜</button></form>
+        <p class="ils-msg" id="ils-msg" aria-live="polite"></p>
+        <div class="acts"><button class="btn btn-a" id="ils-again" type="button">再飞一次</button><button class="btn" id="ils-card-btn" type="button">生成成绩卡</button><button class="btn" data-board type="button">排行榜</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</div>
+<script src="ils.js"></script>
+</body>
+</html>

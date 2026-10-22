@@ -1777,6 +1777,20 @@ Added by the dashboard and referral pass (2026-10-20, owner request):
    .htaccess change, no T1/T2/T3 change (home template untouched; only `assets/shop.css` grew, which the product pages pick up
    on their next render).
 
+Added by the game-leaderboard pass (2026-10-22, owner request):
+
+32. **盲降挑战 leaderboard (server side only).** New public endpoint `api/game.php` (allowed in `api/.htaccess`, the dev router
+   and both Nginx files exactly like `hit.php`), `app/lib/game.php`, setting `game.board` (default on; not part of the page
+   state, so switching it never republishes), admin routes `game` / `game.toggle` / `game.delete` / `game.clear` (menu
+   小游戏排行榜 right after 访问统计). `GET ?a=start` rolls the weather and answers a run token: base64url(JSON {id, t, base,
+   rvr, dir, spd, turb}) . base64url(HMAC-SHA256, `secret_value('game')`). `POST ?a=submit` (JSON, at most 2 KB, same-origin,
+   `Content-Type: application/json`) needs a run 14 s to 15 min old and used once (`blog-data/game/used.json`, ids kept 1 h),
+   cleans the name (1 to 12 characters, no links or contacts) and recomputes score and grade on the server. Entries in
+   `blog-data/game/scores.json`: the last 8 days plus the best 200 of all time; `ipk` is `ip_hash(client_key())`, never an
+   IP. `GET ?a=board`: week (rolling 7 days) and all-time top 20, one row per name (case-insensitive, its best run, the earlier
+   run on a tie), `Cache-Control: public, max-age=30`. Limits: 60 starts and 20 submits per visitor per hour. The game's
+   front end and the home template are not part of this pass (no T1/T2/T3 change). Tests: run.php group `game`.
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the

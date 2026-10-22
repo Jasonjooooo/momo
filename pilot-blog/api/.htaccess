@@ -1,5 +1,5 @@
-# Only the four endpoints are reachable; the SDK (vendor/) and composer files are not.
-<FilesMatch "^(?!(chat|subscribe|hit|shop)\.php$).*$">
+# Only the five endpoints are reachable; the SDK (vendor/) and composer files are not.
+<FilesMatch "^(?!(chat|subscribe|hit|game|shop)\.php$).*$">
     Require all denied
 </FilesMatch>
 Options -Indexes

@@ -25,6 +25,7 @@ server {
     location = /api/chat.php      { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location = /api/subscribe.php { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location = /api/hit.php       { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
+    location = /api/game.php      { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location = /api/shop.php      { include fastcgi.conf; fastcgi_pass unix:/run/php/php8.3-fpm.sock; }
     location ^~ /api/ { deny all; }
 
