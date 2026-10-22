@@ -22,9 +22,15 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
 /* ============ ILS CHALLENGE ============ */
 .ils{position:relative;border:1px solid var(--line-strong);background:#05080f;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
 .ils-stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:#05080f}
-@media (max-width:640px){.ils-stage{aspect-ratio:4/5}}
+@media (max-width:640px){
+  .ils-stage{aspect-ratio:2/3}
+  .ils-v{left:-22%;width:144%}   /* the footage's own sides as margin, so the ground can shear without showing an edge */
+  .ils-card{align-items:start;padding:16px}
+  .ils-card p{font-size:14px;line-height:1.6}
+  .ils-card .acts .btn{min-height:42px;padding:0 16px}
+}
 .ils.playing .ils-stage{touch-action:none;cursor:grab}
-.ils-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 45%;will-change:transform}
+.ils-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 53%;will-change:transform}   /* 53%: the horizon in the footage */
 .ils-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 .ils-hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-mono);text-shadow:0 1px 3px rgba(0,0,0,.9)}
 .ils-ra{position:absolute;left:16px;top:12px;font:700 13px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
@@ -94,6 +100,20 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
 .ils-board li .s{text-align:right;color:var(--text-primary)}
 .ils-board li.me{background:rgba(234,76,34,.12)}
 .ils-board .empty{padding:18px 4px;color:var(--text-secondary);font-size:14px}
+.ils-go[disabled]{opacity:.6;cursor:progress}
+.ils-chal{margin:0!important;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(234,76,34,.1);color:var(--text-primary)!important;font-size:14px!important}
+.ils-mode-note{font-size:12px!important}
+.ils-tut{position:absolute;inset:0;display:grid;align-content:start;padding-top:max(64px,14%)!important;justify-items:center;gap:10px;padding:20px 28px;text-align:center;background:rgba(6,12,28,.55);pointer-events:auto}
+.ils-tut p{margin:0;max-width:30em;font-size:15px;line-height:1.7;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.ils-tut b{color:#F09BE6}
+.ils-tut .t3 b{color:var(--signal)}
+.ils-stick.ghost{opacity:.9}
+.ils-stick.ghost i{animation:ghost 2.4s var(--ease,ease-in-out) infinite}
+@keyframes ghost{0%,15%{transform:translate(0,0)}55%,80%{transform:translate(var(--gx),var(--gy))}100%{transform:translate(0,0)}}
+.ils-flare{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);margin:0;padding:10px 18px;border:2px solid var(--signal);border-radius:40px;font:700 16px/1 var(--font-head);letter-spacing:.12em;color:var(--signal);animation:flare .7s ease-in-out infinite alternate}
+@keyframes flare{to{transform:translate(-50%,-50%) scale(1.08);box-shadow:0 0 18px rgba(230,169,72,.6)}}
+.ils.shake .ils-v{animation:shake .35s linear}
+@keyframes shake{25%{margin-top:6px}50%{margin-top:-4px}75%{margin-top:3px}}
 .ils-shot{position:fixed;inset:0;z-index:50;display:grid;place-items:center;gap:12px;padding:20px;background:rgba(4,8,18,.92);align-content:center}
 .ils-shot img{max-width:min(420px,100%);max-height:72vh;border:1px solid var(--line-strong)}
 .ils-shot p{margin:0;color:var(--text-secondary);font-size:14px;text-align:center}
@@ -104,7 +124,7 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
 
 <div class="ils" id="ils">
   <div class="ils-stage" id="ils-stage">
-    <video class="ils-v" id="ils-v" src="approach-night.mp4" muted playsinline webkit-playsinline preload="auto"></video>
+    <video class="ils-v" id="ils-v" data-src="approach-night.mp4" muted playsinline webkit-playsinline preload="none"></video>
     <canvas class="ils-fx" id="ils-fx"></canvas>
     <div class="ils-hud" id="ils-hud" hidden>
       <p class="ils-ra" style="margin:0">RA<b id="ils-alt">1000</b></p>
@@ -115,6 +135,13 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
       <p class="ils-hint" id="ils-hint" style="margin:0">拖动屏幕操纵：往哪拖，飞机往哪去。把两个紫色菱形保持在中线上。</p>
       <span class="ils-stick" id="ils-stick"><i id="ils-knob"></i></span>
       <button class="ils-snd" id="ils-snd-hud" type="button">SOUND ON</button>
+      <p class="ils-flare" id="ils-flare" hidden>点屏幕 · 拉平</p>
+    </div>
+    <div class="ils-tut" id="ils-tut" hidden>
+      <p class="t1">紫色菱形是航道的位置。<b>菱形在哪边，就往哪边飞</b>，把它拉回中线。</p>
+      <p class="t2" id="ils-tut-how">按住屏幕往那个方向拖。</p>
+      <p class="t3">听到 <b>MINIMUMS</b> 时决断；落地前听到 <b>20</b> 左右点屏幕拉平。</p>
+      <button class="btn btn-a" id="ils-tut-go" type="button">明白了</button>
     </div>
     <div class="ils-dec" id="ils-dec" hidden>
       <p>决断高度 · 看得见进近灯吗？</p>
@@ -124,14 +151,17 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
     <div class="ils-card" id="ils-brief">
       <div>
         <p class="k">盲降挑战 · ILS APPROACH · NIGHT</p>
+        <p class="ils-chal" id="ils-chal" hidden></p>
         <h3>云底以下才看得见跑道。</h3>
-        <p>从 1000 英尺的云里开始，沿航向道和下滑道下降。拖动屏幕修正偏差。到 200 英尺决断高度：看见进近灯就落地，看不见就复飞。</p>
+        <p>从 1000 英尺的云里开始，沿航向道和下滑道下降。拖动屏幕修正偏差。到 200 英尺决断高度：看见进近灯就落地，看不见就复飞。落地前别忘了拉平。</p>
         <dl id="ils-brief-wx"></dl>
         <div class="ils-opts">
+          <span class="ils-seg" id="ils-mode"><button type="button" data-mode="ranked" aria-pressed="true">挑战</button><button type="button" data-mode="practice" aria-pressed="false">练习</button></span>
           <span class="ils-seg" id="ils-ctl" hidden><button type="button" data-ctl="drag" aria-pressed="true">拖动</button><button type="button" data-ctl="tilt" aria-pressed="false">重力感应</button></span>
           <span class="ils-seg"><button type="button" id="ils-snd" aria-pressed="true">声音</button></span>
         </div>
-        <div class="acts"><button class="btn btn-a" id="ils-go" type="button">开始进近</button><button class="btn" id="ils-reroll" type="button">换个天气</button><button class="btn" data-board type="button">排行榜</button></div>
+        <div class="acts"><button class="btn btn-a ils-go" id="ils-go" type="button">开始进近</button><button class="btn" id="ils-reroll" type="button">换个天气</button><button class="btn" data-board type="button">排行榜</button><button class="btn" id="ils-how" type="button">玩法</button></div>
+        <p class="ils-mode-note" id="ils-mode-note">挑战模式的成绩可以上排行榜。练习模式风小、颠簸轻，不计成绩。</p>
       </div>
     </div>
     <div class="ils-card ils-board" id="ils-board" hidden>
@@ -149,7 +179,7 @@ body{margin:0;background:var(--canvas);color:var(--text-primary);font:400 16px/1
         <dl id="ils-res-dl"></dl>
         <form class="ils-sub" id="ils-sub" hidden><input id="ils-name" maxlength="12" autocomplete="nickname" enterkeyhint="send" placeholder="你的昵称，1–12 个字" aria-label="昵称"><button class="btn btn-a" type="submit">上榜</button></form>
         <p class="ils-msg" id="ils-msg" aria-live="polite"></p>
-        <div class="acts"><button class="btn btn-a" id="ils-again" type="button">再飞一次</button><button class="btn" id="ils-card-btn" type="button">生成成绩卡</button><button class="btn" data-board type="button">排行榜</button></div>
+        <div class="acts"><button class="btn btn-a" id="ils-again" type="button">再飞一次</button><button class="btn" id="ils-card-btn" type="button">生成成绩卡</button><button class="btn" id="ils-dare" type="button" hidden>挑战好友</button><button class="btn" data-board type="button">排行榜</button></div>
       </div>
     </div>
   </div>

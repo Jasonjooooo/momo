@@ -78,6 +78,17 @@ function group_game(): void
     ok(game_token_read(game_token_make($wx, $now - 900), $now)['ok'] && game_token_read(game_token_make($wx, $now - 901), $now)['error'] === 'expired', 'expiry: 15 min accepted, 15 min + 1 s refused');
     ok(game_token_read(game_token_make($wx, $now + 3600), $now)['error'] === 'bad', 'a token from the future refused');
 
+    // ---- challenge codes ----
+    $code = game_code_make($wx);
+    ok(game_code_read($code) == $wx && (bool) preg_match('/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{16}$/', $code), 'challenge code reads back its weather', $code);
+    [$cp, $cs] = explode('.', $code);
+    $cf = game_b64u(json_encode(['base' => 290] + $wx));
+    ok(game_code_read($cf . '.' . $cs) === null && game_code_read($cp . '.' . strrev($cs)) === null && game_code_read($tok) === null && game_code_read(null) === null && game_code_read(['x']) === null,
+        'challenge code: tampered weather or signature, a run token, junk refused');
+    ok(game_token_read($cp . '.' . game_sign($cp), $now)['error'] === 'bad' && game_token_read($code, $now)['error'] === 'bad', 'a challenge code is never a run token');
+    $cw = game_b64u(json_encode(['base' => 999] + $wx));
+    ok(game_code_read($cw . '.' . substr(game_sign('wx|' . $cw), 0, 16)) === null, 'a signed code with impossible weather refused');
+
     // ---- single use ----
     $id = 'feedfacefeedface';
     ok(game_run_claim($id, $now) && !game_run_claim($id, $now + 5), 'reuse: a run id is accepted once, then refused');
@@ -107,7 +118,7 @@ function group_game(): void
     ok(game_name_clean('QQ飞行') === 'QQ飞行', 'name: qq without digits is fine');
 
     // ---- scoring (every branch) ----
-    $sc = fn(int $base, string $d, float $rx, float $ry, float $dax, float $day, ?float $tdx) => game_score($base, $d, $rx, $ry, $dax, $day, $tdx);
+    $sc = fn(int $base, string $d, float $rx, float $ry, float $dax, float $day, ?float $tdx, ?float $fl = 22) => game_score($base, $d, $rx, $ry, $dax, $day, $tdx, $fl);
     ok($sc(150, 'land', 0, 0, 0, 0, 0) === ['score' => 0, 'grade' => 'F'], 'land below minimums: F 0');
     ok($sc(250, 'land', 0, 0, 1.2, 0, 0) === ['score' => 0, 'grade' => 'F'] && $sc(250, 'land', 0, 0, 0, -1.01, 0) === ['score' => 0, 'grade' => 'F'], 'land off the localizer or glideslope (|dev| > 1): F 0');
     ok($sc(250, 'none', 0, 0, 0, 0, 0) === ['score' => 0, 'grade' => 'F'] && $sc(150, 'none', 0, 0, 0, 0, null) === ['score' => 0, 'grade' => 'F'], 'no decision: F 0');
@@ -116,10 +127,14 @@ function group_game(): void
     ok($sc(250, 'ga', 0.6, 0.0, 0, 0, null) === ['score' => 51, 'grade' => 'C'] && $sc(250, 'ga', 0.1, 0.0, 0, 0, null) === ['score' => 67, 'grade' => 'B'], 'unneeded go-around: B at >= 60 else C');
     ok($sc(150, 'ga', 0.1, 0.1, 0, 0, null) === ['score' => 95, 'grade' => 'S'], 'correct go-around: round(40 + 91*0.6) = 95, S');
     ok($sc(250, 'ga', 3, 3, 2, 0, null) === ['score' => 40, 'grade' => 'C'], 'correct go-around (off course at 250 ft), track 0: 40, C');
-    ok($sc(250, 'land', 0, 0, 0.5, -0.5, 0) === ['score' => 100, 'grade' => 'S'] && $sc(250, 'land', 0, 0, 0.5, -0.5, null) === ['score' => 100, 'grade' => 'S'], 'perfect landing: 30 + 45 + 25 = 100, S (tdx null counts as 0)');
-    ok($sc(250, 'land', 0, 0, 0, 0, -1) === ['score' => 87, 'grade' => 'A'], 'landing 1 off the touchdown zone: td 46 → round(86.5) = 87, A');
-    ok($sc(200, 'land', 1, 0.5, 0, 0, 0) === ['score' => 70, 'grade' => 'B'], 'landing at exactly 200 ft, track 32.5: round(69.625) = 70, B');
-    ok($sc(250, 'land', 3, 3, 0, 0, 2.6) === ['score' => 30, 'grade' => 'C'], 'worst correct landing: 30, C');
+    ok($sc(250, 'land', 0, 0, 0.5, -0.5, 0) === ['score' => 100, 'grade' => 'S'] && $sc(250, 'land', 0, 0, 0.5, -0.5, null) === ['score' => 100, 'grade' => 'S'], 'perfect landing, flare at 22 ft: 20 + 40 + 20 + 20 = 100, S (tdx null counts as 0)');
+    ok($sc(250, 'land', 0, 0, 0, 0, -1) === ['score' => 89, 'grade' => 'A'], 'landing 1 off the touchdown zone: td 46 → round(89.2) = 89, A');
+    ok($sc(200, 'land', 1, 0.5, 0, 0, 0) === ['score' => 73, 'grade' => 'B'], 'landing at exactly 200 ft, track 32.5: 73, B');
+    ok($sc(250, 'land', 3, 3, 0, 0, 2.6, null) === ['score' => 20, 'grade' => 'C'], 'worst correct landing (no flare): 20, C');
+    ok($sc(250, 'land', 0, 0, 0, 0, 0, null) === ['score' => 80, 'grade' => 'B'] && $sc(250, 'land', 0, 0, 0, 0, 0, 30) === ['score' => 92, 'grade' => 'S']
+        && $sc(250, 'land', 0, 0, 0, 0, 0, 14) === ['score' => 92, 'grade' => 'S'] && $sc(250, 'land', 0, 0, 0, 0, 0, 50) === ['score' => 80, 'grade' => 'B'],
+        'flare: none 0, 8 ft either side of 22 → 60, 20+ ft off → 0');
+    ok($sc(150, 'ga', 0.1, 0.1, 0, 0, null, null) === $sc(150, 'ga', 0.1, 0.1, 0, 0, null, 22), 'flare only counts on a landing');
     ok([game_grade(92), game_grade(91), game_grade(82), game_grade(81), game_grade(68), game_grade(67), game_grade(0)] === ['S', 'A', 'A', 'B', 'B', 'C', 'C'], 'grade thresholds S >= 92, A >= 82, B >= 68, else C');
     ok(game_num(5, 0, 3) === 3.0 && game_num(-9.5, -2.6, 2.6) === -2.6 && game_num(1, 0, 3) === 1.0 && game_num('1', 0, 3) === null && game_num(null, 0, 3) === null && game_num(true, 0, 3) === null, 'numbers clamped; strings, null, booleans refused');
 
@@ -188,8 +203,8 @@ function group_game(): void
         }
     }
     ok(!$bad, 'submit: unknown decision, string or missing numbers, string tdx, array name refused', implode(',', $bad));
-    $r = game_submit(game_body(game_tok(30, ['base' => 250]), ['decision' => 'land', 'rx' => 99, 'ry' => -5, 'dax' => 0, 'day' => 0, 'tdx' => -40]), $ipk);
-    ok($r['ok'] && $r['score'] === 30 && $r['grade'] === 'C', 'submit: rx/ry clamped to [0,3], tdx to [-2.6,2.6] (rx 99 → 3, ry -5 → 0: track 0, not 100)', json_encode($r));
+    $r = game_submit(game_body(game_tok(30, ['base' => 250]), ['decision' => 'land', 'rx' => 99, 'ry' => -5, 'dax' => 0, 'day' => 0, 'tdx' => -40, 'fl' => 999]), $ipk);
+    ok($r['ok'] && $r['score'] === 20 && $r['grade'] === 'C', 'submit: rx/ry clamped to [0,3], tdx to [-2.6,2.6], fl to [0,80] (rx 99 → 3, ry -5 → 0: track 0, not 100; fl 80 → flare 0)', json_encode($r));
     $low = [];
     for ($i = 0; $i < 22; $i++) {
         $low[] = game_fake('高手' . $i, 99, $now - 60);
@@ -215,6 +230,10 @@ function game_http_tests(): void
     $j = $r['json'];
     ok($r['status'] === 200 && ($j['ok'] ?? null) === true && is_string($j['run'] ?? null) && game_weather_ok($j['wx'] ?? null) && array_keys($j['wx']) === ['base', 'rvr', 'dir', 'spd', 'turb'], 'start: {ok, run, wx {base, rvr, dir, spd, turb}}', $r['body']);
     ok(str_contains($r['headers']['cache-control'] ?? '', 'no-store') && str_starts_with($r['headers']['content-type'] ?? '', 'application/json') && ($r['headers']['x-content-type-options'] ?? '') === 'nosniff', 'start: JSON, no-store, nosniff');
+    $c = http('GET', '/api/game.php?a=start&c=' . rawurlencode($j['code'] ?? ''))['json'];
+    ok(($c['ok'] ?? null) === true && $c['wx'] == $j['wx'] && $c['run'] !== $j['run'], 'start with a challenge code: same weather, a new run', json_encode($c));
+    $c = http('GET', '/api/game.php?a=start&c=forged.0123456789abcdef')['json'];
+    ok(($c['ok'] ?? null) === true && game_weather_ok($c['wx'] ?? null), 'start with a bad challenge code: random weather');
     $tr = game_token_read($j['run'], time() + 20);
     ok($tr['ok'] && $tr['run']['wx'] == $j['wx'], 'start: the token carries the weather it answered');
     $r2 = game_post(game_body($j['run']), ['Origin: ' . $origin]);
@@ -226,7 +245,7 @@ function game_http_tests(): void
     ok(http('GET', '/api/game.php?a[]=board')['status'] === 400, 'array action: 400');
     // submit
     $tok = game_tok(25, ['base' => 260]);
-    $r = game_post(game_body($tok, ['name' => '云下', 'decision' => 'land', 'rx' => 0, 'ry' => 0, 'dax' => 0, 'day' => 0, 'tdx' => 0, 'score' => 1, 'grade' => 'F']), ['Origin: ' . $origin]);
+    $r = game_post(game_body($tok, ['name' => '云下', 'decision' => 'land', 'rx' => 0, 'ry' => 0, 'dax' => 0, 'day' => 0, 'tdx' => 0, 'fl' => 22, 'score' => 1, 'grade' => 'F']), ['Origin: ' . $origin]);
     ok($r['status'] === 200 && $r['json'] === ['ok' => true, 'score' => 100, 'grade' => 'S', 'rank_week' => 1, 'rank_all' => 1], 'submit: {ok, score, grade, rank_week, rank_all}; a score sent by the browser is ignored', $r['body']);
     ok(str_contains($r['headers']['cache-control'] ?? '', 'no-store'), 'submit: no-store');
     $r = game_post(game_body($tok, ['name' => '云下']));

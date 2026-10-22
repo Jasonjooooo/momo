@@ -109,6 +109,35 @@ function game_token_make(array $wx, ?int $now = null): string
 }
 
 /**
+ * A challenge code for a run's weather, so a friend can fly the same approach: base64url(JSON wx) . '.' .
+ * 16 characters of an HMAC kept apart from the run tokens' (a code is never a run, a run never a code).
+ */
+function game_code_make(array $wx): string
+{
+    $payload = game_b64u(json_encode(array_intersect_key($wx, array_flip(['base', 'rvr', 'dir', 'spd', 'turb'])), JSON_THROW_ON_ERROR | JSON_PRESERVE_ZERO_FRACTION));
+    return $payload . '.' . substr(game_sign('wx|' . $payload), 0, 16);
+}
+
+/** The weather in a challenge code, or null when the code is not one this server made. */
+function game_code_read(mixed $code): ?array
+{
+    if (!is_string($code) || strlen($code) > 200 || substr_count($code, '.') !== 1) {
+        return null;
+    }
+    [$payload, $sig] = explode('.', $code);
+    if ($payload === '' || strlen($sig) !== 16 || !hash_equals(substr(game_sign('wx|' . $payload), 0, 16), $sig)) {
+        return null;
+    }
+    $json = game_b64u_decode($payload);
+    $wx = $json === null ? null : json_decode($json, true);
+    if (!is_array($wx)) {
+        return null;
+    }
+    $wx = array_intersect_key($wx, array_flip(['base', 'rvr', 'dir', 'spd', 'turb']));
+    return game_weather_ok($wx) ? $wx : null;
+}
+
+/**
  * Check a run token. ['ok' => true, 'run' => {id, t, wx}] or ['ok' => false, 'error' => 'bad' | 'fast' | 'expired'].
  * Does not mark it used (game_run_claim does, once the whole submit is valid).
  */
@@ -178,9 +207,10 @@ function game_grade(int $score): string
 /**
  * Score one approach (the browser shows the same formula; this one counts).
  * $base: cloud base (ft). $rx/$ry: tracking error 0..3; $dax/$day: deviation at the decision -2.6..2.6;
- * $tdx: touchdown offset -2.6..2.6 or null. Returns ['score' => 0..100, 'grade' => S|A|B|C|F].
+ * $tdx: touchdown offset -2.6..2.6 or null; $fl: radio altitude (ft) when the flare was called, null for none
+ * (22 ft is right). Returns ['score' => 0..100, 'grade' => S|A|B|C|F].
  */
-function game_score(int $base, string $decision, float $rx, float $ry, float $dax, float $day, ?float $tdx): array
+function game_score(int $base, string $decision, float $rx, float $ry, float $dax, float $day, ?float $tdx, ?float $fl = null): array
 {
     $shouldLand = $base >= 200 && abs($dax) <= 1 && abs($day) <= 1;
     $track = max(0.0, min(100.0, 100 - ($rx + $ry) * 45));
@@ -198,7 +228,8 @@ function game_score(int $base, string $decision, float $rx, float $ry, float $da
     }
     $tdm = abs($tdx ?? 0.0) * 9;
     $td = max(0.0, min(100.0, 100 - $tdm * 6));
-    $score = (int) round(30 + $track * 0.45 + $td * 0.25);
+    $flare = $fl === null ? 0.0 : max(0.0, 100 - abs($fl - 22) * 5);
+    $score = (int) round(20 + $track * 0.4 + $td * 0.2 + $flare * 0.2);
     return ['score' => $score, 'grade' => game_grade($score)];
 }
 
@@ -383,8 +414,10 @@ function game_submit(array $body, string $ipk, ?int $now = null): array
     $day = game_num($body['day'] ?? null, -2.6, 2.6);
     $tdxRaw = $body['tdx'] ?? null;
     $tdx = $tdxRaw === null ? null : game_num($tdxRaw, -2.6, 2.6);
+    $flRaw = $body['fl'] ?? null;
+    $fl = $flRaw === null ? null : game_num($flRaw, 0, 80);
     if (!in_array($decision, GAME_DECISIONS, true) || $rx === null || $ry === null || $dax === null || $day === null
-        || ($tdxRaw !== null && $tdx === null)) {
+        || ($tdxRaw !== null && $tdx === null) || ($flRaw !== null && $fl === null)) {
         return ['ok' => false, 'error' => 'bad'];
     }
     $name = game_name_clean($body['name'] ?? null);
@@ -392,7 +425,7 @@ function game_submit(array $body, string $ipk, ?int $now = null): array
         return ['ok' => false, 'error' => 'name'];
     }
     $run = $tok['run'];
-    $res = game_score($run['wx']['base'], $decision, $rx, $ry, $dax, $day, $tdx);
+    $res = game_score($run['wx']['base'], $decision, $rx, $ry, $dax, $day, $tdx, $fl);
     return with_lock('game', function () use ($run, $name, $res, $decision, $ipk, $now): array {
         // single use: only now, once everything else passed, so a refused name can be fixed and sent again
         if (!game_run_claim($run['id'], $now)) {

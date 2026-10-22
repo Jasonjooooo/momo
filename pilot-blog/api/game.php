@@ -1,8 +1,9 @@
 <?php
 // 小游戏「盲降挑战」的排行榜接口。游戏在访客的浏览器里跑；天气由这里随机给出，成绩由这里按同一个公式重新算，
 // 不相信浏览器发来的分数。数据存在 public_html 同级的 blog-data/game/，不存 IP、不存浏览器信息。
-// GET  ?a=start    开一局：{ok, run: <签名令牌>, wx: {base, rvr, dir, spd, turb}}（每位访客每小时 60 局）
-// POST ?a=submit   交成绩（JSON，最多 2 KB）：{run, name, decision: land|ga|none, rx, ry, dax, day, tdx}
+// GET  ?a=start    开一局：{ok, run: <签名令牌>, wx: {base, rvr, dir, spd, turb}, code: <挑战码>}（每位访客每小时 60 局）
+//                  带 &c=<挑战码> 时用挑战码里的天气（好友挑战：同样的天气再飞一次）；挑战码不对就随机
+// POST ?a=submit   交成绩（JSON，最多 2 KB）：{run, name, decision: land|ga|none, rx, ry, dax, day, tdx, fl}
 //                  → {ok, score, grade, rank_week, rank_all}（每位访客每小时 20 次；一局只能交一次）
 // GET  ?a=board    排行榜：{ok, week: [...], all: [...]}，每行 {name, score, grade, base, rvr, date: "MM-DD"}
 // Every answer is JSON. Errors are {ok: false, error: <short Chinese message>}; the reason goes to error_log only.
@@ -87,8 +88,9 @@ try {
         if (!rl_hit('game-start', $ipk, GAME_START_HOUR, 3600)['allowed']) {
             game_fail(429, 'busy_start');
         }
-        $wx = game_weather();
-        game_out(200, ['ok' => true, 'run' => game_token_make($wx), 'wx' => $wx]);
+        $c = $_GET['c'] ?? null;
+        $wx = game_code_read($c) ?? game_weather();
+        game_out(200, ['ok' => true, 'run' => game_token_make($wx), 'wx' => $wx, 'code' => game_code_make($wx)]);
     }
 
     // submit
