@@ -12,7 +12,7 @@ function field_groups(): array
         'chart' => '航路图标题',
         'about' => '关于',
         'type' => '机型',
-        'apch' => '进近小游戏',
+        'apch' => '盲降挑战',
         'log' => '飞行日志栏',
         'ai' => '商城栏',
         'chat' => '店铺客服对话框',
@@ -96,15 +96,9 @@ function field_registry(): array
         ['type.callout4', 'type', '图注 4（对应线图上的 4 号）', '「机型」线图旁的图注', ['lat'], '', null],
         ['type.fnote', 'type', '数据来源说明', '数据格子下面', ['text'], '', null],
 
-        ['apch.kicker', 'apch', '小标签', '进近小游戏标题上方', ['text'], 's', null],
-        ['apch.h2', 'apch', '标题', '进近小游戏', ['text'], 's', null],
-        ['apch.ins', 'apch', '玩法说明', '进近小游戏标题下面', ['text'], '', null],
-        ['apch.hold_btn', 'apch', '按钮文字', '进近小游戏的按钮', ['text', 'js'], 's', null],
-        ['apch.idle', 'apch', '等待时的提示', '按钮下面', ['text', 'js'], '', null],
-        ['apch.holding', 'apch', '下降中', '按住按钮时', ['js'], '', null],
-        ['apch.go_around', 'apch', '复飞', '中途松手时', ['js'], '', null],
-        ['apch.done', 'apch', '完成', '降到决断高度以后（下面接着是「飞行日志」）', ['js'], '', null],
-        ['apch.again', 'apch', '再飞一次', '完成以后的按钮文字', ['js'], 's', null],
+        ['apch.kicker', 'apch', '小标签', '盲降挑战标题上方', ['text'], 's', null],
+        ['apch.h2', 'apch', '标题', '盲降挑战', ['text'], 's', null],
+        ['apch.ins', 'apch', '玩法说明', '盲降挑战标题下面，游戏画面上方', ['text'], '', null],
 
         ['log.kicker', 'log', '小标签', '「飞行日志」标题上方', ['text'], 's', null],
         ['log.h2', 'log', '标题', '「飞行日志」', ['text'], 's', null],
@@ -459,7 +453,9 @@ function album_dims(string $src): ?array
 const FIELD_UPGRADED_DEFAULTS = [
     'log.kicker' => ['02 / LOG' => '03 / LOG'],
     'type.kicker' => ['03 / TYPE' => '02 / TYPE'],
-    'apch.done' => ['MINIMUMS。跑道可见，继续。' => '落地，滑行到停机位，看看最近飞了什么。'],
+    // the hold-to-descend plate became the 盲降挑战 game (owner request 2026-10-22, SPEC §18 item 33)
+    'apch.kicker' => ['ILS 示意 · 按住下降' => '盲降挑战 · ILS 夜间进近'],
+    'apch.ins' => ['按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。' => '从云里开始，沿着航道下降。到 200 英尺决断：看见进近灯就落地，看不见就复飞。成绩可以上排行榜，也可以发给朋友挑战同样的天气。'],
     // the AI 超市 section became the shop (owner request 2026-10-17, SPEC §18 item 26)
     'nav.ai' => ['AI 超市' => '商城'],
     'ai.kicker' => ['04 / AI 超市' => '04 / 商城'],
@@ -477,8 +473,18 @@ const FIELD_UPGRADED_DEFAULTS = [
     'ai.shelf_note' => ['货架上的工具与本站没有合作关系，链接直达官网。' => '付款由我本人对照手机收款记录确认，不是自动到账，可能要等几个小时。下单以后可以在「查订单」里看进度。'],
 ];
 
+/**
+ * Keys that left the registry with the part of the page they belonged to (the hold-to-descend game, 2026-10-22). Saved
+ * content, older versions and an editor tab still open from before may carry them; they are dropped on read, so
+ * site_validate never answers 「没有这一项」 for them (the missing direction is the seed fill in site_upgrade_fields).
+ */
+const FIELD_RETIRED = ['apch.hold_btn', 'apch.idle', 'apch.holding', 'apch.go_around', 'apch.done', 'apch.again'];
+
 function site_upgrade_fields(array $fields): array
 {
+    foreach (FIELD_RETIRED as $k) {
+        unset($fields[$k]);
+    }
     // a key added after the owner's content was saved (ai.find, 2026-10-17) gets its seed value, so old
     // live content renders with the new template without a hand edit (migrate on read; keys never change)
     static $fill = null;
@@ -526,7 +532,7 @@ function site_normalize(array $input): array
     }
     $fields = site_upgrade_fields($fields);
     foreach ($in as $k => $v) {
-        if (!isset($reg[$k])) {
+        if (!isset($reg[$k]) && !in_array($k, FIELD_RETIRED, true)) {
             $fields[$k] = $v;
         }
     }

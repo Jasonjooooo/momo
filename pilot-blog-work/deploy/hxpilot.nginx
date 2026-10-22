@@ -72,5 +72,5 @@ server {
     location ~ \.php$ { deny all; }
 
     location ~* \.html$ { add_header Cache-Control "no-cache"; add_header X-Content-Type-Options "nosniff" always; add_header X-Frame-Options "SAMEORIGIN" always; }
-    location ~* \.(mp4|webp|jpg|png|woff2)$ { expires 30d; }
+    location ~* \.(mp4|mp3|webp|jpg|png|woff2)$ { expires 30d; }
 }

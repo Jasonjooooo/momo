@@ -14,7 +14,11 @@ const REPO = path.resolve(__dirname, '../../..');
 const SCEN = (process.argv[2] || 'launch,pub0,pub1,pub3,pub8,album1,album3').split(',');
 const SHOTS = path.join(REPO, 'pilot-blog-work/screens/reorder/');
 const SCR = '/tmp/claude-0/-home-user-momo/9d5abb52-bf47-5e03-b701-f78e1dba1457/scratchpad/';
-const STAND = { portrait: SCR + 'mobile/standin-portrait-vp9.webm', land: SCR + 'standin-vp9.mp4' };
+const STAND = { portrait: SCR + 'mobile/standin-portrait-vp9.webm', land: SCR + 'standin-vp9.mp4', game: SCR + 'game/approach-night-vp9.webm' };
+// the game footage is H.264, which this Chromium cannot decode: make a VP9 copy once (never committed)
+if (!fs.existsSync(STAND.game)) {
+  try { fs.mkdirSync(path.dirname(STAND.game), { recursive: true }); execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', REPO + '/pilot-blog/assets/game/approach-night.mp4', '-c:v', 'libvpx-vp9', '-deadline', 'realtime', '-cpu-used', '8', '-b:v', '1.5M', '-g', '15', '-an', STAND.game]); } catch (e) { /* the play-through is skipped */ }
+}
 const VIEWPORTS = [
   ['1440', { viewport: { width: 1440, height: 900 } }],
   ['390', { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }],
@@ -52,6 +56,7 @@ function track(p, R, base) {
 async function standins(ctx) {
   if (fs.existsSync(STAND.portrait)) await ctx.route('**/assets/hero-scrub-portrait.mp4', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: fs.readFileSync(STAND.portrait) }));
   if (fs.existsSync(STAND.land)) await ctx.route('**/assets/hero-scrub.mp4', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: fs.readFileSync(STAND.land) }));
+  if (fs.existsSync(STAND.game)) await ctx.route('**/assets/game/approach-night.mp4', r => r.fulfill({ status: 200, contentType: 'video/webm', body: fs.readFileSync(STAND.game) }));
 }
 const overflow = p => p.evaluate(() => ({ sw: document.documentElement.scrollWidth, cw: document.documentElement.clientWidth }));
 
@@ -112,28 +117,83 @@ async function homeChecks(browser, base, fx, tag, opt) {
   return R;
 }
 
-// the runway at the end is lit by the route reaching RW24 (not by the approach game); the game still lands and goes around
+// the runway at the end is lit by the route reaching RW24 (never by the approach game); #apch holds the 盲降挑战 game
+// (assets/game/ils.js): brief card with weather from api/game.php, first-run tutorial, cloud phase, decision, result, board
 async function runwayFlow(browser, base, opt) {
   const R = { checks: [] };
   const ctx = await browser.newContext(opt);
   await standins(ctx);
   const p = await ctx.newPage();
   track(p, R, base);
+  const starts = [];
+  p.on('response', r => { if (r.url().includes('api/game.php?a=start')) starts.push(r.status()); });
   await p.goto(base, { waitUntil: 'load' });
   await sleep(1500);
   const H = await p.evaluate(() => document.documentElement.scrollHeight);
   for (let y = 0; y < H; y += 600) { await p.evaluate(y => window.scrollTo({ top: y, behavior: 'instant' }), y); await sleep(40); }
-  await p.evaluate(() => { const e = document.getElementById('fly'); window.scrollTo({ top: e.getBoundingClientRect().top + scrollY - 80, behavior: 'instant' }); });
+  const toGame = () => p.evaluate(() => { const e = document.getElementById('ils'); window.scrollTo({ top: e.getBoundingClientRect().top + scrollY - 70, behavior: 'instant' }); });
+  await toGame();
   await sleep(900);
   check(R, 'runway dark while the route is still at the approach', await p.evaluate(() => !document.getElementById('subscribe').classList.contains('landed')));
-  await p.focus('#hold');
-  await p.keyboard.down('Space'); await sleep(900); await p.keyboard.up('Space'); await sleep(200);
-  const ga = await p.evaluate(() => document.getElementById('fly-status').textContent);
-  check(R, 'releasing early is a go-around', ga === '复飞是正常操作。再按住，再飞一次。', ga);
-  await sleep(2200);
-  await p.keyboard.down('Space'); await sleep(3300); await p.keyboard.up('Space'); await sleep(300);
-  const st = await p.evaluate(() => [document.getElementById('fly-status').textContent, document.getElementById('fly').classList.contains('done'), document.getElementById('subscribe').classList.contains('landed')]);
-  check(R, 'landing says taxi in and read the log; it does not light the runway', st[0] === '落地，滑行到停机位，看看最近飞了什么。' && st[1] && !st[2], st);
+  const g0 = await p.evaluate(() => {
+    const sec = document.getElementById('apch'), ils = document.getElementById('ils');
+    return {
+      inApch: !!ils && sec.contains(ils) && sec.querySelectorAll('.bend').length === 2,
+      head: [...sec.querySelectorAll('.apch-head .kicker, .apch-head h2, .apch-head .ins')].map(e => e.textContent),
+      old: !!document.getElementById('fly') || !!document.getElementById('hold'),
+      phase: window.__ils && window.__ils.phase,
+      brief: !document.getElementById('ils-brief').hidden,
+      wx: document.getElementById('ils-brief-wx').textContent,
+      code: window.__ils && window.__ils.code,
+      touch: getComputedStyle(document.getElementById('ils-stage')).touchAction,
+      vsrc: document.getElementById('ils-v').dataset.src,
+      siteBtn: getComputedStyle(document.querySelector('.nav-cta')).borderRadius,
+    };
+  });
+  check(R, 'the game sits in #apch with the two route bends after it, the old hold game is gone', g0.inApch && !g0.old, g0);
+  check(R, 'heading above the game from the apch fields', g0.head[0] === '盲降挑战 · ILS 夜间进近' && g0.head[1] === '换你来飞。' && g0.head[2].startsWith('从云里开始'), g0.head);
+  check(R, 'brief card shows the weather', g0.brief && g0.phase === 'brief' && /CLOUD BASE\d+ FTRVR\d+ MWIND\d{3}\/\d+KT/.test(g0.wx), g0.wx);
+  check(R, 'weather and run come from api/game.php (start answered 200, challenge code set)', starts.length >= 1 && starts.every(s => s === 200) && typeof g0.code === 'string' && g0.code.length > 8, [starts, g0.code]);
+  check(R, 'no touch-action:none before the game starts', g0.touch !== 'none', g0.touch);
+  check(R, 'the site\'s own buttons keep their shape (game .btn rules are scoped)', g0.siteBtn === '6px', g0.siteBtn);
+  // the footage is fetched when the game nears the viewport; the start button waits for it
+  await p.waitForFunction(() => { const b = document.getElementById('ils-go'); return !b.disabled && b.textContent === '开始进近'; }, null, { timeout: 30000 }).catch(() => {});
+  await p.click('#ils-go');
+  await sleep(700);
+  const g1 = await p.evaluate(() => ({ phase: window.__ils.phase, tut: !document.getElementById('ils-tut').hidden, brief: !document.getElementById('ils-brief').hidden, touch: getComputedStyle(document.getElementById('ils-stage')).touchAction }));
+  check(R, '开始进近 on the first run shows the tutorial', g1.phase === 'tutor' && g1.tut && !g1.brief, g1);
+  check(R, 'touch-action:none only while playing', g1.touch === 'none', g1.touch);
+  await p.click('#ils-tut-go');
+  await sleep(1200);
+  const g2 = await p.evaluate(() => ({ phase: window.__ils.phase, alt: window.__ils.alt, tut: !document.getElementById('ils-tut').hidden }));
+  check(R, '明白了 starts the cloud phase (descending from 1000 ft)', g2.phase === 'cloud' && !g2.tut && g2.alt < 1000 && g2.alt > 300, g2);
+  const ov = await overflow(p);
+  check(R, 'no horizontal overflow while playing', ov.sw <= ov.cw, ov);
+  if (fs.existsSync(STAND.game)) {
+    // footage stand-in (VP9; this Chromium has no H.264): fly to DA, go around, read the result, post it to the board
+    await p.waitForFunction(() => window.__ils.phase === 'decide', null, { timeout: 40000 }).catch(() => {});
+    const dec = await p.evaluate(() => [window.__ils.phase, !document.getElementById('ils-dec').hidden]);
+    check(R, 'the footage plays down to DA and asks for the decision', dec[0] === 'decide' && dec[1], dec);
+    await p.click('#ils-ga');
+    await p.waitForSelector('#ils-result:not([hidden])', { timeout: 15000 }).catch(() => {});
+    const res = await p.evaluate(() => ({ phase: window.__ils.phase, grade: document.getElementById('ils-grade').textContent, h: document.getElementById('ils-res-h').textContent, sub: !document.getElementById('ils-sub').hidden, playing: document.getElementById('ils').classList.contains('playing') }));
+    check(R, 'a go-around ends on the result card with a grade', res.phase === 'done' && /^[SABCF]$/.test(res.grade) && res.h !== '' && !res.playing, res);
+    check(R, 'the game does not light the runway', await p.evaluate(() => !document.getElementById('subscribe').classList.contains('landed')));
+    if (res.sub) {
+      await p.fill('#ils-name', '测试机长');
+      await p.click('#ils-sub button[type="submit"]');
+      await p.waitForFunction(() => /上榜了|已提交/.test(document.getElementById('ils-msg').textContent), null, { timeout: 10000 }).catch(() => {});
+      const msg = await p.evaluate(() => [document.getElementById('ils-msg').textContent, !document.getElementById('ils-board').hidden]);
+      check(R, 'the run goes on the server leaderboard', /上榜了|已提交/.test(msg[0]) && msg[1], msg);
+      await p.click('#ils-board-close');
+    }
+    await p.click('#ils-again');
+    await sleep(600);
+    await p.click('#ils-go');
+    await sleep(700);
+    const g3 = await p.evaluate(() => [window.__ils.phase, document.getElementById('ils-tut').hidden]);
+    check(R, 'the second run skips the tutorial', g3[0] === 'cloud' && g3[1], g3);
+  } else R.checks.push('skip play-through: no VP9 stand-in at ' + STAND.game);
   await p.evaluate(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: 'instant' }));
   await sleep(900);
   check(R, 'the runway lights come on when the route reaches RW24', await p.evaluate(() => document.getElementById('subscribe').classList.contains('landed')));
@@ -141,11 +201,15 @@ async function runwayFlow(browser, base, opt) {
   await sleep(900);
   check(R, 'and go out again when the reader scrolls back up', await p.evaluate(() => !document.getElementById('subscribe').classList.contains('landed')));
   const rc = await browser.newContext({ ...opt, reducedMotion: 'reduce' });
+  await standins(rc);
   const rp = await rc.newPage();
+  const RL = { checks: [] };
+  track(rp, RL, base);
   await rp.goto(base, { waitUntil: 'load' });
   await sleep(1500);
-  const rm = await rp.evaluate(() => [document.getElementById('subscribe').classList.contains('landed'), document.getElementById('fly').classList.contains('done')]);
-  check(R, 'reduced motion: runway lit and approach complete from the start', rm[0] && rm[1], rm);
+  const rm = await rp.evaluate(() => [document.getElementById('subscribe').classList.contains('landed'), window.__ils && window.__ils.phase, document.getElementById('ils').classList.contains('playing')]);
+  check(R, 'reduced motion: runway lit from the start, the game waits for a tap', rm[0] && rm[1] === 'brief' && !rm[2], rm);
+  check(R, 'reduced motion: no console errors', RL.logs.length === 0, RL.logs);
   await rc.close();
   check(R, 'no console errors, external or failed requests', R.logs.length === 0, R.logs);
   await ctx.close();

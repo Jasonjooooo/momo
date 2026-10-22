@@ -205,9 +205,11 @@ function fogAt(a) {
   if (a <= wx.base - 15) return clear;
   return lerp(clear, 1, clamp((a - (wx.base - 15)) / 55, 0, 1));
 }
+let fxClear = false;   // the brief card covers the stage: clear the canvas once, not on every frame (no repaint while idle)
 function drawFx(dt, speed) {
+  if (phase === 'brief') { if (!fxClear) { ctx.clearRect(0, 0, W, H); fxClear = true; } return; }
+  fxClear = false;
   ctx.clearRect(0, 0, W, H);
-  if (phase === 'brief') return;
   const fog = Math.max(fogAt(alt), fogFloor), cx = W / 2, cy = H * 0.45, f = Math.max(W, H) * 0.5;
   ctx.fillStyle = `rgba(38,46,62,${fog * 0.9})`; ctx.fillRect(0, 0, W, H);
   const pa = clamp((fog - 0.5) / 0.5, 0, 1);   // cloud puffs streaming past: thick in cloud, thinning out through the base
@@ -369,7 +371,7 @@ function score() {
   return { grade: g, score: s, h, p, rx, ry, fl: decision === 'land' && flAlt !== null ? Math.round(flAlt * 10) / 10 : null };
 }
 function finish() {
-  phase = 'done'; callEl.classList.remove('on'); callUntil = 0; root.classList.remove('playing'); stick.classList.remove('on'); drag = null; sndPower(false); sndLevel(0, 0.8);
+  phase = 'done'; callEl.classList.remove('on'); callUntil = 0; root.classList.remove('playing'); document.body.classList.remove('ils-on'); stick.classList.remove('on'); drag = null; sndPower(false); sndLevel(0, 0.8);
   result = score();
   const gEl = $('ils-grade');
   gEl.textContent = result.grade;
@@ -580,7 +582,10 @@ function start() {
   hintEl.textContent = tilt.mode ? '倾斜手机操纵：开局时的姿势就是中立位。把两个紫色菱形保持在中线上。' : '拖动屏幕操纵：往哪拖，飞机往哪去。把两个紫色菱形保持在中线上。';
   perm.then(ok => { if (!ok && tilt.mode) { setCtl('drag'); hintEl.textContent = '没拿到重力感应权限，改用拖动操纵。'; } });
   setTimeout(() => { if (tilt.mode && !tilt.seen) hintEl.textContent = '这台设备读不到重力感应，用拖动操纵。'; }, 1500);
-  root.classList.add('playing'); last = 0; sndPower(false); sndLevel(0.9, 0.5);
+  root.classList.add('playing'); document.body.classList.add('ils-on'); last = 0; sndPower(false); sndLevel(0.9, 0.5);
+  // bring the whole stage into view, clear of a sticky page header (the page hides its own floating chrome meanwhile)
+  const r = stage.getBoundingClientRect(), top = 76;
+  if (r.top < top || r.bottom > innerHeight) window.scrollBy({ top: r.top - Math.max(top, (innerHeight - r.height) / 2), behavior: 'smooth' });
   if (forceTut || !store.get('ils-tut')) { forceTut = false; showTutor(); } else phase = 'cloud';
 }
 function toBrief() { resEl.hidden = true; boardEl.hidden = true; briefEl.hidden = false; hud.hidden = true; phase = 'brief'; reset(); applyView(); $('ils-chal').hidden = true; rollWx(); }

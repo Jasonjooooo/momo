@@ -373,7 +373,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 
 /* fixes (printed): RNAV waypoint star, VOR/DME, open reporting triangle, FAF cross. Anchors are 0x0 at the fix point */
 .fix{position:absolute;width:0;height:0;z-index:3;pointer-events:none}
-.fix svg,.dep svg,.ownship svg,.pglyph svg,.faf-x svg{max-width:none}
+.fix svg,.dep svg,.ownship svg{max-width:none}
 .chart>.sec,.ch-head{position:relative;z-index:2}
 .fx{position:absolute;left:-13px;top:-13px;width:26px;height:26px;overflow:visible}
 .fx .f0{fill:var(--canvas);stroke:var(--ink);stroke-width:1.6;stroke-linejoin:round}
@@ -712,74 +712,117 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 .js .faq.in .msa{opacity:1;transform:none}
 .faq .after{grid-column:1;margin:30px 0 0}
 
-/* ============ APPROACH: the plate, and the one thing you fly by hand (between 02 TYPE and 03 LOG) ============ */
+/* ============ APPROACH: 盲降挑战, the ILS game you fly by hand (between 02 TYPE and 03 LOG); script in assets/game/ils.js ============ */
 .apch{padding-bottom:120px}
 .apch .bend{left:calc(100% - var(--lane));bottom:-30px}
 .apch .bend.to-log{left:calc(100% - 444px);bottom:-150px}   /* over the LOGBK hold (log column + 66px), clear of the log plate */
-.fly{position:relative;margin-right:var(--inset);border:1px solid var(--line-strong);outline:1px solid var(--ink-4);outline-offset:5px;background:var(--paper)}
-.brief{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));margin:0;border-bottom:1px solid var(--line-strong)}
-.brief>div{padding:10px 14px 11px;border-right:1px solid var(--line)}
-.brief>div:last-child{border-right:0}
-.brief dt{font:400 10px/1.3 var(--font-mono);letter-spacing:.14em;color:var(--text-secondary)}
-.brief dd{margin:5px 0 0;font:700 14px/1.2 var(--font-mono);letter-spacing:.06em;color:var(--text-primary);white-space:nowrap}
-.brief .ttl dd{font:600 17px/1.2 var(--font-head);letter-spacing:.06em}
-.fly-plate{position:relative;aspect-ratio:1000/320;overflow:hidden;background:radial-gradient(ellipse 80% 120% at 85% 110%,rgba(61,68,107,.55),rgba(61,68,107,0) 60%),linear-gradient(180deg,#0F2152,#0C1A3E)}
-.fly-img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 22%}
-.fly-dim{position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(10,23,51,0) 36%,rgba(10,23,51,.5) 60%,rgba(10,23,51,.56) 100%),linear-gradient(180deg,rgba(10,23,51,.82) 0%,rgba(10,23,51,.72) 55%,rgba(10,23,51,.88) 100%)}
-.plate{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-.plate .ln{fill:none;stroke:var(--line-strong);stroke-width:1.25;vector-effect:non-scaling-stroke}
-.plate .gs{stroke:var(--text-secondary);stroke-width:1.5}
-.plate .rwy{stroke:var(--text-secondary);stroke-width:5}
-.plate .da{fill:none;stroke:var(--line-strong);stroke-width:1;stroke-dasharray:6 6;vector-effect:non-scaling-stroke}
-.plate .ma{fill:none;stroke:var(--ink-2);stroke-width:1.2;stroke-dasharray:7 6;vector-effect:non-scaling-stroke}
-.js .plate{clip-path:inset(0 100% 0 0);transition:clip-path 1.8s var(--ease-io)}
-.js .fly.in .plate{clip-path:inset(-2px)}
-.pl{position:absolute;left:calc(var(--x)*1%);top:calc(var(--y)*1%)}
-.alb,.edg{width:7px;height:7px;margin:-3.5px 0 0 -3.5px;border-radius:50%;background:var(--line-strong)}
-.edg{width:5px;height:5px;margin:-2.5px 0 0 -2.5px}
-.alb::after,.edg::after,.thb::after{content:"";position:absolute;inset:0;border-radius:inherit;opacity:0;transition:opacity .5s var(--ease-out)}
-.alb::after{background:var(--text-primary);box-shadow:0 0 10px rgba(236,233,241,.7)}
-.edg::after{background:var(--edge-light);box-shadow:0 0 8px rgba(242,201,138,.7)}
-.thb{width:4px;height:8%;margin:0 0 0 -2px;transform:translateY(-50%);background:var(--line-strong);border-radius:2px}
-.thb::after{background:var(--threshold);box-shadow:0 0 10px rgba(79,208,138,.7)}
-.fly.done .alb::after,.fly.done .edg::after,.fly.done .thb::after{opacity:1}
-.fly.done .alb:nth-of-type(2)::after{transition-delay:.06s}.fly.done .alb:nth-of-type(3)::after{transition-delay:.12s}.fly.done .alb:nth-of-type(4)::after{transition-delay:.18s}.fly.done .alb:nth-of-type(5)::after{transition-delay:.24s}
-.fly.done .thb::after{transition-delay:.4s}
-.fly.done .edg::after{transition-delay:.55s}
-.faf-x{width:18px;height:18px;margin:-9px 0 0 -9px}
-.faf-x svg{width:100%;height:100%;overflow:visible}
-.faf-x path{fill:var(--canvas);stroke:var(--ink);stroke-width:1.4}
-.dev{position:absolute;right:2.6%;top:9%;display:grid;gap:6px;justify-items:center}
-.dev i{width:8px;height:8px;border:1px solid var(--text-secondary);border-radius:50%}
-.dev .dia{width:11px;height:11px;border:0;border-radius:1px;background:var(--text-secondary);transform:rotate(45deg);margin:1px 0}
-.fly.live:not(.touched) .dev .dia{animation:breathe-d 5s var(--ease-io) -1.2s infinite alternate}
-.pglyph{position:absolute;left:-12px;top:-12px;width:24px;height:24px;will-change:transform}
-.pglyph svg{width:100%;height:100%;overflow:visible}
-.pglyph path{fill:var(--accent)}
-.plate-lbl{position:absolute;margin:0;font:400 12px/1 var(--font-mono);letter-spacing:.06em;color:var(--text-secondary);white-space:nowrap;pointer-events:none;text-shadow:0 1px 2px rgba(6,14,32,.9)}
-.lbl-fap{left:15%;top:6%;transform:translateX(-50%)}
-.lbl-gs{left:39%;top:42%;transform-origin:0 50%;transform:rotate(var(--gsa,19deg)) translateY(-150%)}
-.lbl-da{left:3%;top:73%}
-.lbl-rwy{left:86%;top:92%;transform:translateX(-50%)}
-.lbl-dme{left:15%;top:92%;transform:translateX(-50%)}
-.lbl-thr{left:76%;top:92%;transform:translateX(-50%)}
-.lbl-ma{left:81%;top:30%}
-.mins-tag{position:absolute;left:68%;top:56%;margin:0;padding:3px 6px;font:700 11px/1 var(--font-mono);letter-spacing:.06em;color:var(--signal);background:var(--canvas);border:1px solid var(--signal);border-radius:2px;opacity:0;transition:opacity .3s var(--ease-out)}
-.fly.done .mins-tag{opacity:1;animation:blink2 .9s steps(1) 1}
-.fly-ctl{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:20px 40px;align-items:end;padding:24px clamp(18px,2.4vw,32px) 26px;border-top:1px solid var(--line-strong)}
-.fly-ctl .kicker{margin-bottom:8px}
-.fly-ctl h2{font-size:clamp(24px,2.2vw,32px);margin-bottom:6px}
-.fly-ctl .ins{margin:0;color:var(--text-secondary);font-size:16px}
-.fly-act{display:grid;gap:10px;justify-items:start}
-.hold{min-width:180px;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
-.hold-track{position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--accent-muted)}
-.hold-fill{position:absolute;inset:0;background:var(--accent);transform-origin:0 50%;transform:scaleX(0)}
-.fly-status{margin:0;font-size:15px;color:var(--text-primary);min-height:1.85em}
-.fly-read{margin:0;font:700 13px/1 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
-.mins-strip{display:grid;grid-template-columns:auto minmax(0,1fr);margin:0;border-top:1px solid var(--line-strong);font:400 11px/1.5 var(--font-mono);letter-spacing:.1em;color:var(--text-secondary)}
-.mins-strip>p{margin:0;padding:11px 16px;max-inline-size:none}
-.mins-strip>p+p{border-left:1px solid var(--line)}
-.mins-strip b{color:var(--text-primary);font-weight:700}
+.apch-box{position:relative;max-width:1100px;margin-right:var(--inset)}
+.apch-head{margin:0 0 30px}
+.apch-head h2{margin-bottom:8px}
+.apch-head .ins{margin:0;max-inline-size:40ic;color:var(--text-secondary);font-size:16px}
+.apch .ils{outline:1px solid var(--ink-4);outline-offset:5px}
+@media (max-width:640px){.apch .ils-stage{aspect-ratio:4/7}}   /* the page column is narrower than the prototype's: room for the whole brief card */
+.ils-on #hud{opacity:0;visibility:hidden;transition:opacity .3s,visibility 0s .3s}   /* the route chip would sit on the game's HUD while flying */
+/* the game: everything below is scoped to .ils (and its share-card overlay .ils-shot, appended to <body>) */
+.ils{--warn:#FF5A4F;position:relative;font:400 16px/1.7 var(--font-head);border:1px solid var(--line-strong);background:#05080f;overflow:hidden;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+.ils-stage{position:relative;aspect-ratio:16/9;overflow:hidden;background:#05080f}
+@media (max-width:640px){
+  .ils-stage{aspect-ratio:2/3}
+  .ils-v{left:-22%;width:144%}   /* the footage's own sides as margin, so the ground can shear without showing an edge */
+  .ils-card{align-items:start;padding:16px}
+  .ils-card p{font-size:14px;line-height:1.6}
+  .ils-card .acts .btn{min-height:42px;padding:0 16px}
+}
+.ils.playing .ils-stage{touch-action:none;cursor:grab}
+.ils-v{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transform-origin:50% 53%;will-change:transform}   /* 53%: the horizon in the footage */
+.ils-fx{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.ils-hud{position:absolute;inset:0;pointer-events:none;font-family:var(--font-mono);text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.ils-ra{position:absolute;left:16px;top:12px;font:700 13px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.ils-ra b{display:block;margin-top:6px;font-size:clamp(26px,4vw,40px);letter-spacing:.04em;color:var(--threshold)}
+.ils-wx{position:absolute;right:16px;top:12px;text-align:right;font:400 11px/1.7 var(--font-mono);letter-spacing:.08em;color:var(--text-secondary)}
+.ils-wx b{color:var(--text-primary);font-weight:700}
+/* deviation scales: the diamond shows where the beam is, so fly toward it */
+.ils-loc{position:absolute;left:50%;bottom:18px;width:min(260px,60%);height:18px;transform:translateX(-50%)}
+.ils-gs{position:absolute;right:18px;top:50%;width:18px;height:min(220px,46%);transform:translateY(-50%)}
+.ils-loc i,.ils-gs i{position:absolute;width:8px;height:8px;border:1.5px solid var(--text-primary);border-radius:50%;opacity:.8}
+.ils-loc i{top:5px;margin-left:-4px}
+.ils-gs i{left:5px;margin-top:-4px}
+.ils-loc::before{content:"";position:absolute;left:50%;top:0;bottom:0;width:2px;margin-left:-1px;background:var(--signal)}
+.ils-gs::before{content:"";position:absolute;top:50%;left:0;right:0;height:2px;margin-top:-1px;background:var(--signal)}
+.ils-dia{position:absolute;width:14px;height:14px;background:#E86BD6;transform:rotate(45deg);box-shadow:0 0 8px rgba(232,107,214,.7)}
+.ils-loc .ils-dia{top:2px;left:50%;margin-left:-7px}
+.ils-gs .ils-dia{left:2px;top:50%;margin-top:-7px}
+.ils-call{position:absolute;left:0;right:0;top:22%;text-align:center;font:700 clamp(18px,3vw,28px)/1 var(--font-mono);letter-spacing:.2em;color:var(--signal);opacity:0;transition:opacity .25s}
+.ils-call.on{opacity:1}
+.ils-call.warn{color:var(--warn)}
+.ils-hint{position:absolute;left:0;right:0;bottom:48px;text-align:center;font:400 13px/1.4 var(--font-head);color:var(--text-secondary);transition:opacity .6s}
+.ils-stick{position:absolute;width:84px;height:84px;margin:-42px 0 0 -42px;border:1.5px solid rgba(236,233,241,.35);border-radius:50%;opacity:0;transition:opacity .15s}
+.ils-stick.on{opacity:1}
+.ils-stick i{position:absolute;left:50%;top:50%;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(234,76,34,.85)}
+/* decision at DA */
+.ils-dec{position:absolute;left:50%;bottom:44px;transform:translateX(-50%);display:grid;gap:10px;justify-items:center;padding:12px 16px 12px;background:rgba(10,23,51,.78);border:1px solid var(--signal);pointer-events:auto;-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px)}
+.ils-dec p{margin:0;font:700 15px/1.3 var(--font-head);letter-spacing:.06em;text-align:center}
+.ils-dec .row{display:flex;gap:12px}
+.ils-dec .btn{min-width:96px}
+.ils-dec .tm{width:100%;height:3px;background:var(--accent-muted)}
+.ils-dec .tm i{display:block;height:100%;background:var(--signal);transform-origin:0 50%}
+.ils .btn,.ils-shot .btn{display:inline-flex;white-space:nowrap;align-items:center;justify-content:center;min-height:46px;padding:0 22px;border:1px solid var(--line-strong);background:transparent;color:var(--text-primary);font:700 16px/1 var(--font-head);letter-spacing:.08em;cursor:pointer;border-radius:2px}
+.ils .btn:hover,.ils-shot .btn:hover{border-color:var(--text-primary)}
+.ils .btn-a,.ils-shot .btn-a{background:var(--accent);border-color:var(--accent)}
+.ils .btn-a:hover,.ils-shot .btn-a:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.ils .btn-ga{border-color:var(--signal);color:var(--signal)}
+/* brief and result cards */
+.ils-card{position:absolute;inset:0;display:grid;place-items:center;padding:20px;overflow:auto;background:rgba(6,12,28,.9);pointer-events:auto}
+.ils-card>div{width:min(460px,100%);display:grid;gap:12px}
+.ils-card .k{margin:0;font:400 11px/1.4 var(--font-mono);letter-spacing:.18em;color:var(--text-secondary)}
+.ils-card h3{margin:0;font:600 clamp(22px,3vw,30px)/1.25 var(--font-head);letter-spacing:.04em}
+.ils-card p{margin:0;color:var(--text-secondary);font-size:15px;line-height:1.7}
+.ils-card dl{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:4px 0;border:1px solid var(--line)}
+.ils-card dl>div{padding:8px 10px;border-right:1px solid var(--line)}
+.ils-card dl>div:last-child{border-right:0}
+.ils-card dt{font:400 10px/1.3 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary)}
+.ils-card dd{margin:4px 0 0;font:700 15px/1.2 var(--font-mono);color:var(--text-primary);white-space:nowrap}
+.ils-card .acts{display:flex;flex-wrap:wrap;gap:10px;margin-top:6px}
+.ils-grade{font:700 clamp(64px,10vw,96px)/1 var(--font-mono);color:var(--accent)}
+.ils-res-top{display:flex;align-items:center;gap:20px}
+.ils-res-top h3{font-size:clamp(20px,2.6vw,26px)}
+.ils-snd{position:absolute;left:50%;top:10px;transform:translateX(-50%);min-height:30px;padding:0 12px;font:400 11px/1 var(--font-mono);letter-spacing:.12em;color:var(--text-secondary);background:rgba(10,23,51,.5);border:1px solid var(--line);border-radius:2px;pointer-events:auto;cursor:pointer}
+.ils-seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:2px}
+.ils-seg button{min-height:36px;padding:0 14px;border:0;background:transparent;color:var(--text-secondary);font:600 14px/1 var(--font-head);cursor:pointer}
+.ils-seg button[aria-pressed="true"]{background:var(--line-strong);color:var(--text-primary)}
+.ils-opts{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;font-size:13px;color:var(--text-secondary)}
+.ils-sub{display:flex;gap:8px}
+.ils-sub input{flex:1;min-width:0;min-height:46px;padding:0 12px;background:rgba(10,23,51,.6);border:1px solid var(--line-strong);border-radius:2px;color:var(--text-primary);font:400 16px/1 var(--font-head)}
+.ils-sub input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.ils-msg{min-height:1.5em;font-size:13px!important}
+.ils-board{z-index:2;background:rgba(6,12,28,.97)}
+.ils-board ol{margin:0;padding:0;list-style:none;max-height:min(46vh,340px);overflow:auto;border-top:1px solid var(--line)}
+.ils-board li{display:grid;grid-template-columns:2.2em minmax(0,1fr) 2em 3.2em;gap:8px;align-items:baseline;padding:8px 4px;border-bottom:1px solid var(--line);font:400 14px/1.3 var(--font-mono)}
+.ils-board li .n{font-family:var(--font-head);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary)}
+.ils-board li .r{color:var(--text-secondary)}
+.ils-board li .g{font-weight:700;color:var(--accent)}
+.ils-board li .s{text-align:right;color:var(--text-primary)}
+.ils-board li.me{background:rgba(234,76,34,.12)}
+.ils-board .empty{padding:18px 4px;color:var(--text-secondary);font-size:14px}
+.ils-go[disabled]{opacity:.6;cursor:progress}
+.ils-chal{margin:0!important;padding:8px 12px;border-left:3px solid var(--accent);background:rgba(234,76,34,.1);color:var(--text-primary)!important;font-size:14px!important}
+.ils-mode-note{font-size:12px!important}
+.ils-tut{position:absolute;inset:0;display:grid;align-content:start;padding-top:max(64px,14%)!important;justify-items:center;gap:10px;padding:20px 28px;text-align:center;background:rgba(6,12,28,.55);pointer-events:auto}
+.ils-tut p{margin:0;max-width:30em;font-size:15px;line-height:1.7;text-shadow:0 1px 3px rgba(0,0,0,.9)}
+.ils-tut b{color:#F09BE6}
+.ils-tut .t3 b{color:var(--signal)}
+.ils-stick.ghost{opacity:.9}
+.ils-stick.ghost i{animation:ghost 2.4s var(--ease,ease-in-out) infinite}
+@keyframes ghost{0%,15%{transform:translate(0,0)}55%,80%{transform:translate(var(--gx),var(--gy))}100%{transform:translate(0,0)}}
+.ils-flare{position:absolute;left:50%;top:58%;transform:translate(-50%,-50%);margin:0;padding:10px 18px;border:2px solid var(--signal);border-radius:40px;font:700 16px/1 var(--font-head);letter-spacing:.12em;color:var(--signal);animation:flare .7s ease-in-out infinite alternate}
+@keyframes flare{to{transform:translate(-50%,-50%) scale(1.08);box-shadow:0 0 18px rgba(230,169,72,.6)}}
+.ils.shake .ils-v{animation:shake .35s linear}
+@keyframes shake{25%{margin-top:6px}50%{margin-top:-4px}75%{margin-top:3px}}
+.ils-shot{position:fixed;inset:0;z-index:100;display:grid;place-items:center;gap:12px;padding:20px;background:rgba(4,8,18,.92);align-content:center}
+.ils-shot img{max-width:min(420px,100%);max-height:72vh;border:1px solid var(--line-strong)}
+.ils-shot p{margin:0;color:var(--text-secondary);font-size:14px;text-align:center}
+.ils p,.ils-shot p{max-inline-size:none}   /* the page caps paragraphs at 34ic; the HUD lines are centred across the stage */
+@media (pointer:coarse){.apch .ils .btn,.apch .ils-seg button,.apch .ils-snd,.ils-shot .btn{min-height:44px}}   /* the page's 44px tap targets on touch screens */
 
 /* ============ 06 RW24 / 06: the runway the chart lands on (lit when the route reaches the threshold) ============ */
 .subscribe{padding:0 0 150px;scroll-margin-top:-380px}
@@ -876,9 +919,6 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .log-grid{grid-template-columns:minmax(0,1fr) 270px;column-gap:170px}
   .faq-grid{grid-template-columns:minmax(0,1fr) 240px;column-gap:32px}
   .apch .bend.to-log{left:calc(100% - 374px)}
-  .brief{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .brief>div:nth-child(3){border-right:0}
-  .brief>div:nth-child(-n+3){border-bottom:1px solid var(--line)}
 }
 /* phones and narrow tablets: the route runs down the left edge (x = 20px), every section stacks to its right */
 @media (max-width:900px){
@@ -940,7 +980,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .type .fix.lane,.ai .fix.lane,.faq .fix.lane{left:var(--rail-x);top:-50px}
   .type .bend,.ai .bend,.apch .bend{display:none}
   .faq .bend{left:var(--rail-x);bottom:-30px}
-  .legend,.comm,.fly{margin:0}
+  .legend,.comm,.apch-box{margin:0}
   .faq-grid{display:block;margin:0}
   .lg-tab{left:0;top:-30px}
   .icao{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -972,19 +1012,6 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .msa{display:none}
 
   .apch{padding-bottom:40px}
-  .brief{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .brief>div{border-bottom:1px solid var(--line)}
-  .brief>div:nth-child(2n){border-right:0}
-  .brief>div:nth-child(3){border-right:1px solid var(--line)}
-  .fly-plate{aspect-ratio:1000/560}
-  .fly-ctl{grid-template-columns:1fr}
-  .plate-lbl{font-size:10px;letter-spacing:.02em}
-  .lbl-rwy{left:auto;right:3%;transform:none}
-  .lbl-da{top:calc(78.75% - 16px)}
-  .lbl-ma{display:none}
-  .mins-tag{font-size:10px;padding:2px 4px;left:62%;top:50%}
-  .mins-strip{grid-template-columns:1fr}
-  .mins-strip>p+p{border-left:0;border-top:1px solid var(--line)}
 
   .subscribe .cw,.rwy-zone{margin-inline:auto}
   .subscribe{padding-bottom:110px;scroll-margin-top:-300px}
@@ -1029,7 +1056,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   .js [data-io] .rv,.js .legs .rv{opacity:1;transform:none}
   .js .draw .ln{stroke-dashoffset:0}
   .js .fade,.js .fade-l,.js .plot{opacity:1}
-  .js .ch-head .chh,.js .about-fig,.js .legend,.js .outline svg,.js .cl-row,.js .plate,.js .rwy{clip-path:none}
+  .js .ch-head .chh,.js .about-fig,.js .legend,.js .outline svg,.js .cl-row,.js .rwy{clip-path:none}
   .js .about .rose,.js .msa{opacity:1;transform:none}
   .drz{display:none}
   .als-row .rab{opacity:0}
@@ -1269,67 +1296,83 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
   </div>
 </section>
 
-<!-- ============ APPROACH · the plate, and the one thing you fly by hand (mid-page: the landing leads on to the log) ============ -->
+<!-- ============ APPROACH · 盲降挑战, the ILS approach you fly by hand (mid-page: the landing leads on to the log) ============ -->
 <section class="sec apch" id="apch" aria-labelledby="apch-h">
   <div class="cw">
-    <div class="fly" id="fly" data-io data-live>
-      <dl class="brief" aria-hidden="true">
-        <div class="ttl"><dt>11-1 · APCH</dt><dd>ILS RWY 24</dd></div>
-        <div><dt>LOC</dt><dd>IYD 110.30</dd></div>
-        <div><dt>FINAL APCH CRS</dt><dd>243°</dd></div>
-        <div><dt>GS</dt><dd>3.0° · TCH 50</dd></div>
-        <div><dt>DA</dt><dd>200</dd></div>
-        <div><dt>FAF FINAL</dt><dd>1500 · 5.0 NM</dd></div>
-      </dl>
-      <div class="fly-plate" id="fly-plate">
-        <img class="fly-img" src="assets/log-breakout.webp" width="1920" height="1088" loading="lazy" decoding="async" alt="">
-        <span class="fly-dim" aria-hidden="true"></span>
-        <svg class="plate" viewBox="0 0 1000 320" preserveAspectRatio="none" aria-hidden="true" focusable="false">
-          <path class="ln" d="M20,280 H980"/>
-          <path class="ln" d="M40,70 H150"/>
-          <path class="ln" d="M150,54 V280"/>
-          <path class="ln gs" d="M150,70 L760,280"/>
-          <path class="da" d="M40,252 H760"/>
-          <path class="ln rwy" d="M760,280 H960"/>
-          <path class="ma" d="M960,270 L990,150"/>
-        </svg>
-        <div aria-hidden="true">
-          <span class="pl faf-x" style="--x:15;--y:21.875"><svg viewBox="-9 -9 18 18"><path d="M-2,-2 L-3,-8 L3,-8 L2,-2 L8,-3 L8,3 L2,2 L3,8 L-3,8 L-2,2 L-8,3 L-8,-3 Z"/></svg></span>
-          <span class="pl alb" style="--x:65;--y:82.8"></span><span class="pl alb" style="--x:67.2;--y:82.8"></span><span class="pl alb" style="--x:69.4;--y:82.8"></span><span class="pl alb" style="--x:71.6;--y:82.8"></span><span class="pl alb" style="--x:73.8;--y:82.8"></span>
-          <span class="pl thb" style="--x:76;--y:87.5"></span>
-          <span class="pl edg" style="--x:78.4;--y:85.3"></span><span class="pl edg" style="--x:80.8;--y:85.3"></span><span class="pl edg" style="--x:83.2;--y:85.3"></span><span class="pl edg" style="--x:85.6;--y:85.3"></span><span class="pl edg" style="--x:88;--y:85.3"></span><span class="pl edg" style="--x:90.4;--y:85.3"></span><span class="pl edg" style="--x:92.8;--y:85.3"></span><span class="pl edg" style="--x:95.2;--y:85.3"></span>
-          <span class="dev"><i></i><i></i><i class="dia"></i><i></i><i></i></span>
-          <span class="pglyph" id="glyph"><svg viewBox="-12 -12 24 24"><path d="M-12,-7 L11,0 L-12,7 L-6,0 Z"/></svg></span>
-        </div>
-        <p class="plate-lbl lbl-fap" aria-hidden="true">FAP 1500</p>
-        <p class="plate-lbl lbl-gs" aria-hidden="true">GS 3.0°</p>
-        <p class="plate-lbl lbl-da" aria-hidden="true">DA 200</p>
-        <p class="plate-lbl lbl-dme" aria-hidden="true">5.0 NM</p>
-        <p class="plate-lbl lbl-thr" aria-hidden="true">THR</p>
-        <p class="plate-lbl lbl-rwy" aria-hidden="true">RWY 24</p>
-        <p class="plate-lbl lbl-ma" aria-hidden="true">MISSED APCH</p>
-        <p class="mins-tag" aria-hidden="true">MINIMUMS</p>
+    <div class="apch-box">
+      <div class="apch-head">
+        <p class="kicker"><!--{t apch.kicker}-->盲降挑战 · ILS 夜间进近<!--{/t}--></p>
+        <h2 id="apch-h"><!--{t apch.h2}-->换你来飞。<!--{/t}--></h2>
+        <p class="ins"><!--{t apch.ins}-->从云里开始，沿着航道下降。到 200 英尺决断：看见进近灯就落地，看不见就复飞。成绩可以上排行榜，也可以发给朋友挑战同样的天气。<!--{/t}--></p>
       </div>
-      <div class="fly-ctl">
-        <div>
-          <p class="kicker"><!--{t apch.kicker}-->ILS 示意 · 按住下降<!--{/t}--></p>
-          <h2 id="apch-h"><!--{t apch.h2}-->换你来飞。<!--{/t}--></h2>
-          <p class="ins"><!--{t apch.ins}-->按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。<!--{/t}--></p>
-        </div>
-        <div class="fly-act">
-          <button class="btn btn-ghost hold" id="hold" type="button"><span class="hold-label" id="hold-label"><!--{t apch.hold_btn}-->按住下降<!--{/t}--></span><span class="hold-track" aria-hidden="true"><span class="hold-fill" id="hold-fill"></span></span></button>
-          <p class="fly-status" id="fly-status" aria-live="polite"><!--{t apch.idle}-->已截获下滑道，等你按住。<!--{/t}--></p>
-          <p class="fly-read" id="fly-read" aria-hidden="true">ALT 1500</p>
+      <div class="ils" id="ils" data-api="api/game.php" data-callouts="assets/game/callouts.mp3" data-qr="assets/game/qrcode.min.js" data-anchor="apch">
+        <div class="ils-stage" id="ils-stage">
+          <video class="ils-v" id="ils-v" data-src="assets/game/approach-night.mp4" muted playsinline webkit-playsinline preload="none"></video>
+          <canvas class="ils-fx" id="ils-fx"></canvas>
+          <div class="ils-hud" id="ils-hud" hidden>
+            <p class="ils-ra" style="margin:0">RA<b id="ils-alt">1000</b></p>
+            <p class="ils-wx" id="ils-wx" style="margin:0"></p>
+            <div class="ils-loc"><i style="left:0"></i><i style="left:25%"></i><i style="left:75%"></i><i style="left:100%"></i><span class="ils-dia" id="ils-dloc"></span></div>
+            <div class="ils-gs"><i style="top:0"></i><i style="top:25%"></i><i style="top:75%"></i><i style="top:100%"></i><span class="ils-dia" id="ils-dgs"></span></div>
+            <p class="ils-call" id="ils-call" style="margin:0"></p>
+            <p class="ils-hint" id="ils-hint" style="margin:0">拖动屏幕操纵：往哪拖，飞机往哪去。把两个紫色菱形保持在中线上。</p>
+            <span class="ils-stick" id="ils-stick"><i id="ils-knob"></i></span>
+            <button class="ils-snd" id="ils-snd-hud" type="button">SOUND ON</button>
+            <p class="ils-flare" id="ils-flare" hidden>点屏幕 · 拉平</p>
+          </div>
+          <div class="ils-tut" id="ils-tut" hidden>
+            <p class="t1">紫色菱形是航道的位置。<b>菱形在哪边，就往哪边飞</b>，把它拉回中线。</p>
+            <p class="t2" id="ils-tut-how">按住屏幕往那个方向拖。</p>
+            <p class="t3">听到 <b>MINIMUMS</b> 时决断；落地前听到 <b>20</b> 左右点屏幕拉平。</p>
+            <button class="btn btn-a" id="ils-tut-go" type="button">明白了</button>
+          </div>
+          <div class="ils-dec" id="ils-dec" hidden>
+            <p>决断高度 · 看得见进近灯吗？</p>
+            <div class="row"><button class="btn btn-a" id="ils-land" type="button">落地</button><button class="btn btn-ga" id="ils-ga" type="button">复飞</button></div>
+            <div class="tm"><i id="ils-tm"></i></div>
+          </div>
+          <div class="ils-card" id="ils-brief">
+            <div>
+              <p class="k">盲降挑战 · ILS APPROACH · NIGHT</p>
+              <p class="ils-chal" id="ils-chal" hidden></p>
+              <h3>云底以下才看得见跑道。</h3>
+              <p>从 1000 英尺的云里开始，沿航向道和下滑道下降。拖动屏幕修正偏差。到 200 英尺决断高度：看见进近灯就落地，看不见就复飞。落地前别忘了拉平。</p>
+              <dl id="ils-brief-wx"></dl>
+              <div class="ils-opts">
+                <span class="ils-seg" id="ils-mode"><button type="button" data-mode="ranked" aria-pressed="true">挑战</button><button type="button" data-mode="practice" aria-pressed="false">练习</button></span>
+                <span class="ils-seg" id="ils-ctl" hidden><button type="button" data-ctl="drag" aria-pressed="true">拖动</button><button type="button" data-ctl="tilt" aria-pressed="false">重力感应</button></span>
+                <span class="ils-seg"><button type="button" id="ils-snd" aria-pressed="true">声音</button></span>
+              </div>
+              <div class="acts"><button class="btn btn-a ils-go" id="ils-go" type="button">开始进近</button><button class="btn" id="ils-reroll" type="button">换个天气</button><button class="btn" data-board type="button">排行榜</button><button class="btn" id="ils-how" type="button">玩法</button></div>
+              <p class="ils-mode-note" id="ils-mode-note">挑战模式的成绩可以上排行榜。练习模式风小、颠簸轻，不计成绩。</p>
+            </div>
+          </div>
+          <div class="ils-card ils-board" id="ils-board" hidden>
+            <div>
+              <p class="k">LEADERBOARD · 盲降挑战</p>
+              <span class="ils-seg"><button type="button" data-tab="week" aria-pressed="true">本周</button><button type="button" data-tab="all" aria-pressed="false">总榜</button></span>
+              <ol id="ils-list"></ol>
+              <div class="acts"><button class="btn" id="ils-board-close" type="button">返回</button></div>
+            </div>
+          </div>
+          <div class="ils-card" id="ils-result" hidden>
+            <div>
+              <div class="ils-res-top"><span class="ils-grade" id="ils-grade">A</span><div><p class="k" id="ils-res-k">RESULT</p><h3 id="ils-res-h"></h3></div></div>
+              <p id="ils-res-p"></p>
+              <dl id="ils-res-dl"></dl>
+              <form class="ils-sub" id="ils-sub" hidden><input id="ils-name" maxlength="12" autocomplete="nickname" enterkeyhint="send" placeholder="你的昵称，1–12 个字" aria-label="昵称"><button class="btn btn-a" type="submit">上榜</button></form>
+              <p class="ils-msg" id="ils-msg" aria-live="polite"></p>
+              <div class="acts"><button class="btn btn-a" id="ils-again" type="button">再飞一次</button><button class="btn" id="ils-card-btn" type="button">生成成绩卡</button><button class="btn" id="ils-dare" type="button" hidden>挑战好友</button><button class="btn" data-board type="button">排行榜</button></div>
+            </div>
+          </div>
         </div>
       </div>
-      <div class="mins-strip" aria-hidden="true">
-        <p><b>MINIMUMS</b> · DA 200 · RVR 550 M</p>
-        <p><b>MISSED APCH</b> · CLIMB 3000 · DIRECT LOGBK · HOLD</p>
-      </div>
+
     </div>
     <i class="bend" data-route=""></i><i class="bend to-log" data-route=""></i>
   </div>
 </section>
+<script src="assets/game/ils.js" defer></script>
 
 <!-- ============ 03 LOG · fix LOGBK, each draft a leg of the airway (after the landing: taxi in, read what was flown) ============ -->
 <section class="sec log" id="log" aria-labelledby="log-h" data-live>
@@ -1582,12 +1625,6 @@ const SUBSCRIBE_ENDPOINT = <!--{v subscribe_endpoint}-->''<!--{/v}-->;      // e
 
 /* ---------- copy used by scripts (verbatim from the design package) ---------- */
 const T = {
-  flyIdle: '<!--{t apch.idle|js}-->已截获下滑道，等你按住。<!--{/t}-->',
-  flyHold: '<!--{t apch.holding|js}-->下降中。盯住下滑道。<!--{/t}-->',
-  flyGa: '<!--{t apch.go_around|js}-->复飞是正常操作。再按住，再飞一次。<!--{/t}-->',
-  flyDone: '<!--{t apch.done|js}-->落地，滑行到停机位，看看最近飞了什么。<!--{/t}-->',
-  holdBtn: '<!--{t apch.hold_btn|js}-->按住下降<!--{/t}-->',
-  holdAgain: '<!--{t apch.again|js}-->再飞一次<!--{/t}-->',
   welcomeInop: '<!--{t chat.welcome_inop|js}-->你好。客服还在接入中（INOP），接通以后可以问商品、下单和付款的事，也能聊飞行常识。订单进度可以先在「查订单」里看。<!--{/t}-->',
   welcomeLive: '<!--{t chat.welcome_live|js}-->你好。我是店铺客服，可以回答商品、下单和付款的问题，也能聊飞行常识。我看不到订单，订单进度请在「查订单」里看。先说一句：我不替任何人做飞行决断。<!--{/t}-->',
   chatInop: '<!--{t chat.msg_inop|js}-->客服还在接入中，这个问题暂时没有回答。接通以后，在这里直接问就行。<!--{/t}-->',   // always shown after an INOP placard
@@ -2185,111 +2222,24 @@ function applyHeroMode() {
   navSolid = null; navCheck();
 }
 
-/* ============ APPROACH PLATE: hold to fly the glide slope ============ */
-/* The plate's lines stretch with the box (preserveAspectRatio none, non-scaling strokes); the glyph, lamps and labels are
-   HTML on percentages, so the profile can be taller on phones without distorting anything. */
-const fly = $('#fly');
+/* ============ APPROACH PLATE: retired 2026-10-22; #apch now holds the 盲降挑战 game (assets/game/ils.js, self-contained) ============ */
+// The start-up lines at the end of this script are frozen with the hero (T3) and still call measurePlate() and renderFly():
+// they do nothing now. The runway at 06 is lit by the route (setLanded in the chart script), never by the game.
 const subSec = $('#subscribe');
-const holdBtn = $('#hold');
-const holdLabel = $('#hold-label');
-const holdFill = $('#hold-fill');
-const flyStatus = $('#fly-status');
-const flyRead = $('#fly-read');
-const glyph = $('#glyph');
-const plateBox = $('#fly-plate');
-const GS0 = [150, 70], GS1 = [678.7, 252], FULL_MS = 2800;
-let prog = 0, holding = false, landed = false, hRaf = null, hLast = 0, rel = null, lastReadAt = 0, lastRead = '', lastStatus = '';
-let pw = 1000, ph = 320, gsAng = 19;
-function measurePlate() {
-  pw = plateBox.clientWidth || pw; ph = plateBox.clientHeight || ph;
-  gsAng = Math.atan2((GS1[1] - GS0[1]) / 320 * ph, (GS1[0] - GS0[0]) / 1000 * pw) * 180 / Math.PI;
-  fly.style.setProperty('--gsa', gsAng.toFixed(2) + 'deg');
-}
-function setStatus(s) { if (s !== lastStatus) { flyStatus.textContent = s; lastStatus = s; } }
-function renderFly(now, force) {
-  const x = (GS0[0] + (GS1[0] - GS0[0]) * prog) / 1000 * pw, y = (GS0[1] + (GS1[1] - GS0[1]) * prog) / 320 * ph;
-  glyph.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px,0) rotate(' + gsAng.toFixed(2) + 'deg)';
-  holdFill.style.transform = 'scaleX(' + prog.toFixed(4) + ')';
-  if (force || now - lastReadAt >= 100) {
-    const r = 'ALT ' + Math.round((1500 - 1300 * prog) / 10) * 10;
-    if (r !== lastRead) { flyRead.textContent = r; lastRead = r; lastReadAt = now; }
-  }
-}
-if (window.ResizeObserver) new ResizeObserver(() => { measurePlate(); renderFly(performance.now(), true); }).observe(plateBox);
-function flyLoop(now) {
-  const dt = Math.min(100, now - (hLast || now)); hLast = now;
-  if (holding) {
-    prog = Math.min(1, prog + dt / FULL_MS);
-    if (prog >= 1) { land(); return; }
-  } else if (rel) {
-    const t = clamp((now - rel.t0) / rel.dur, 0, 1);
-    prog = rel.p0 * (1 - easeOut3(t));                  // half speed on average, ease-out climb
-    if (t >= 1) { prog = 0; rel = null; }
-  }
-  renderFly(now, !holding && !rel);
-  if (holding || rel) hRaf = requestAnimationFrame(flyLoop); else { hRaf = null; hLast = 0; }
-}
-function kick() { if (hRaf === null) hRaf = requestAnimationFrame(flyLoop); }
-function press() {
-  if (RM.matches) { land(); return; }
-  fly.classList.add('touched');
-  if (landed) resetFly();
-  holding = true; rel = null;
-  setStatus(T.flyHold);
-  kick();
-}
-function release() {
-  if (!holding) return;
-  holding = false;
-  if (landed) return;
-  if (prog > 0) { rel = { t0: performance.now(), p0: prog, dur: prog * FULL_MS * 2 }; setStatus(T.flyGa); kick(); }
-}
-function land() {
-  holding = false; rel = null; prog = 1; landed = true;
-  if (hRaf !== null) { cancelAnimationFrame(hRaf); hRaf = null; hLast = 0; }
-  renderFly(performance.now(), true);
-  setStatus(T.flyDone);
-  holdLabel.textContent = T.holdAgain;
-  fly.classList.add('done');                // the plate's lamps light; the route carries on to the log (03), the runway waits at the end
-}
-function resetFly() {
-  landed = false; prog = 0; rel = null;
-  fly.classList.remove('done');
-  holdLabel.textContent = T.holdBtn;
-  renderFly(performance.now(), true);
-}
-holdBtn.addEventListener('pointerdown', e => {
-  if (e.button !== 0) return;
-  e.preventDefault();
-  try { holdBtn.setPointerCapture(e.pointerId); } catch (_) { /* capture is optional */ }
-  holdBtn.focus({ preventScroll: true });
-  press();
-});
-['pointerup', 'pointercancel', 'lostpointercapture'].forEach(t => holdBtn.addEventListener(t, release));
-holdBtn.addEventListener('contextmenu', e => e.preventDefault());
-holdBtn.addEventListener('keydown', e => {
-  if (e.key !== ' ' && e.key !== 'Enter') return;
-  e.preventDefault();
-  if (!e.repeat) press();
-});
-holdBtn.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); release(); } });
-holdBtn.addEventListener('blur', release);
+function measurePlate() {}
+function renderFly() {}
 
 /* ---------- reduced motion: pin final states, and undo them ---------- */
 let pinned = false;
 function pinToFinalStates() {
   pinned = true;
   disableScrub();
-  land();                                  // hold module complete, drives stopped
   setLanded(true);                         // the runway at the end of the chart is lit
   chartRedraw();                           // route drawn to the runway, every leg label plotted
 }
 function unpinFinalStates() {
   if (!pinned) return;
   pinned = false;
-  resetFly();
-  fly.classList.remove('touched');
-  setStatus(T.flyIdle);
   chartRedraw();                           // the route goes back to following the scroll
 }
 RM.addEventListener('change', e => { if (e.matches) pinToFinalStates(); else { unpinFinalStates(); applyHeroMode(); } });
@@ -2566,7 +2516,7 @@ function printChartBg(W, H, P) {
   const lbl = (cls, text, x, y, extra) => { const p = document.createElement('p'); p.className = 'bg-lbl ' + cls; p.textContent = text; p.style.transform = 'translate(' + x.toFixed(1) + 'px,' + y.toFixed(1) + 'px)' + (extra || ''); host.append(p); return p; };
   // content blocks, measured once: nothing printed on the sheet may sit on top of them
   const cr = chart.getBoundingClientRect();
-  const raw = $$('.chh, .about-text, .about-fig, .rose-wrap, .log-intro, .post, .hold-fig, .legend, .comm, .checklist, .msa, .fly, .rwy-zone, .faq .after').map(e => {
+  const raw = $$('.chh, .about-text, .about-fig, .rose-wrap, .log-intro, .post, .hold-fig, .legend, .comm, .checklist, .msa, .apch-head, .ils, .rwy-zone, .faq .after').map(e => {
     const r = e.getBoundingClientRect();
     let t = r.top, bt = r.bottom;
     if (e.classList.contains('log-intro')) { const g = e.parentElement.getBoundingClientRect(); t = g.top; bt = g.bottom; }   // sticky: it can sit anywhere in its column
@@ -2624,7 +2574,7 @@ function printChartBg(W, H, P) {
 }
 
 // 06: the runway lights (approach lights, threshold, edges) come on when the route reaches the RW24 threshold, on its own,
-// whatever happened on the approach plate; reduced motion shows them lit
+// whatever happens in the approach game; reduced motion shows them lit
 let subLanded = null;
 function setLanded(v) { if (v !== subLanded) { subLanded = v; subSec.classList.toggle('landed', v); } }
 function chartFrame() {

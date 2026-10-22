@@ -88,7 +88,7 @@ function pub(string $rel): string
 function group_template(): void
 {
     $baseline = (string) file_get_contents(APP_DIR . '/seed/baseline-index.html');
-    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (re-frozen 2026-10-19, see rebaseline.log)');
+    ok(hash('sha256', $baseline) === BASELINE_SHA256, 'baseline-index.html is the frozen baseline (re-frozen 2026-10-22, see rebaseline.log)');
     $r = render_baseline();
     ok($r === $baseline, 'T1 baseline render is byte-identical', $r === $baseline ? '' : first_diff($r, $baseline));
     $launch = render_launch();
@@ -553,8 +553,20 @@ function group_album(): void
     $sorted = $order;
     sort($sorted);
     ok($order === $sorted && !in_array(false, $order, true), 'sections in the owner order: about, type, apch, log, ai, faq, subscribe');
-    ok(str_contains($home, '02 / TYPE') && str_contains($home, '03 / LOG') && str_contains($home, '落地，滑行到停机位，看看最近飞了什么。'), 'new numbering and post-landing line');
+    ok(str_contains($home, '02 / TYPE') && str_contains($home, '03 / LOG'), 'new numbering');
     ok(!str_contains($home, "subSec.classList.add('landed')"), 'the runway is no longer lit by the approach game');
+    // 盲降挑战 replaced the hold-to-descend plate (SPEC §18 item 33)
+    $apch = substr($home, strpos($home, '<section class="sec apch"'), strpos($home, '<section class="sec log"') - strpos($home, '<section class="sec apch"'));
+    ok(str_contains($apch, '<div class="ils" id="ils" data-api="api/game.php" data-callouts="assets/game/callouts.mp3" data-qr="assets/game/qrcode.min.js" data-anchor="apch">')
+        && str_contains($apch, 'data-src="assets/game/approach-night.mp4" muted playsinline webkit-playsinline preload="none"')
+        && str_contains($apch, '<script src="assets/game/ils.js" defer></script>'), 'apch holds the 盲降挑战 game: data attributes, lazy footage, deferred script');
+    ok(str_contains($apch, '盲降挑战 · ILS 夜间进近') && str_contains($apch, '换你来飞。') && str_contains($apch, '从云里开始，沿着航道下降。'), 'apch heading: kicker, title and how-to from the fields');
+    ok(substr_count($apch, '<i class="bend') === 2, 'the route bends after the game stay');
+    foreach (['id="fly"', 'id="hold"', 'id="fly-status"', "$('#hold')", 'flyIdle', 'holdAgain', '按住下降', '已截获下滑道'] as $gone) {
+        ok(!str_contains($home, $gone), 'the old hold game is gone: ' . $gone);
+    }
+    ok(is_file(PUBLIC_DIR . '/assets/game/ils.js') && is_file(PUBLIC_DIR . '/assets/game/approach-night.mp4') && is_file(PUBLIC_DIR . '/assets/game/callouts.mp3') && is_file(PUBLIC_DIR . '/assets/game/qrcode.min.js'), 'the game files are in assets/game/');
+    ok(!array_intersect(FIELD_RETIRED, array_keys(field_registry())) && !array_intersect(FIELD_RETIRED, array_keys(json_read(APP_DIR . '/seed/site.baseline.json')['fields'])), 'retired hold-game keys are in neither the registry nor the seed');
 
     // content saved before the reorder and the album: old defaults are upgraded, the owner's own caption is kept
     $old = content_get('site', 'live');
@@ -562,6 +574,11 @@ function group_album(): void
     $old['fields']['log.kicker'] = '02 / LOG';
     $old['fields']['type.kicker'] = '03 / TYPE';
     $old['fields']['apch.done'] = 'MINIMUMS。跑道可见，继续。';
+    $old['fields']['apch.kicker'] = 'ILS 示意 · 按住下降';
+    $old['fields']['apch.ins'] = '按住按钮，沿下滑道降到决断高度。中途松手，就是复飞。';
+    foreach (['apch.hold_btn' => '按住下降', 'apch.idle' => '已截获下滑道，等你按住。', 'apch.holding' => '下降中。盯住下滑道。', 'apch.go_around' => '复飞是正常操作。再按住，再飞一次。', 'apch.again' => '再飞一次'] as $k => $v) {
+        $old['fields'][$k] = $v;
+    }
     $old['fields']['about.figcaption'] = '站长自己写的照片小字';
     $old['fields']['about.kicker'] = '01 / 关于我';
     json_write_atomic(data_path('content', 'site.live.json'), $old);
@@ -572,6 +589,37 @@ function group_album(): void
     ok(str_contains($home, '03 / LOG') && str_contains($home, '02 / TYPE') && !str_contains($home, 'MINIMUMS。跑道可见'), 'legacy defaults upgraded on publish');
     ok(str_contains($home, '01 / 关于我') && str_contains($home, '<figcaption>站长自己写的照片小字</figcaption>'), 'owner-written values kept (kicker, caption through the derived album)');
     ok(content_get('site', 'draft')['fields']['log.kicker'] === '03 / LOG', 'the editor sees the upgraded value');
+    ok(str_contains($home, '盲降挑战 · ILS 夜间进近') && str_contains($home, '从云里开始，沿着航道下降。') && !str_contains($home, '按住下降'), 'legacy apch defaults upgraded to the 盲降挑战 copy on publish');
+    ok(!array_intersect(FIELD_RETIRED, array_keys(content_get('site', 'draft')['fields'])) && !array_intersect(FIELD_RETIRED, array_keys(site_live()['fields'])), 'retired hold-game keys dropped on read (draft and live)');
+
+    // both directions of a content/registry mismatch publish (the 「发布失败：缺少这一项」 class of bug):
+    // retired keys still saved, and a registry key the saved content never had
+    $mix = json_read(data_path('content', 'site.live.json'));
+    $mix['fields']['apch.hold_btn'] = '按住下降';
+    $mix['fields']['apch.done'] = '站长自己改过的落地文字';
+    unset($mix['fields']['apch.ins'], $mix['fields']['ai.find']);
+    json_write_atomic(data_path('content', 'site.live.json'), $mix);
+    json_write_atomic(data_path('content', 'site.draft.json'), $mix);
+    $r = publish_site('mismatch');
+    ok(($r['ok'] ?? false) === true, 'publish succeeds with retired keys present and registry keys missing', json_encode($r['errors'] ?? null, JSON_UNESCAPED_UNICODE));
+    ok(str_contains(pub('index.html'), '从云里开始，沿着航道下降。'), 'a missing key renders its seed value');
+    ok(site_validate(site_normalize($mix)) === [], 'site_normalize + site_validate accept the mismatched content (no 缺少这一项, no 没有这一项)');
+    $d = content_get('site', 'draft');
+    $post = $d;
+    $post['fields']['apch.idle'] = '已截获下滑道，等你按住。';   // an editor tab opened before the update posts an old key
+    $saved = content_save_draft('site', $post, (int) $d['rev']);
+    ok(!array_key_exists('apch.idle', $saved['fields']), 'saving a draft with a retired key drops it instead of refusing');
+    $pr = content_publish('site', (int) $saved['rev']);
+    ok(($pr['ok'] ?? false) === true, 'and that draft publishes', json_encode($pr['errors'] ?? null, JSON_UNESCAPED_UNICODE));
+    $vid = $pr['version_id'] ?? (versions_list()[0]['id'] ?? '');
+    $vf = DATA_DIR . '/versions/' . $vid . '/live/site.json';
+    $vs = json_read($vf);
+    $vs['fields']['apch.again'] = '再飞一次';                    // a version saved before the update
+    json_write_atomic($vf, $vs);
+    $rb = version_rollback($vid);
+    ok(($rb['ok'] ?? false) === true, 'rolling back to a version that still has hold-game keys publishes', json_encode($rb['errors'] ?? null, JSON_UNESCAPED_UNICODE));
+    ok(str_contains(pub('index.html'), 'id="ils"'), 'and the page still holds the game');
+    $home = pub('index.html');
     ok(site_album($old)[0]['src'] === ALBUM_SEED_SRC && site_album($old)[0]['caption'] === '站长自己写的照片小字', 'site_album derives the one photo from the fields');
 
     // three uploads become an album

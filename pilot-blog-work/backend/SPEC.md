@@ -396,14 +396,11 @@ Group `type` 机型
 | (block) `type_facts` | | `dl.facts` | 数据格子（3 或 6 条最整齐） |
 | `type.fnote` | text | `.fnote` after the `SOURCE` span | 数据来源说明 |
 
-Group `apch` 进近小游戏
+Group `apch` 盲降挑战 (was 进近小游戏; the hold game's keys were retired on 2026-10-22, §18 item 33)
 
 | key | enc | where | label |
 |---|---|---|---|
-| `apch.kicker` `apch.h2` `apch.ins` | text | `.fly-ctl` | 小标签 / 标题 / 玩法说明 |
-| `apch.hold_btn` | text, js | `#hold-label` and `T.holdBtn` | 按钮文字 |
-| `apch.idle` | text, js | `#fly-status` and `T.flyIdle` | 等待时的提示 |
-| `apch.holding` `apch.go_around` `apch.done` `apch.again` | js | `T.flyHold`, `T.flyGa`, `T.flyDone`, `T.holdAgain` | 下降中 / 复飞 / 完成 / 再飞一次 |
+| `apch.kicker` `apch.h2` `apch.ins` | text | `.apch-head` (above the game) | 小标签 / 标题 / 玩法说明 |
 
 Group `log` 飞行日志栏
 
@@ -1790,6 +1787,33 @@ Added by the game-leaderboard pass (2026-10-22, owner request):
    IP. `GET ?a=board`: week (rolling 7 days) and all-time top 20, one row per name (case-insensitive, its best run, the earlier
    run on a tie), `Cache-Control: public, max-age=30`. Limits: 60 starts and 20 submits per visitor per hour. The game's
    front end and the home template are not part of this pass (no T1/T2/T3 change). Tests: run.php group `game`.
+
+Added by the 盲降挑战 front-end pass (2026-10-22, owner request):
+
+33. **The hold-to-descend plate became the 盲降挑战 game, and a deliberate T1 rebaseline.** `#apch` keeps its place (关于 → 机型 →
+   进近 → 日志 → 商城 → 问答 → 订阅) and its two route bends; inside it a heading (`.apch-head`: `apch.kicker`, `apch.h2`,
+   `apch.ins`, new defaults) and the game markup from `pilot-blog-work/game/ils.html` (`<div class="ils" id="ils" data-api=
+   "api/game.php" data-callouts="assets/game/callouts.mp3" data-qr="assets/game/qrcode.min.js" data-anchor="apch">`, video
+   `data-src="assets/game/approach-night.mp4" preload="none"`), then `<script src="assets/game/ils.js" defer></script>` right
+   after the section (the end of the page script is frozen by T3, so nothing can go before `</body>`). `assets/game/ils.js` is
+   `pilot-blog-work/game/ils.js` plus one change: on the brief card the canvas is cleared once instead of every frame (no
+   repaint while idle; gameplay identical). The game CSS is the prototype's, scoped under `.ils` (its `.btn`, `.btn-a`,
+   `.btn-ga` rules as `.ils .btn…` and `.ils-shot .btn…` for the share-card overlay on `<body>`, z-index 100 so it sits above
+   the nav); `--warn` is set on `.ils` because `:root` is inside the frozen hero CSS; `.ils p` drops the page's 34ic cap; on
+   phones (≤ 640 px) the stage is 4:7 instead of 2:3 so the whole brief card fits the narrower page column. On touch screens the game's buttons, mode/sound segments and the HUD sound button are at least 44 px tall (the page's tap-target rule, checked by shop.e2e.js). The old plate CSS,
+   markup and script are gone; the page script keeps `subSec`, `pinToFinalStates()` / `unpinFinalStates()` (reduced motion:
+   runway lit, route drawn) and empty `measurePlate()` / `renderFly()`, because the frozen start-up lines still call them.
+   The runway at 06 is lit only by the route (`setLanded`), as since item 24. Retired keys `apch.hold_btn`, `apch.idle`,
+   `apch.holding`, `apch.go_around`, `apch.done`, `apch.again` (`FIELD_RETIRED` in `fields.php`) are dropped by
+   `site_upgrade_fields()` and skipped by `site_normalize()`, so live content, older versions and an editor tab opened before
+   the update still save, publish and roll back; `FIELD_UPGRADED_DEFAULTS` turns the old `apch.kicker` / `apch.ins` defaults
+   into the new ones. Rebaselined with `check-template.php --rebaseline` (see `app/seed/rebaseline.log`):
+   `BASELINE_SHA256 = 0703ff2a73a5fb7b98ea309a3aa05026f32e3b1765dccd4f00ca85622a1a93e2`; T3 unchanged and passing.
+   Nginx: `mp3` joins the 30-day static rule in both config files (`.js`, `.mp3`, `.mp4` under `assets/game/` were already
+   served; no deny rule matches them). Tests: run.php group `album` (game markup, retired keys in both directions, rollback),
+   public.e2e.js `runway-*` (brief weather from `api/game.php`, tutorial on the first run only, cloud phase, decision,
+   result, leaderboard, touch-action, overflow at 390, runway still lit by the route, reduced motion). The browser tests swap
+   the H.264 footage for a VP9 copy made with ffmpeg in the scratch dir (Chromium here has no H.264); it is never committed.
 
 ## 20. 商城 (shop, 2026-10-17)
 
