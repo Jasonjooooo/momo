@@ -43,6 +43,23 @@
     }
     return lines;
   }
+  // A wide picture (a plane side-on) would lose its nose and tail to a cover crop: show it whole across the width,
+  // with soft top and bottom edges over a blurred, darker copy of itself that fills the rest of the picture area.
+  function widePicture(g, im, w, h) {
+    g.save();
+    if ('filter' in g) g.filter = 'blur(28px) brightness(0.55)';
+    cover(g, im, -40, -40, w + 80, h + 80);
+    g.restore();
+    if (!('filter' in g)) { g.fillStyle = 'rgba(10,23,51,.55)'; g.fillRect(0, 0, w, h); }
+    const dh = Math.round(w * im.naturalHeight / im.naturalWidth), y = Math.round((h - dh) * 0.42);
+    const off = document.createElement('canvas'); off.width = w; off.height = dh;
+    const o = off.getContext('2d');
+    o.drawImage(im, 0, 0, w, dh);
+    const m = o.createLinearGradient(0, 0, 0, dh), e = Math.min(0.14, 90 / dh);
+    m.addColorStop(0, 'rgba(0,0,0,0)'); m.addColorStop(e, 'rgba(0,0,0,1)'); m.addColorStop(1 - e, 'rgba(0,0,0,1)'); m.addColorStop(1, 'rgba(0,0,0,0)');
+    o.globalCompositeOperation = 'destination-in'; o.fillStyle = m; o.fillRect(0, 0, w, dh);
+    g.drawImage(off, 0, y);
+  }
   function cover(g, im, x, y, w, h) {
     const s = Math.max(w / im.naturalWidth, h / im.naturalHeight), sw = w / s, sh = h / s;
     g.drawImage(im, (im.naturalWidth - sw) / 2, (im.naturalHeight - sh) / 2, sw, sh, x, y, w, h);
@@ -57,7 +74,9 @@
     g.fillStyle = '#0A1733'; g.fillRect(0, 0, W, H);
     const IMG_H = 1120;
     const im = await loadImg(it.img);
-    if (im) {
+    if (im && im.naturalWidth / im.naturalHeight > 1.2) {
+      widePicture(g, im, W, IMG_H);
+    } else if (im) {
       cover(g, im, 0, 0, W, IMG_H);
     } else {
       const bg = g.createLinearGradient(0, 0, 0, IMG_H); bg.addColorStop(0, '#132D61'); bg.addColorStop(1, '#0A1733');

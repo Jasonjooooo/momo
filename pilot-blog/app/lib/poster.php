@@ -18,9 +18,9 @@ function poster_targets(): array
     $base = ref_site_origin() . site_base();
     $f = site_live()['fields'] ?? [];
     $items = [[
-        'id' => 'home', 'group' => '首页', 'kind' => '首页',
+        'id' => 'home', 'group' => '首页', 'kind' => '',
         'title' => (string) ($f['site.brand'] ?? ''), 'text' => (string) ($f['site.description'] ?? ''),
-        'img' => poster_img('assets/hero-poster-portrait.webp'), 'url' => $base,
+        'img' => poster_img('assets/hero-poster.webp')   /* the whole plane, side-on (the portrait crop shows only its nose) */, 'url' => $base,
     ]];
     foreach (posts_all() as $p) {
         if (post_status($p) !== 'published') {
