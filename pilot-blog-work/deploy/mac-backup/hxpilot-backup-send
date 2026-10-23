@@ -1,0 +1,23 @@
+#!/bin/sh
+# Server side of the Mac backup pull (installed as /usr/local/bin/hxpilot-backup-send).
+# The Mac's backup key may run only this (authorized_keys command="..."): it can list the daily backups in
+# /root/hxpilot-backups and read one of them, nothing else. No shell, no writes, no other files.
+#   ssh ... list          -> one "name size" line per backup file
+#   ssh ... get <name>    -> that file's bytes on stdout
+DIR=/root/hxpilot-backups
+set -f
+set -- $SSH_ORIGINAL_COMMAND
+case "$1" in
+  list)
+    cd "$DIR" 2>/dev/null || exit 3
+    set +f
+    for f in *; do [ -f "$f" ] && printf '%s %s\n' "$f" "$(stat -c %s "$f")"; done
+    ;;
+  get)
+    name="$2"
+    case "$name" in ''|*/*|.*|*[!A-Za-z0-9._-]*) echo "bad name" >&2; exit 2 ;; esac
+    [ -f "$DIR/$name" ] || { echo "no such backup" >&2; exit 4; }
+    exec cat "$DIR/$name"
+    ;;
+  *) echo "only list / get" >&2; exit 1 ;;
+esac
