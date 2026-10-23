@@ -14,7 +14,7 @@ mkdir -p "$DEST"
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*" >> "$LOG"; }
 fail() { log "失败：$*"; osascript -e "display notification \"$*\" with title \"破雾追光 备份没下载成功\"" >/dev/null 2>&1; exit 1; }
 
-list=$("${SSH[@]}" list 2>&1) || fail "连不上服务器（$list）"
+list=$("${SSH[@]}" list 2>&1) || fail "连不上服务器（${list}）"
 got=0
 while read -r name size; do
   [ -n "$name" ] || continue
