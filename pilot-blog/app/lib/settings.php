@@ -19,6 +19,7 @@ function settings_defaults(): array
         'supply' => ['enabled' => false, 'base_url' => '', 'app_id' => ''],
         'ref' => ['enabled' => false],   // 推广链接; the commission rate is set per 推广人 (referral.php)
         'game' => ['board' => true],     // 盲降挑战 leaderboard (api/game.php); the game itself always runs
+        'notify' => NOTIFY_EVENT_DEFAULTS,   // 微信提醒 per-event switches (notify.php); the token is in secrets.json
     ];
 }
 
@@ -58,6 +59,11 @@ function settings_normalize(array $s): array
     ];
     $out['ref'] = ['enabled' => (bool) (is_array($out['ref']) ? ($out['ref']['enabled'] ?? false) : false)];
     $out['game'] = ['board' => (bool) (is_array($out['game']) ? ($out['game']['board'] ?? true) : true)];
+    $n = is_array($out['notify']) ? $out['notify'] : [];
+    $out['notify'] = [];
+    foreach (NOTIFY_EVENT_DEFAULTS as $k => $def) {
+        $out['notify'][$k] = (bool) ($n[$k] ?? $def);
+    }
     $out['rev'] = (int) $out['rev'];
     return $out;
 }

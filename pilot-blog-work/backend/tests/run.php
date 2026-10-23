@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'biz', 'ref', 'game', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'biz', 'ref', 'game', 'notify', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -2240,6 +2240,7 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
 
 require __DIR__ . '/biz-ref-tests.php';   // groups biz (经营总览) and ref (推广链接)
 require __DIR__ . '/game-tests.php';      // group game (盲降挑战 leaderboard)
+require __DIR__ . '/notify-tests.php';    // group notify (微信提醒 via PushPlus, health check)
 
 $fn = 'group_' . $group;
 try {

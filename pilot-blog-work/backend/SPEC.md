@@ -1815,6 +1815,17 @@ Added by the 盲降挑战 front-end pass (2026-10-22, owner request):
    result, leaderboard, touch-action, overflow at 390, runway still lit by the route, reduced motion). The browser tests swap
    the H.264 footage for a VP9 copy made with ffmpeg in the scratch dir (Chromium here has no H.264); it is never committed.
 
+Added by the 微信提醒 pass (2026-10-23, owner request):
+
+34. **微信提醒 (PushPlus) and a daily server health check.** New `app/lib/notify.php`, `app/lib/admin_notify.php`, view
+   `notify`, admin routes `notify` / `notify.token` / `notify.token_remove` / `notify.events` / `notify.test` (menu 微信提醒
+   right after 小游戏排行榜), setting `notify` (per-event switches, not page state: never republishes), secret
+   `pushplus_token` (+ `pushplus_token_set_at`) in `secrets.json`, CLI `app/bin/health.php`, cron file
+   `pilot-blog-work/deploy/hxpilot-health.cron`. Hooks: `shop_create_order()` (新订单), `shop_claim()` (only on pending →
+   claimed), the `$fail` closure in `supply_fulfill()` (only on a move into `failed`), `api/subscribe.php` (a new address
+   only), `game_submit()` (a different name takes 本周第 1). No public page, template or Nginx change (no new public entry
+   point). Details in §21. Tests: run.php group `notify` (+ `tests/push-mock.php`), the page joins the e2e.js admin sweep.
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
@@ -2039,6 +2050,65 @@ the last 50 orders with the number masked (`20261020-K7****`), product, amount, 
 count, note, amount). Never buyer names, phones, addresses, emails, full order numbers or costs. Limits per visitor: 30 opens per
 10 min; after 20 wrong tokens in an hour → 429. Unknown tokens get the generic 「找不到这一页」.
 
+## 21. 微信提醒 and 服务器体检 (2026-10-23)
+
+**Why.** Payments go straight to the owner's 收款码 and are confirmed by hand, so the owner must learn quickly that a buyer
+tapped 「我已付款」. PushPlus (推送加) delivers a message to the owner's WeChat through its 公众号: one HTTPS call, no app.
+
+**PushPlus contract** (docs at https://www.pushplus.plus/doc/ were not reachable from the build box; implemented against the
+documented API): `POST https://www.pushplus.plus/send`, JSON `{token, title, content, template: "txt"}`; success is HTTP 200
+with JSON `code` 200. Known refusals: 903 (bad token), 900 (account limited, e.g. the free daily quota). Anything else is
+logged as 「PushPlus 拒绝了（code）：msg」.
+
+**Code.** `app/lib/notify.php`:
+- token: `notify_token_set()` (validated `[A-Za-z0-9]{16,64}`, trimmed), `notify_token_remove()`, `notify_token_hint()`
+  (last 4). Write-only like the 货源 key: the admin page shows 「已设置 ····末4位」, the input is always empty, never logged.
+- switches: `settings.notify = {order, claim, failed, sub, game}` (defaults on, on, on, on, off); `health` and `test` are
+  always on. `notify_on($event)` = token set and the event on.
+- `notify_send($event, $title, $text)`: no token or event off → nothing. Never throws (failures → `error_log` and the send
+  log). **Timing:** under the CLI it sends at once; in a web request it queues the message and registers one shutdown
+  function (`notify_flush()`) that closes the session (so the next admin page does not wait on its lock), calls
+  `fastcgi_finish_request()` (PHP-FPM; else flushes output) and only then sends. The visitor's answer (303 to the pay page,
+  the subscribe JSON …) is complete before PushPlus is called; `ignore_user_abort(true)` keeps the send going if the
+  visitor leaves. Chosen over a file queue + cron because it needs no extra moving part and loses nothing on the happy path;
+  the worst case (PushPlus down) is one logged failure per event.
+- `notify_deliver()` (used by the queue, the admin 「发一条测试」 and the health check): rate limit first — at most
+  `NOTIFY_HOUR_MAX` = 60 pushes per rolling hour for the whole site, every event together; over the cap nothing is sent and
+  ONE log line 「一小时超过 60 条，没有发」 counts the refused ones (`n`). Then the curl POST: `CURLOPT_CONNECTTIMEOUT` 3 s,
+  `CURLOPT_TIMEOUT` 5 s, TLS verified, no redirects, https only (the test mock: http on 127.0.0.1), answer capped at 64 KB.
+- log: `blog-data/notify/log.json` (0600) `{sent: [unix times of the last hour], log: [newest first, max 50: {at, event,
+  title (≤ 60), ok, why}]}`. Never the token or message text.
+- messages (`notify_order_message()`, template `txt`, Chinese, short): 订单号, 商品 × 数量, 金额, 买家 masked to the first
+  character + `*` (王五 → 王*; digital orders have no name and show no 买家 line), 时间 (Beijing) and the admin link
+  `<site.origin>/admin/?r=order&id=…` (`ref_site_origin()`: the live 网站地址, else the request host). Never the phone,
+  email, address, the 付款人 note or a payment proof. 进货失败 adds the supplier's reason with emails / digit runs scrubbed.
+  新订阅者 carries only the new total and the 订阅者 link; 周榜第 1 the player's public name, score and grade.
+- Test hook: `BLOG_PUSH_TEST_BASE=http://127.0.0.1:<port>` is honoured only under the CLI or php -S (never PHP-FPM).
+
+**Events.** 新订单 (`shop_create_order`), 买家点了「我已付款」 (`shop_claim`, pending → claimed only; a repeated tap sends
+nothing), 进货失败 (`supply_fulfill` moving an order into `failed`; a retry that fails while already failed sends nothing,
+a retry that first moved it back to confirmed and failed again does), 新订阅者 (`api/subscribe.php`, result `new` only;
+repeats and honeypot hits send nothing), 小游戏周榜第 1 (default off; only when a different name takes the top of the rolling
+7-day board). Owner actions send nothing.
+
+**Admin 微信提醒** (`?r=notify`): status chip + `····WXYZ`, how-to (微信扫码关注 pushplus 推送加 → 复制 token → 粘贴 → 发一条
+测试), token form (password input, empty), 发一条测试 (synchronous `notify_deliver('test', …)`, the flash says 已发出 or the
+reason), 删除 token, the five switches (checkboxes, one form), the last 50 sends. All POSTs CSRF-checked by the router.
+
+**服务器体检** `app/bin/health.php` (CLI only), run daily by root's cron at 00:30 UTC = 08:30 Beijing
+(`pilot-blog-work/deploy/hxpilot-health.cron` → `/etc/cron.d/hxpilot-health`). Checks: disk of `--disk` (default `/`) over
+`--disk-max` (85) %; newest non-dot file in `--backups` (default `/root/hxpilot-backups`) older than `--backup-hours` (26) or
+missing; certificate `--cert` (default `/etc/letsencrypt/live/<--domain, hxpilot.com>/fullchain.pem`) expiring within
+`--cert-days` (14) or unreadable; DATA_DIR and `locks/` writable (a probe file is created and removed); optional
+`--php-log=FILE`: more than 1 MB growth since the previous run (size kept in `blog-data/notify/health.json`). Sends ONE
+message (event `health`: not switchable, still under the hourly cap and logged) when anything is wrong, and a short
+「服务器体检：一切正常」 on Mondays (Beijing). `--dry-run` prints the report and the message, sends and writes nothing;
+`--now=<unix>` is for tests. Exit 0 fine, 1 problems (sent or dry run), 2 problems but not sent (no token, cap, PushPlus
+failure), 64 bad argument. Root is needed only to read the backups and `/etc/letsencrypt`: before touching blog-data the
+script switches (posix_initgroups / setgid / setuid) to the owner of the data dir, so no file there becomes root-owned (if
+the data dir itself belongs to root it stays root).
+
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -2071,6 +2141,9 @@ node pilot-blog-work/backend/tests/supply.e2e.js       # or: ... supply.e2e.js 3
 # 经营总览 and 推广 in Chromium: 成本价, 推广人, link → cookie → order → complete → settle → view page, dashboard ranges
 # (screenshots in screens/dashboard/)
 node pilot-blog-work/backend/tests/biz-ref.e2e.js
+
+# 服务器体检 without sending anything (prints the report; temp paths for a local try)
+php pilot-blog/app/bin/health.php --dry-run --backups=/tmp/b --cert=/tmp/cert.pem --disk=/
 
 # the owner's end-to-end QA: every admin flow at 1440 and 390 on a throwaway site (~2.5 min)
 PORT=9300 node pilot-blog-work/backend/e2e.js         # or: ... e2e.js 390   (add keep to leave the temp dirs)

@@ -431,15 +431,20 @@ function game_submit(array $body, string $ipk, ?int $now = null): array
         if (!game_run_claim($run['id'], $now)) {
             return ['ok' => false, 'error' => 'used'];
         }
+        $leader = game_board(game_entries(), $now - GAME_WEEK_SEC)[0]['name'] ?? null;
         $items = game_record([
             'id' => $run['id'], 'name' => $name, 'score' => $res['score'], 'grade' => $res['grade'],
             'base' => $run['wx']['base'], 'rvr' => $run['wx']['rvr'], 'dec' => $decision, 'ts' => $now, 'ipk' => $ipk,
         ], $now);
+        $rankWeek = game_rank(game_board($items, $now - GAME_WEEK_SEC), $run['id']);
+        if ($rankWeek === 1 && ($leader === null || mb_strtolower($leader) !== mb_strtolower($name))) {
+            notify_game_top(['name' => $name, 'score' => $res['score'], 'grade' => $res['grade']]);   // a new name on top (switch off by default)
+        }
         return [
             'ok' => true,
             'score' => $res['score'],
             'grade' => $res['grade'],
-            'rank_week' => game_rank(game_board($items, $now - GAME_WEEK_SEC), $run['id']),
+            'rank_week' => $rankWeek,
             'rank_all' => game_rank(game_board($items), $run['id']),
         ];
     });

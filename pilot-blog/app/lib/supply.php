@@ -966,13 +966,18 @@ function supply_fulfill(string $id, string $mode = 'confirm', int $acceptCost = 
             return ['ok' => false, 'order' => $o, 'msg' => '上一次进货的结果还没核对。先去供货平台确认那笔有没有买成。'];
         }
         $fail = function (string $state, string $msg, array $extra = []) use ($id): array {
-            $o = supply_order_update($id, function (array &$o) use ($state, $msg, $extra) {
+            $became = false;
+            $o = supply_order_update($id, function (array &$o) use ($state, $msg, $extra, &$became) {
                 $o['supply'] = array_replace($o['supply'], ['state' => $state, 'msg' => $msg, 'at' => now_iso()], $extra);
                 if ($o['status'] !== 'cancelled') {
+                    $became = $o['status'] !== 'failed';
                     $o['status'] = 'failed';
                     shop_hist($o, 'failed', 'auto', '');
                 }
             });
+            if ($became && $o !== null) {
+                notify_order('failed', $o);   // 微信提醒 on the move into 进货失败 (not on a repeat while already failed)
+            }
             return ['ok' => false, 'order' => $o, 'msg' => '进货失败：' . $msg];
         };
         if ($mode === 'fresh') {

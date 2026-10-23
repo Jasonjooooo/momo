@@ -269,6 +269,10 @@ input[type=checkbox],input[type=radio]{width:22px;height:22px;margin:0;flex:none
 .gtbl tbody th{font-weight:500;white-space:normal;overflow-wrap:anywhere;min-width:7em}
 .gtbl td.g-dec{font-family:var(--cjk)}
 .gtbl form{margin:0}
+.n-how{padding-left:1.4em;margin:0 0 12px}
+.n-how li{margin:2px 0}
+.ntbl th,.ntbl td{text-align:left;vertical-align:top}
+.ntbl td:nth-child(3),.ntbl td:nth-child(4){white-space:normal;overflow-wrap:anywhere;min-width:9em}
 
 /* visitor stats */
 .toplist{list-style:none;margin:0;padding:0}

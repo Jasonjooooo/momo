@@ -549,7 +549,7 @@ function shop_create_order(string $slug, array $c, ?int $now = null, ?array $par
     $now ??= time();
     $settings = settings_get();
     $ss = $settings['shop'];
-    return shop_mutate(function (array &$products, array &$orders) use ($slug, $c, $now, $ss, $settings, $partner) {
+    $o = shop_mutate(function (array &$products, array &$orders) use ($slug, $c, $now, $ss, $settings, $partner) {
         shop_maintain_in($products, $orders, $now, $ss);
         if (!$ss['enabled']) {
             throw new ShopError('closed', '商城暂停营业，这次没有下单。');
@@ -626,6 +626,8 @@ function shop_create_order(string $slug, array $c, ?int $now = null, ?array $par
         $orders[] = $o;
         return $o;
     });
+    notify_order('order', $o);   // 微信提醒 (never throws; sent after the response)
+    return $o;
 }
 
 /** The buyer taps 我已付款 (pending → claimed). Returns the order. */
@@ -633,7 +635,8 @@ function shop_claim(string $id, string $payer, ?int $now = null): array
 {
     $now ??= time();
     $ss = shop_settings();
-    return shop_mutate(function (array &$products, array &$orders) use ($id, $payer, $now, $ss) {
+    $claimed = false;
+    $o = shop_mutate(function (array &$products, array &$orders) use ($id, $payer, $now, $ss, &$claimed) {
         shop_maintain_in($products, $orders, $now, $ss);
         foreach ($orders as &$o) {
             if ($o['id'] !== $id) {
@@ -643,12 +646,17 @@ function shop_claim(string $id, string $payer, ?int $now = null): array
                 $o['status'] = 'claimed';
                 $o['payer'] = shop_clean_line($payer, 20);
                 shop_hist($o, 'claimed', 'buyer', '', $now);
+                $claimed = true;
             }
             return $o;
         }
         unset($o);
         throw new ShopError('gone', '找不到这个订单。');
     });
+    if ($claimed) {
+        notify_order('claim', $o);   // the owner must check the payment by hand
+    }
+    return $o;
 }
 
 /**

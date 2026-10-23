@@ -106,6 +106,7 @@ try {
 // cannot push the whole site to its daily cap.
 if ($result === 'new') {
     rl_hit('sub-site-day', local_day(), SUB_SITE_DAY, 2 * 86400);
+    notify_new_subscriber();   // 微信提醒: queued, sent after this answer went out; never the address
 }
 // the same answer for a new and a repeated address, so nobody can probe who is on the list
 respond(200, ['ok' => true], 'subscribe.ok');

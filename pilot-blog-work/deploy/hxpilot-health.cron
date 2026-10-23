@@ -1,0 +1,10 @@
+# /etc/cron.d/hxpilot-health — daily server check for hxpilot.com (pilot-blog/app/bin/health.php).
+# Runs at 00:30 UTC = 08:30 Beijing time (the server clock is UTC). Sends one 微信提醒 (PushPlus, the token set in
+# the admin page 微信提醒) only when something is wrong, plus 「一切正常」 on Mondays.
+# Runs as root to read /root/hxpilot-backups and /etc/letsencrypt; the script switches to the owner of blog-data
+# before it writes anything there.
+# Install: sudo install -m 0644 -o root -g root hxpilot-health.cron /etc/cron.d/hxpilot-health
+# The file name in /etc/cron.d must have no dot; the last line must end with a newline.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+30 0 * * * root /usr/bin/php /var/www/hxpilot/public/app/bin/health.php --backups=/root/hxpilot-backups --domain=hxpilot.com >> /var/log/hxpilot-health.log 2>&1

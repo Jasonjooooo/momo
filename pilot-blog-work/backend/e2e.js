@@ -316,7 +316,7 @@ async function sweepAdmin(T, label) {
   const page = T.page;
   const pages = [
     ['dashboard', '', '概览'], ['site', '', '网站文字'], ['posts', '', '飞行日志'], ['posts', '&f=published', '飞行日志 已发布'],
-    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shop', '', '商品'], ['orders', '', '订单'], ['orders', '&f=all', '订单 全部'], ['pay', '', '收款设置'], ['subs', '', '订阅者'], ['stats', '', '访问统计'], ['game', '', '小游戏排行榜'],
+    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shop', '', '商品'], ['orders', '', '订单'], ['orders', '&f=all', '订单 全部'], ['pay', '', '收款设置'], ['subs', '', '订阅者'], ['stats', '', '访问统计'], ['game', '', '小游戏排行榜'], ['notify', '', '微信提醒'],
     ['ai', '', 'AI 助手'], ['versions', '', '版本记录'], ['password', '', '修改密码'],
     ['no-such-page', '', '404 页'], ['post.edit', '&id=p000000000000', '找不到的日志'], ['versions.view', '&id=19990101-000000-abcdef', '找不到的版本'],
     ['logout', '', '用 GET 打开 POST 地址（405）'],
