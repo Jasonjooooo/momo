@@ -9,9 +9,14 @@ set -f
 set -- $SSH_ORIGINAL_COMMAND
 case "$1" in
   list)
-    cd "$DIR" 2>/dev/null || exit 3
+    cd "$DIR" 2>/dev/null || { echo "no backup folder $DIR" >&2; exit 3; }
     set +f
-    for f in *; do [ -f "$f" ] && printf '%s %s\n' "$f" "$(stat -c %s "$f")"; done
+    n=0
+    for f in *; do
+      if [ -f "$f" ]; then printf '%s %s\n' "$f" "$(stat -c %s "$f")"; n=$((n + 1)); fi
+    done
+    [ "$n" -gt 0 ] || { echo "no backup files in $DIR" >&2; exit 5; }
+    exit 0
     ;;
   get)
     name="$2"
