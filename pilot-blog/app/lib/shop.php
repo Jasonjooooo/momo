@@ -1362,19 +1362,71 @@ function shop_csv(array $orders): string
 
 // ---------- the product catalog for the shop assistant (AI) ----------
 
+/** A few plain words from a product description (Markdown stripped) for the assistant; '' when there is none. */
+function shop_ai_excerpt(string $md, int $max = 80): string
+{
+    $t = (string) preg_replace('/!\[[^\]]*\]\([^)]*\)/u', '', $md);            // pictures
+    $t = (string) preg_replace('/\[([^\]]*)\]\([^)]*\)/u', '$1', $t);           // links keep their words
+    $t = (string) preg_replace('/^\s*(#{1,6}|>|[-*+]|\d+\.)\s+/mu', '', $t);   // headings, quotes, list marks
+    $t = str_replace(['**', '__', '`', '|'], '', $t);
+    $t = trim((string) preg_replace('/\s+/u', ' ', $t));
+    return mb_strlen($t) > $max ? mb_substr($t, 0, $max) . '…' : $t;
+}
+
+/**
+ * What the shop assistant knows about the shop, rebuilt for every question from the live data: open or not, the
+ * owner's notice, which 收款码 are set up, how long an unpaid order waits, shipping, how each kind of product is
+ * delivered, where to look up an order, then the products on sale by category with price, stock, a few words of
+ * the description and the page link. Capped (40 products, ~6000 characters) so the prompt stays cheap.
+ */
 function shop_catalog_text(): string
 {
-    $lines = [];
     try {
         $ss = shop_settings();
+        $base = ref_site_origin() . site_base();
+        $ix = shop_cat_index(shop_cats());
+        $byCat = [];
+        $types = [];
+        $n = 0;
         foreach (shop_products() as $p) {
-            if (!shop_product_live($p)) {
+            if (!shop_product_live($p) || $n >= 40) {
                 continue;
             }
-            $lines[] = '- ' . $p['name'] . '（' . SHOP_TYPES[$p['type']] . '，¥' . shop_money($p['price']) . '，' . (shop_avail_label($p) ?? '有货') . '）' . ($p['summary'] !== '' ? '：' . $p['summary'] : '');
+            $n++;
+            $types[$p['type']] = true;
+            $desc = shop_ai_excerpt($p['body']);
+            $byCat[shop_cat_label($p['cat'], $ix) ?: '未分类'][] = '- ' . $p['name'] . '（' . SHOP_TYPES[$p['type']] . '，¥' . shop_money($p['price']) . '，' . (shop_avail_label($p) ?? '有货') . '）'
+                . ($p['summary'] !== '' ? '：' . $p['summary'] : '')
+                . ($desc !== '' && $desc !== $p['summary'] ? ' 介绍：' . $desc : '')
+                . ($p['slug'] !== '' ? ' 链接：' . $base . 'shop/' . $p['slug'] . '.html' : '');
         }
-        $ship = $ss['shipping'] > 0 ? '实物运费每单 ¥' . shop_money($ss['shipping']) . ($ss['free_over'] > 0 ? '，满 ¥' . shop_money($ss['free_over']) . ' 包邮' : '') : '实物包邮';
-        return ($ss['enabled'] ? '商城营业中。' : '商城暂停营业。') . $ship . '。' . ($lines ? "\n在卖的商品：\n" . implode("\n", array_slice($lines, 0, 40)) : '现在没有在卖的商品。');
+        $qr = is_array($ss['qr'] ?? null) ? $ss['qr'] : [];
+        $pay = array_keys(array_filter(['微信' => $qr['wechat'] ?? null, '支付宝' => $qr['alipay'] ?? null]));
+        $out = [($ss['enabled'] ? '商城营业中。' : '商城暂停营业，现在不能下单。')];
+        $notice = trim((string) ($ss['notice'] ?? ''));
+        if ($notice !== '') {
+            $out[] = '商城公告：' . $notice;
+        }
+        $out[] = $pay ? '收款方式：' . implode('或', $pay) . '扫码付款。' : '收款码还没设置好，暂时付不了款，请访客晚点再来。';
+        if ((int) ($ss['cancel_hours'] ?? 0) > 0) {
+            $out[] = '下单后 ' . (int) $ss['cancel_hours'] . ' 小时内没付款的订单会自动取消。';
+        }
+        $out[] = ($ss['shipping'] > 0 ? '实物运费每单 ¥' . shop_money($ss['shipping']) . ($ss['free_over'] > 0 ? '，满 ¥' . shop_money($ss['free_over']) . ' 包邮' : '') : '实物包邮') . '。';
+        if (isset($types['supply'])) {
+            $out[] = '「自动发卡」商品：站长确认收款以后系统自动发卡，卡密在「查订单」里查看，不用等站长手动发。';
+        }
+        $out[] = '查订单：' . $base . 'api/shop.php?a=lookup （填订单号和手机号后 4 位，数字商品和自动发卡填邮箱 @ 前面的部分）。';
+        if ($byCat) {
+            $out[] = '在卖的商品（按分类）：';
+            foreach ($byCat as $cat => $lines) {
+                $out[] = '【' . $cat . '】';
+                array_push($out, ...$lines);
+            }
+        } else {
+            $out[] = '现在没有在卖的商品。';
+        }
+        $text = implode("\n", $out);
+        return mb_strlen($text) > 6000 ? mb_substr($text, 0, 6000) . '…' : $text;
     } catch (Throwable $e) {
         return '';
     }

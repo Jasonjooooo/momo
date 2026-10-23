@@ -77,6 +77,7 @@ const ADMIN_ROUTES = [
     'game.toggle' => ['admin_game_toggle', ['POST'], 'auth', false],
     'game.delete' => ['admin_game_delete', ['POST'], 'auth', false],
     'game.clear' => ['admin_game_clear', ['POST'], 'auth', false],
+    'poster' => ['admin_poster', ['GET'], 'auth', false],
     'notify' => ['admin_notify', ['GET'], 'auth', false],
     'notify.token' => ['admin_notify_token', ['POST'], 'auth', false],
     'notify.token_remove' => ['admin_notify_token_remove', ['POST'], 'auth', false],
@@ -111,6 +112,7 @@ const ADMIN_MENU = [
     'stats' => '访问统计',
     'game' => '小游戏排行榜',
     'notify' => '微信提醒',
+    'poster' => '分享海报',
     'ai' => 'AI 助手',
     'versions' => '版本记录',
     'password' => '修改密码',
@@ -976,6 +978,13 @@ function admin_stats_toggle(): void
         flash('error', '没有保存：服务器出错了。');
     }
     redirect('stats');
+}
+
+// ---------- 分享海报 (drawn in the browser by admin/assets/poster.js; nothing stored) ----------
+
+function admin_poster(): void
+{
+    view('poster', ['title' => '分享海报', 'data' => poster_targets()]);
 }
 
 // ---------- 小游戏排行榜 (盲降挑战, api/game.php) ----------

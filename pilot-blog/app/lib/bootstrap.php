@@ -30,6 +30,7 @@ require_once __DIR__ . '/shop_pages.php';
 require_once __DIR__ . '/supply.php';
 require_once __DIR__ . '/referral.php';
 require_once __DIR__ . '/notify.php';
+require_once __DIR__ . '/poster.php';
 require_once __DIR__ . '/biz.php';
 require_once __DIR__ . '/publish.php';
 require_once __DIR__ . '/content.php';

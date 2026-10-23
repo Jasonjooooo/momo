@@ -1374,6 +1374,27 @@ function shop_http_tests(array $ph, array $dg): void
         $logs .= (string) file_get_contents($f);
     }
     ok(!str_contains($logs, 'buyer@example.com') && !str_contains($logs, '13800138000') && !str_contains($logs, '王五'), 'no buyer data in the audit log, stats or usage files');
+    // what the shop assistant is told (api/chat.php system prompt)
+    $sn = $_SERVER['SCRIPT_NAME'] ?? null;
+    $_SERVER['SCRIPT_NAME'] = '/api/chat.php';   // where it runs: links are built from the site root
+    $cat = shop_catalog_text();
+    $_SERVER['SCRIPT_NAME'] = $sn;
+    ok(str_contains($cat, '查订单：') && str_contains($cat, '/api/shop.php?a=lookup') && preg_match('#https?://[^/\s]+/shop/guide\.html#', $cat) && str_contains($cat, '在卖的商品（按分类）') && str_contains($cat, '收款码还没设置好'),
+        'assistant catalog: payment state, lookup address, product links from the site root, grouped by category', json_encode($cat, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    ok(!str_contains($cat, 'buyer@example.com') && !str_contains($cat, '13800138000') && !str_contains($cat, 'PDFDATA') && !str_contains($cat, '提取码') && !str_contains($cat, '王五'),
+        'assistant catalog: no buyer data and no delivery content (提取码, files)');
+    ok(shop_ai_excerpt("# 标题\n![图](uploads/a.webp) 看[这里](https://x.y)**很好**\n- 一\n- 二") === '标题 看这里很好 一 二' && mb_strlen(shop_ai_excerpt(str_repeat('字', 200))) === 81,
+        'assistant excerpt: Markdown stripped, long text cut with …');
+    // 分享海报: what a poster can be made for, and only this site's own pictures
+    $_SERVER['SCRIPT_NAME'] = '/admin/index.php';
+    $pt = poster_targets();
+    $pimg = [poster_img('uploads/2026/10/0123456789abcdef.webp'), poster_img('../x.jpg'), poster_img('uploads/../secrets.json'), poster_img('https://evil.example/x.jpg'), poster_img('uploads/a.svg'), poster_img(null)];
+    $_SERVER['SCRIPT_NAME'] = $sn;
+    $ids = array_column($pt['items'], 'id');
+    $guide = array_values(array_filter($pt['items'], fn($it) => str_ends_with($it['url'], '/shop/guide.html')))[0] ?? null;
+    ok($ids[0] === 'home' && $guide !== null && $guide['price'] === '¥29.90' && str_starts_with($guide['img'], '/uploads/'),
+        'poster: home first, products on sale with price and their own photo', json_encode($ids));
+    ok($pimg === ['/uploads/2026/10/0123456789abcdef.webp', '', '', '', '', ''], 'poster: only this site\'s own webp/jpg/png pictures, never paths that climb or other sites', json_encode($pimg));
 }
 
 // ---------- 货源 (SPEC §20 货源) ----------

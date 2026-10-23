@@ -316,7 +316,7 @@ async function sweepAdmin(T, label) {
   const page = T.page;
   const pages = [
     ['dashboard', '', '概览'], ['site', '', '网站文字'], ['posts', '', '飞行日志'], ['posts', '&f=published', '飞行日志 已发布'],
-    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shop', '', '商品'], ['orders', '', '订单'], ['orders', '&f=all', '订单 全部'], ['pay', '', '收款设置'], ['subs', '', '订阅者'], ['stats', '', '访问统计'], ['game', '', '小游戏排行榜'], ['notify', '', '微信提醒'],
+    ['posts', '&f=teaser', '飞行日志 预告'], ['posts', '&f=draft', '飞行日志 草稿'], ['shop', '', '商品'], ['orders', '', '订单'], ['orders', '&f=all', '订单 全部'], ['pay', '', '收款设置'], ['subs', '', '订阅者'], ['stats', '', '访问统计'], ['game', '', '小游戏排行榜'], ['notify', '', '微信提醒'], ['poster', '', '分享海报'],
     ['ai', '', 'AI 助手'], ['versions', '', '版本记录'], ['password', '', '修改密码'],
     ['no-such-page', '', '404 页'], ['post.edit', '&id=p000000000000', '找不到的日志'], ['versions.view', '&id=19990101-000000-abcdef', '找不到的版本'],
     ['logout', '', '用 GET 打开 POST 地址（405）'],
@@ -327,6 +327,22 @@ async function sweepAdmin(T, label) {
     if (r === 'site') await openAllDetails(page);
     await layoutCheck(T, page, `${label} ${name}`);
     check(T, `${label} ${name}: no console errors`, consoleSince(T, mark).length === 0, consoleSince(T, mark));
+  }
+  // 分享海报: draw one for the home page and one for the first post or product, and see a picture come back
+  {
+    const mark = T.R.console.length;
+    await go(T, page, 'poster');
+    const opts = await page.locator('#pst-target option').evaluateAll(os => os.map(o => o.value));
+    check(T, `${label} 分享海报: home first, then posts and products`, opts[0] === 'home' && opts.length >= 1, opts.join(' '));
+    for (const v of opts.slice(0, 2)) {
+      await page.selectOption('#pst-target', v);
+      await page.click('#pst-make');
+      await page.waitForFunction(() => { const i = document.getElementById('pst-img'); return !document.getElementById('pst-out').hidden && i.complete && i.naturalWidth > 0; }, null, { timeout: 15000 });
+      const dims = await page.evaluate(() => [document.getElementById('pst-img').naturalWidth, document.getElementById('pst-img').naturalHeight, !document.getElementById('pst-save').hidden]);
+      check(T, `${label} 分享海报 ${v}: a 1080x1920 picture and a save link`, dims[0] === 1080 && dims[1] === 1920 && dims[2], JSON.stringify(dims));
+    }
+    await layoutCheck(T, page, `${label} 分享海报（生成后）`);
+    check(T, `${label} 分享海报: no console errors`, consoleSince(T, mark).length === 0, consoleSince(T, mark));
   }
   // the post editor of every post on the list, with its sheets
   await go(T, page, 'posts');

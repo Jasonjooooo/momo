@@ -429,3 +429,6 @@ h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
 .amt-mid{font-size:22px;color:var(--accent-hover)}
 .ref-due li a,.hist li a.mono{display:inline-flex;align-items:center;min-height:44px}
 .biz-todo-n,.biz-num{font-variant-numeric:tabular-nums}
+/* 分享海报 */
+.pst-out{margin:16px 0 0}
+.pst-out img{display:block;width:min(360px,100%);height:auto;border:1px solid var(--line);border-radius:6px}
