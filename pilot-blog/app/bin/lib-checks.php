@@ -7,7 +7,7 @@ defined('BLOG_APP') || exit;
 // (SPEC §18 item 24), rebaselined with check-template.php --rebaseline (see app/seed/rebaseline.log); again on 2026-10-17
 // when the AI shelf became the shop (§18 item 26); again on 2026-10-22 when the hold-to-descend game became 盲降挑战 (§18 item 33).
 // T3 (hero) never moves.
-const BASELINE_SHA256 = 'f17a8bf4b375cdac469b2221d26eb5f061990459a128631f47d4fbaa4a6ef506';   // re-frozen 2026-10-22 (盲降挑战 game), see rebaseline.log
+const BASELINE_SHA256 = '25380ccee4343dbde2b9aa207e8ec998922dcd0374571c0ebd9025ea71c0d758';   // re-frozen 2026-10-23 (phone hero video ends on the runway lights), see rebaseline.log
 const BASELINE_08DA7C1_SHA256 = '3401b7f4d1c8692dee06a383831474447733558bfba68efc96aab63ba850c90f';
 
 /** Byte regions of the hero (SPEC §15 T3). Throws when a landmark is missing. */

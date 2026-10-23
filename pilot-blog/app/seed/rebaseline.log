@@ -5,3 +5,5 @@
 2026-10-19T10:08:45Z sha256 e973059ffd2315c39609fd30d735ebdf8defbdaa6829ab18946c8731f17752e1 HERO FIX: owner: favicon is now the PC-12 outline from the 机型 section (head region holds the icon)
 2026-10-22T15:28:57Z sha256 0703ff2a73a5fb7b98ea309a3aa05026f32e3b1765dccd4f00ca85622a1a93e2 owner-approved 2026-10-22: replace hold-to-descend mini game with 盲降挑战 ILS game (assets/game/ils.js); SPEC §18 item 33
 2026-10-22T15:41:53Z sha256 f17a8bf4b375cdac469b2221d26eb5f061990459a128631f47d4fbaa4a6ef506 hide the route chip and scroll the stage into view while the ILS game is flying
+2026-10-23T21:00:54Z sha256 cbffd9a392c692cda6b21b2eb656c749c6de5bfff43bb9dea1f3e4071dd90f99 HERO FIX: phone video: after breakout the camera eases to the runway lights once and stays (no swing away and back); new end still; VIDEO_BYTES_PORTRAIT 1335511 (owner request)
+2026-10-23T21:01:59Z sha256 25380ccee4343dbde2b9aa207e8ec998922dcd0374571c0ebd9025ea71c0d758 HERO FIX: phone video and end still renamed -2 so phones past the 30-day cache fetch the new ones

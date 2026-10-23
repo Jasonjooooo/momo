@@ -1,5 +1,5 @@
 # Portrait (3:4) scrub encode for phones: a moving crop window that follows the aircraft,
-# swings to the runway lights at breakout, and settles on the aircraft.
+# then eases over to the runway lights and ends there.
 import subprocess, sys
 import numpy as np
 
@@ -7,8 +7,10 @@ SRC, OUT = sys.argv[1], sys.argv[2]
 CRF = sys.argv[3] if len(sys.argv) > 3 else '23'
 W, H, FPS = 1920, 1088, 24
 CW = 816                                  # 3:4 window at full height
-KEYS = [(0.00, 0.265), (0.17, 0.40), (0.34, 0.55), (0.68, 0.62), (0.85, 0.66),
-        (0.89, 0.27), (0.935, 0.25), (0.985, 0.68), (1.00, 0.69)]
+# After breakout the window eases left once and stays: approach lights and green threshold left of centre, the
+# nose, propeller, wing and gear on the right. (The first cut swung to the lights and back to the aircraft,
+# 0.85-0.985: on a phone the aircraft left the frame for two seconds and jumped back in; the owner found it jarring.)
+KEYS = [(0.00, 0.265), (0.17, 0.40), (0.34, 0.55), (0.68, 0.62), (0.82, 0.65), (0.91, 0.39), (1.00, 0.38)]
 
 def pchip(keys):
     X = [k[0] for k in keys]; Y = [k[1] for k in keys]; n = len(X)

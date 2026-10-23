@@ -54,7 +54,7 @@ function track(p, R, base) {
   p.on('response', r => { if (r.status() >= 400 && !r.url().includes('chat.php')) R.logs.push('HTTP ' + r.status() + ' ' + r.url()); });
 }
 async function standins(ctx) {
-  if (fs.existsSync(STAND.portrait)) await ctx.route('**/assets/hero-scrub-portrait.mp4', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: fs.readFileSync(STAND.portrait) }));
+  if (fs.existsSync(STAND.portrait)) await ctx.route('**/assets/hero-scrub-portrait-2.mp4', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: fs.readFileSync(STAND.portrait) }));
   if (fs.existsSync(STAND.land)) await ctx.route('**/assets/hero-scrub.mp4', r => r.fulfill({ status: 200, contentType: 'video/mp4', body: fs.readFileSync(STAND.land) }));
   if (fs.existsSync(STAND.game)) await ctx.route('**/assets/game/approach-night.mp4', r => r.fulfill({ status: 200, contentType: 'video/webm', body: fs.readFileSync(STAND.game) }));
 }

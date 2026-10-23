@@ -218,7 +218,7 @@ body.paused *,body.paused *::before,body.paused *::after{animation-play-state:pa
 @media (max-height:560px){.tape,.cue{display:none}}
 
 /* ============ HERO, PORTRAIT SCRUB (phones and portrait tablets) ============ */
-/* Mode string identical to PORTRAIT_GATE in the script. A dedicated 3:4 encode (hero-scrub-portrait.mp4, a moving crop that
+/* Mode string identical to PORTRAIT_GATE in the script. A dedicated 3:4 encode (hero-scrub-portrait-2.mp4, a moving crop that
    follows the aircraft) on the desktop shot's timeline, so WARP, the bands and ALT_KEYS apply unchanged. The video shows its
    full width, anchored to the bottom of the stage; the sky layer above it (dusk navy, cloud grey, cloud base, crossfaded on
    footage progress to match the footage's top edge) runs 20% down into the video and fades out, so canvas and footage read
@@ -1615,10 +1615,10 @@ const VIDEO_URL = 'assets/hero-scrub.mp4';
 const VIDEO_BYTES = 4640306;        // the real byte size of assets/hero-scrub.mp4 (ring fallback when Content-Length is missing)
 const POSTER_URL = 'assets/hero-poster.webp';
 const POSTER_END_URL = 'assets/hero-end.webp';
-const VIDEO_URL_PORTRAIT = 'assets/hero-scrub-portrait.mp4';   // phones and portrait tablets: 816x1088, same timeline
-const VIDEO_BYTES_PORTRAIT = 1273741;
+const VIDEO_URL_PORTRAIT = 'assets/hero-scrub-portrait-2.mp4';   // phones and portrait tablets: 816x1088, same timeline (-2: ends on the runway lights; a new name past the 30-day cache)
+const VIDEO_BYTES_PORTRAIT = 1335511;
 const POSTER_URL_PORTRAIT = 'assets/hero-poster-portrait.webp';
-const POSTER_END_URL_PORTRAIT = 'assets/hero-end-portrait.webp';
+const POSTER_END_URL_PORTRAIT = 'assets/hero-end-portrait-2.webp';
 const CHAT_LIVE = <!--{v chat_live}-->false<!--{/v}-->;            // set true once api/chat.php answers
 const CHAT_URL = 'api/chat.php';    // relative; the key lives server-side in that file, never here
 const SUBSCRIBE_ENDPOINT = <!--{v subscribe_endpoint}-->''<!--{/v}-->;      // empty = Mode A (nothing is stored or sent). A form service URL = Mode B.
