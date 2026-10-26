@@ -206,3 +206,6 @@
 .pay-amt-sm{font-size:34px}
 @media (min-width:900px){.pay-amt.pay-amt-sm{font-size:40px}}
 @media (max-width:420px){.usdt-v{font-size:30px}.usdt-net b{font-size:24px}.pay-amt.pay-amt-sm{font-size:30px}}
+
+/* the sticky .pbar (56 px) must not cover a field the browser scrolls to (a missing 收货人 and its "请填写此字段" bubble) */
+html{scroll-padding-top:72px}
