@@ -90,7 +90,7 @@ $uon = fn(string $c) => is_array($uf) ? !empty($uf[$c . '_on']) : $u[$c]['on'];
       <div class="field<?= h($err('usdt_rate') ? ' has-err' : '') ?>">
         <label for="u-rate">汇率：1 USDT = 多少人民币</label>
         <div class="affix"><span>¥</span><input id="u-rate" name="rate" type="text" inputmode="decimal" value="<?= h($uval('rate', $u['rate'] > 0 ? usdt_rate_text($u['rate']) : '')) ?>" placeholder="7.20"></div>
-        <p class="hint">2 到 4 位小数，5.00 到 10.00 之间。比如填 7.20，¥100 的订单要付 13.89 USDT 加几位识别尾数。汇率变了记得回来改；已经给出的报价不变。</p>
+        <p class="hint">2 到 4 位小数，5.00 到 10.00 之间。比如填 7.20，¥100 的订单要付 13.88 USDT（向下取整，需要错开时再少几位小数，买家不会多付）。汇率变了记得回来改；已经给出的报价不变。</p>
         <p class="ferr"<?php if (!$err('usdt_rate')): ?> hidden<?php endif; ?>><?= h((string) $err('usdt_rate')) ?></p>
       </div>
       <div class="field<?= h($err('usdt_window') ? ' has-err' : '') ?>">

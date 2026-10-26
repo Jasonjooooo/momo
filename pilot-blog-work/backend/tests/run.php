@@ -1135,11 +1135,13 @@ function group_shop(): void
     [$cl] = shop_order_input(['type' => 'physical'], ['qty' => '2', 'name' => "张\x00三\u{202E}", 'phone' => '13800138000', 'address' => "上海市\n浦东新区 100 号", 'note' => '<b>x</b>', 'consent' => '1']);
     ok($cl['name'] === '张 三' && !str_contains($cl['address'], "\n"), 'buyer text: control and bidi characters and line breaks removed');
 
-    // identification tail: the smallest free fen, above the totals other unpaid orders already ask
+    // identification tail: never above the price — 0 when free, else the smallest free reduction
     $oo = fn(int $amount, string $st) => ['amount' => $amount, 'status' => $st];
-    ok(shop_pick_offset(10, []) === 1 && shop_pick_offset(10, [$oo(11, 'pending'), $oo(12, 'claimed'), $oo(13, 'completed')]) === 3
-        && shop_pick_offset(10, array_map(fn($k) => $oo(10 + $k, 'pending'), range(1, 99))) === 100 && shop_pick_offset(10, array_map(fn($k) => $oo(10 + $k, 'pending'), range(1, 199))) === null,
-        'tail: 1 fen when free, else the next free one (paid orders do not count), 1.00 after 99, none after 199');
+    ok(shop_pick_offset(1000, []) === 0 && shop_pick_offset(1000, [$oo(1000, 'pending'), $oo(999, 'claimed'), $oo(998, 'completed')]) === -2
+        && shop_pick_offset(1000, array_map(fn($k) => $oo(1000 - $k, 'pending'), range(0, 98))) === -99 && shop_pick_offset(1000, array_map(fn($k) => $oo(1000 - $k, 'pending'), range(0, 99))) === null
+        && shop_pick_offset(10, array_map(fn($k) => $oo(10 - $k, 'pending'), range(0, 8))) === -9 && shop_pick_offset(10, array_map(fn($k) => $oo(10 - $k, 'pending'), range(0, 9))) === null,
+        'tail: the price itself when free, else 1, 2 … 99 fen less (paid orders do not count), never above the price, never under 1 fen');
+    ok(shop_offset_text(0) === '' && shop_offset_text(-2) === '少收 ¥0.02' && shop_offset_text(37) === '多收 ¥0.37', 'tail text: nothing, 少收 (new orders), 多收 (orders made before the change)');
     // form tokens
     $t = shop_form_token('order', time() - 10);
     ok(shop_form_token_check('order', $t) === 'ok' && shop_form_token_check('lookup', $t) === 'bad', 'form token works only for its own form');
@@ -1172,7 +1174,7 @@ function group_shop(): void
 
     // ordering, unique amounts, stock
     $o1 = shop_create_order('poster', shop_order_input($ph, ['qty' => '2', 'name' => '王五', 'phone' => '13800138000', 'address' => '北京市朝阳区某路 1 号', 'consent' => '1'])[0]);
-    ok($o1['subtotal'] === 19800 && $o1['amount'] === 19800 + $o1['offset'] && $o1['offset'] >= 1 && $o1['offset'] <= 99, 'order: subtotal 2 × 99, payable = total + 1..99 fen');
+    ok($o1['subtotal'] === 19800 && $o1['amount'] === 19800 + $o1['offset'] && $o1['offset'] <= 0 && $o1['offset'] >= -99, 'order: subtotal 2 × 99, payable = total or up to 99 fen less, never more');
     ok(preg_match(ORDER_ID_RE, $o1['id']) === 1 && str_starts_with($o1['id'], str_replace('-', '', local_day())), 'order number: Beijing date + 6 random letters');
     ok(shop_product_get($ph['id'])['stock'] === 1 && $o1['held'] === true, 'stock reserved on order (3 → 1)');
     ok(throws(fn() => shop_create_order('poster', shop_buyer('physical', '13800138000', '', 2)), ShopError::class), 'overselling refused (2 wanted, 1 left)');
@@ -1180,15 +1182,16 @@ function group_shop(): void
     // the amount never comes from the buyer
     $tampered = shop_buyer('physical') + ['price' => 1, 'amount' => 1, 'subtotal' => 1];
     $o2 = shop_create_order('poster', $tampered);
-    ok($o2['price'] === 9900 && $o2['amount'] > 9900, 'client price/amount fields are ignored');
+    ok($o2['price'] === 9900 && $o2['amount'] <= 9900 && $o2['amount'] > 9800, 'client price/amount fields are ignored');
     shop_owner_action($o2['id'], 'cancel', ['reason' => '测试']);
     // a hundred unpaid orders with the same total: all amounts distinct
     $big = shop_make('pin', 'physical', '10', 400);
     $amounts = [];
-    for ($i = 0; $i < 120; $i++) {
+    for ($i = 0; $i < 100; $i++) {
         $amounts[] = shop_create_order('pin', shop_buyer('physical'))['amount'];
     }
-    ok(count(array_unique($amounts)) === 120 && max($amounts) <= 1000 + 199, '120 open orders at one price: every payable amount is different (overflow into ¥1.xx)');
+    ok(count(array_unique($amounts)) === 100 && max($amounts) === 1000 && min($amounts) === 901, '100 open orders at one price: every payable amount is different, ¥10.00 down to ¥9.01, none above the price');
+    ok(throws(fn() => shop_create_order('pin', shop_buyer('physical')), ShopError::class), 'the 101st open order at that price waits (busy) rather than asking more than the price');
     $mx = 0;
     foreach (shop_orders() as $o) {
         if ($o['product_id'] === $big['id'] && $o['status'] === 'pending') {
@@ -1307,7 +1310,7 @@ function shop_http_tests(array $ph, array $dg): void
     ok($r['status'] === 303 && preg_match('/a=pay&o=(\d{8}-[A-Z2-9]{6})&k=([0-9a-f]{32})/', $r['headers']['location'] ?? '', $m) === 1, 'order created over HTTP → 303 to the pay page', $r['status'] . ' ' . substr(strip_tags($r['body']), 0, 200));
     $id = $m[1] ?? '';
     $k = $m[2] ?? '';
-    ok((shop_order_get($id)['amount'] ?? 0) > 2990, 'posted price/amount ignored: the server computed ¥29.90 + cents');
+    ok((shop_order_get($id)['amount'] ?? 0) <= 2990 && (shop_order_get($id)['amount'] ?? 0) > 2890, 'posted price/amount ignored: the server computed ¥29.90 (or a few fen less), never more');
     $r = shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'x@example.com', 'consent' => '1'], ['Origin: https://evil.example']);
     ok($r['status'] === 403, 'cross-site order POST refused (403)');
     $r = http('POST', '/api/shop.php?a=order', ['form' => ['p' => 'guide', 'qty' => '1', 'email' => 'x@example.com', 'consent' => '1', 'website' => '']]);
@@ -1921,7 +1924,7 @@ function group_supply(): void
             ok($r['status'] === 200 && str_contains($r['body'], '确认收款') && !preg_match('/<script/i', $r['body']), 'order form for a card renders (email, no script)');
             $cid = shop_orders()[0]['id'];
             $r = shop_post('order', ['p' => $p1['slug'], 'qty' => '1', 'email' => 'web@example.com', 'consent' => '1', 'price' => '0.01']);
-            ok($r['status'] === 303 && preg_match('/o=(\d{8}-[A-Z2-9]{6})/', $r['headers']['location'] ?? '', $mm) === 1 && shop_order_get($mm[1])['amount'] > 700 && shop_order_get($mm[1])['status'] === 'pending', 'buyer order over HTTP: server price, pending, nothing bought', $r['status'] . '');
+            ok($r['status'] === 303 && preg_match('/o=(\d{8}-[A-Z2-9]{6})/', $r['headers']['location'] ?? '', $mm) === 1 && shop_order_get($mm[1])['amount'] > 600 && shop_order_get($mm[1])['status'] === 'pending', 'buyer order over HTTP: server price, pending, nothing bought', $r['status'] . '');
             ok((mock_state()['trades'][supply_request_no($mm[1] ?? '', 0)] ?? null) === null, 'creating or viewing an order never trades');
             // admin pages
             $pw = '云底下的跑道灯2026春';

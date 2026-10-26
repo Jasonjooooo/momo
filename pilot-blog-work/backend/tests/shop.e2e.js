@@ -145,7 +145,7 @@ async function run(W, browser) {
     const pay = await p.evaluate(() => ({ amt: document.querySelector('.pay-amt').textContent, no: document.querySelector('.pay-no b').textContent, qr: document.querySelectorAll('.qr-p img').length, tabs: document.querySelectorAll('.qr-l').length, why: document.querySelector('.pay-why').textContent }));
     const fen = money(pay.amt);
     const offset = fen - (2 * 9900 + 1000);
-    check(`[${W}] pay page: amount = 2 × 99 + 运费 10 + unique cents (1..199)`, offset >= 1 && offset <= 199, pay);
+    check(`[${W}] pay page: amount = 2 × 99 + 运费 10, or a few fen less (never more)`, offset <= 0 && offset >= -99, pay);
     check(`[${W}] pay page: order number, both 收款码, 付款时请付这个金额，备注订单号`, /^\d{8}-[A-Z2-9]{6}$/.test(pay.no) && pay.qr === 2 && pay.tabs === 2 && pay.why.includes('付款时请付这个金额，备注订单号'), pay);
     const orderNo = pay.no;
     const stored = JSON.parse(fs.readFileSync(tmp + '/data/shop/orders.json')).items.find(o => o.id === orderNo);
@@ -212,7 +212,7 @@ async function run(W, browser) {
     await Promise.all([p.waitForNavigation(), p.click('form.sform button[type=submit]')]);
     const dNo = await p.textContent('.pay-no b');
     const dFen = money(await p.textContent('.pay-amt'));
-    check(`[${W}] digital: amount = ¥29.90 + cents, no shipping, different from the open order`, dFen > 2990 && dFen < 2990 + 200 && dFen !== fen, dFen);
+    check(`[${W}] digital: amount = ¥29.90 or a few fen less, no shipping, different from the open order`, dFen <= 2990 && dFen > 2990 - 100 && dFen !== fen, dFen);
     await a.goto(base + '/admin/?r=order&id=' + dNo);
     await a.click('form:has(input[value=confirm]) button');
     await sheetOk(a);
@@ -532,7 +532,7 @@ async function runUsdt(W, browser) {
     try { fs.unlinkSync(tmp + '/data/shop/usdt/scan.json'); } catch (e) { /* not asked yet */ }
     await p.waitForSelector('#usdt-done', { timeout: 40000 });
     const done = await p.evaluate(() => ({ box: document.getElementById('usdt-done').textContent, tag: document.querySelector('.strip-tag').textContent, scripts: document.scripts.length }));
-    check(`[${W}] auto-confirm: the page shows 已收到 … USDT（TRC20），已自动确认收款 without a tap`, done.box.includes(amt + ' USDT（TRC20）') && done.box.includes('已自动确认收款') && done.tag === '已完成' && done.scripts === 0, done);
+    check(`[${W}] auto-confirm: the page shows 已收到 … USDT（TRC20），已自动确认收款 without a tap`, (m => m !== null && Number(m[1]) === Number(amt))(done.box.match(/已收到 ([0-9.]+) USDT（TRC20）/)) && done.box.includes('已自动确认收款') && done.tag === '已完成' && done.scripts === 0, done);
     const o = orders().find(x => x.id === no);
     check(`[${W}] stored: completed, paid by usdt with the tx`, o.status === 'completed' && o.usdt.paid.chain === 'trc20' && o.history.some(h => h.by === 'usdt' && h.note.includes(o.usdt.paid.tx)), o.status);
     await layout(p, 'USDT paid', W);

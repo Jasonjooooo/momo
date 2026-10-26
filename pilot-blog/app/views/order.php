@@ -17,7 +17,7 @@ $bought = $isSupply && $sp['trade_no'] !== '';
 <section class="card card-amt" aria-labelledby="o-amt">
   <h2 class="card-h" id="o-amt">应付金额</h2>
   <p class="amt-big mono"><?= h($amount) ?></p>
-  <p class="where"><?= h('商品 ¥' . shop_money((int) $o['subtotal']) . ($o['type'] === 'physical' ? ' + 运费 ¥' . shop_money((int) $o['shipping']) : '') . ' + 识别尾数 ¥' . shop_money((int) $o['offset'])) ?></p>
+  <p class="where"><?= h('商品 ¥' . shop_money((int) $o['subtotal']) . ($o['type'] === 'physical' ? ' + 运费 ¥' . shop_money((int) $o['shipping']) : '') . ((int) $o['offset'] !== 0 ? '，识别尾数' . shop_offset_text((int) $o['offset']) : '')) ?></p>
   <p><span class="chip <?= h(ORDER_CHIP[$st] ?? '') ?>"><?= h(SHOP_STATUS[$st]) ?></span> <span class="chip chip-line"><?= h(SHOP_TYPES[$o['type']]) ?></span> <span class="mono"><?= h($o['id']) ?></span></p>
 <?php if ($st === 'pending' || $st === 'claimed'): ?>
   <p class="where"><?= h('核对：微信或支付宝里收到的金额应该正好是 ' . $amount . '。' . ($st === 'claimed' ? '买家已经点了「我已付款」' . ($o['payer'] !== '' ? '，付款备注：' . $o['payer'] : '') . '。' : '买家还没点「我已付款」，但钱可能已经到了。') . ' 没付款的订单 ' . cn_time((string) $o['expires_at']) . ' 自动取消。') ?></p>

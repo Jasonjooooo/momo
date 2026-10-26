@@ -5,7 +5,7 @@
 // and uses no payment aggregator. The CNY order total stays the price of record (经营总览 counts it in CNY).
 //
 // Each quote (stored on the order: chain, address, rate, amount, created, expires) is unique per chain among the quotes
-// that can still match: base = ceil(CNY total / rate) to 0.01 USDT, plus a tail of 0.0001..0.0099. Amounts are kept as
+// that can still match: base = floor(CNY total / rate) to 0.01 USDT, minus a tail of 0..0.0099 (never above the price). Amounts are kept as
 // integers of 0.0001 USDT (amount4) and as base-unit strings (TRC20 USDT 6 decimals, BEP20 USDT 18 decimals).
 //
 // Matching (usdt_match) is a pure function. Checks run while the buyer's pay page is open (api/shop.php a=usdt, cached
@@ -449,10 +449,10 @@ function usdt_dec(mixed $v): ?string
     return $t === '' ? '0' : $t;
 }
 
-/** The USDT price before the tail: ceil(cny fen / rate) to 0.01 USDT, as amount4. */
+/** The USDT price before the tail: floor(cny fen / rate) to 0.01 USDT, as amount4 (never above the CNY price). */
 function usdt_base_amount4(int $fen, int $rate4): int
 {
-    $cents = intdiv($fen * 10000 + $rate4 - 1, $rate4);   // fen/100 ÷ rate4/10000 USDT = fen×100/rate4; ×100 for cents
+    $cents = intdiv($fen * 10000, $rate4);   // fen/100 ÷ rate4/10000 USDT = fen×100/rate4; ×100 for cents
     return $cents * 100;
 }
 
@@ -470,17 +470,20 @@ function usdt_taken(array $orders, string $chain, int $now): array
     return $used;
 }
 
-/** The unique payable amount4 for a CNY total on a chain, or null when all 99 tails are taken. */
+/**
+ * The unique payable amount4 for a CNY total on a chain, never above the price: the price rounded down to 0.01 USDT
+ * when no open quote asks it, else 0.0001, 0.0002 … 0.0099 USDT less (the owner absorbs that). Null when all are
+ * taken or the amount would fall under USDT_DUST4 (too small to tell from address-poisoning dust).
+ */
 function usdt_pick_amount4(int $fen, int $rate4, array $taken): ?int
 {
     $base = usdt_base_amount4($fen, $rate4);
-    $free = [];
-    for ($t = 1; $t <= 99; $t++) {
-        if (!isset($taken[$base + $t])) {
-            $free[] = $base + $t;
+    for ($t = 0; $t <= 99 && $base - $t >= USDT_DUST4; $t++) {
+        if (!isset($taken[$base - $t])) {
+            return $base - $t;
         }
     }
-    return $free ? $free[random_int(0, count($free) - 1)] : null;
+    return null;
 }
 
 // ---------- quotes on the order (order.usdt = {method, quotes: [...], paid}) ----------

@@ -546,10 +546,10 @@ function shop_new_order_id(array $orders, int $now): string
 }
 
 /**
- * The few fen added to an order's total so that its payable amount differs from every other unpaid order:
- * the owner matches a transfer to an order by its exact amount. The smallest free value from 1 fen up, so a
- * ¥0.10 item asks ¥0.11 rather than up to ¥1.09 (it was random among 1..99 fen); 1.00..1.99 when a hundred
- * unpaid orders share one total. Null when nothing is free.
+ * The order's 识别尾数, never more than the price: 0 when no other unpaid order asks this total (the buyer pays the
+ * price), else the smallest free reduction, -1 fen, -2 fen … -99 fen, so the payable amount differs from every
+ * other unpaid order and the owner matches a transfer by its exact amount. The owner absorbs those fen.
+ * (It used to add 1..99 fen; the owner: a buyer must never pay more than the price.) Null when nothing is free.
  */
 function shop_pick_offset(int $base, array $orders): ?int
 {
@@ -559,14 +559,21 @@ function shop_pick_offset(int $base, array $orders): ?int
             $used[(int) $o['amount']] = true;
         }
     }
-    foreach ([[1, 99], [100, 199]] as [$lo, $hi]) {
-        for ($k = $lo; $k <= $hi; $k++) {
-            if (!isset($used[$base + $k])) {
-                return $k;
-            }
+    for ($k = 0; $k <= 99 && $base - $k >= 1; $k++) {
+        if (!isset($used[$base - $k])) {
+            return -$k;
         }
     }
     return null;
+}
+
+/** '' for no 识别尾数, else '少收 ¥0.02' (the offset is 0 or negative; older orders may carry a positive one). */
+function shop_offset_text(int $offset): string
+{
+    if ($offset === 0) {
+        return '';
+    }
+    return ($offset < 0 ? '少收 ¥' : '多收 ¥') . shop_money(abs($offset));
 }
 
 function shop_hist(array &$o, string $status, string $by, string $note = '', ?int $now = null): void
@@ -1434,7 +1441,7 @@ function shop_csv(array $orders): string
         $rows[] = implode(',', array_map('csv_cell', [
             $o['id'], local_time($o['created_at']), SHOP_STATUS[$o['status']] ?? $o['status'], $o['name'], SHOP_TYPES[$o['type']] ?? '',
             shop_money((int) $o['price']), (string) $o['qty'], shop_money((int) $o['subtotal']), shop_money((int) $o['shipping']),
-            shop_money((int) $o['offset']), shop_money((int) $o['amount']), $o['buyer']['name'], $o['buyer']['phone'], $o['buyer']['address'],
+            ((int) $o['offset'] < 0 ? '-' : '') . shop_money(abs((int) $o['offset'])), shop_money((int) $o['amount']), $o['buyer']['name'], $o['buyer']['phone'], $o['buyer']['address'],
             $o['buyer']['email'], $o['note'], $o['payer'], $o['courier'], $o['tracking'], $o['cancel_reason'],
             implode('；', array_map(fn($r) => local_time($r['t']) . ' ' . $r['note'], $o['refunds'])),
             (string) ($o['ref']['code'] ?? ''),

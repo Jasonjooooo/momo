@@ -201,19 +201,20 @@ function usdt_unit_tests(): void
     ok((fileperms(data_path('secrets.json')) & 0777) === 0600, 'secrets.json stays 0600');
 
     // amounts
-    ok(usdt_base_amount4(10000, 72000) === 138900 && usdt_base_amount4(7200, 72000) === 100000 && usdt_base_amount4(7201, 72000) === 100100 && usdt_base_amount4(1, 72000) === 100, 'base: ceil(CNY / rate) to 0.01 USDT (¥100 → 13.89, ¥72 → 10.00, ¥72.01 → 10.01, ¥0.01 → 0.01)');
+    ok(usdt_base_amount4(10000, 72000) === 138800 && usdt_base_amount4(7200, 72000) === 100000 && usdt_base_amount4(7201, 72000) === 100000 && usdt_base_amount4(1, 72000) === 0, 'base: floor(CNY / rate) to 0.01 USDT, never above the price (¥100 → 13.88, ¥72 → 10.00, ¥72.01 → 10.00, ¥0.01 → 0)');
     ok(usdt_units(138957, 6) === '13895700' && usdt_units(138957, 18) === '13895700000000000000' && usdt_amount_text(138957) === '13.8957' && usdt_amount_text(5) === '0.0005', 'base units: 6 decimals (TRC20) and 18 decimals (BEP20) as exact strings');
     ok(usdt_units_text('13895700', 6) === '13.8957' && usdt_units_text('13895700000000000000', 18) === '13.8957' && usdt_units_text('1000000', 6) === '1.00' && usdt_units_text('1', 18) === '0.000000000000000001', 'base units shown back as USDT');
     ok(usdt_hex_to_dec('0x' . str_pad('c0bf3239e0cdb0000', 64, '0', STR_PAD_LEFT)) === '222222000000000000000' && usdt_hex_to_dec('0x0') === '0' && usdt_hex_to_dec('0xzz') === null, 'hex log data → exact decimal (beyond 64-bit)');
     $taken = [];
     $seen = [];
-    for ($i = 0; $i < 99; $i++) {
+    for ($i = 0; $i < 100; $i++) {
         $a = usdt_pick_amount4(10000, 72000, $taken);
         $taken[$a] = true;
         $seen[] = $a;
     }
-    ok(count(array_unique($seen)) === 99 && min($seen) === 138901 && max($seen) === 138999, '99 quotes at one price: every amount different, tails 0.0001 .. 0.0099');
-    ok(usdt_pick_amount4(10000, 72000, $taken) === null, 'the 100th open quote at the same price is refused (busy), never a duplicate');
+    ok(count(array_unique($seen)) === 100 && $seen[0] === 138800 && $seen[1] === 138799 && min($seen) === 138701, '100 quotes at one price: the price first, then 0.0001 … 0.0099 USDT less, every amount different, never above the price');
+    ok(usdt_pick_amount4(10000, 72000, $taken) === null, 'the 101st open quote at the same price is refused (busy), never a duplicate');
+    ok(usdt_pick_amount4(1, 72000, []) === null && usdt_pick_amount4(8, 72000, []) === 100 && usdt_pick_amount4(8, 72000, [100 => true]) === null, 'a price under 0.01 USDT gets no quote; 0.01 itself cannot go lower (dust line)');
 }
 
 /** One quote row for the pure matching tests. */
@@ -267,8 +268,8 @@ function usdt_flow_tests(int $sport): void
     $ph = shop_make('u-poster', 'physical', '72', 5);
     $o1 = shop_create_order('u-guide', shop_buyer('digital'));
     $q1 = usdt_current_quote(usdt_choose($o1['id'], 'trc20', $now));
-    ok($q1 !== null && $q1['chain'] === 'trc20' && $q1['address'] === $T && $q1['amount4'] > 138900 && $q1['amount4'] < 139000 && $q1['expires'] === $now + 1800 && $q1['rate'] === 72000 && $q1['cny'] === 10000,
-        'quote: ¥100 at 7.20 → 13.89 + tail, the owner\'s TRC20 address, 30 minutes, rate snapshot', json_encode($q1));
+    ok($q1 !== null && $q1['chain'] === 'trc20' && $q1['address'] === $T && $q1['amount4'] <= 138800 && $q1['amount4'] > 138700 && $q1['expires'] === $now + 1800 && $q1['rate'] === 72000 && $q1['cny'] === 10000,
+        'quote: ¥100 at 7.20 → 13.88 or a little less, the owner\'s TRC20 address, 30 minutes, rate snapshot', json_encode($q1));
     ok(usdt_current_quote(usdt_choose($o1['id'], 'trc20', $now + 60)) === $q1, 'choosing the same chain again keeps the same quote (no new tail used)');
     $q1b = usdt_current_quote(usdt_choose($o1['id'], 'bep20', $now + 61));
     ok($q1b['chain'] === 'bep20' && $q1b['address'] === $B && count(usdt_order_quotes(shop_order_get($o1['id']))) === 2, 'switching chain: a BEP20 quote (the TRC20 one stays matchable until it runs out)');
@@ -293,7 +294,7 @@ function usdt_flow_tests(int $sport): void
     file_put_contents($GLOBALS['USDT_STATE'], json_encode(['tron' => ['items' => []], 'bsc' => ['head' => 50000, 'range_limit' => 1000, 'logs' => [], 'times' => [], 'head_time' => $now], 'requests' => []]));
     $o = shop_create_order('u-guide', shop_buyer('digital', '', 'reader@example.com'));
     $q = usdt_current_quote(usdt_choose($o['id'], 'trc20'));
-    usdt_add_tron(tron_item($T, usdt_units($q['amount4'] + 1, 6), time() - 20));                                   // 0.0001 too much
+    usdt_add_tron(tron_item($T, usdt_units($q['amount4'] + 100, 6), time() - 20));                                 // 0.01 too much (above every quote: quotes only go down)
     usdt_add_tron(tron_item($T, $q['units'] ?? usdt_units($q['amount4'], 6), time() - 10, ['token_info' => ['address' => 'TXLAQ63Xg1NAzckPwKHvzw7CSEmLMEqcdj', 'decimals' => 6]]));   // fake token
     usdt_add_tron(tron_item($T, usdt_units($q['amount4'], 6), time() - 86400 * 3));                              // the owner's own old history
     $good = tron_item($T, usdt_units($q['amount4'], 6), time() - 5);
@@ -315,7 +316,7 @@ function usdt_flow_tests(int $sport): void
     usdt_check_chain('trc20');
     ok(count(usdt_reqs('tron')) === $n, 'a second check within 15 seconds does not ask TronGrid again (cache)');
     $odd = usdt_unmatched_open();
-    ok(count($odd) === 1 && $odd[0]['why'] === 'amount' && $odd[0]['units'] === usdt_units($q['amount4'] + 1, 6), 'the overpayment is listed for the owner (unmatched, amount)');
+    ok(count($odd) === 1 && $odd[0]['why'] === 'amount' && $odd[0]['units'] === usdt_units($q['amount4'] + 100, 6), 'the overpayment is listed for the owner (unmatched, amount)');
     // a second order gets the same tail later? the used registry stops the same tx from paying it
     $o3 = shop_create_order('u-guide', shop_buyer('digital', '', 'c3@example.com'));
     $q3 = usdt_current_quote(usdt_choose($o3['id'], 'trc20'));
@@ -385,7 +386,7 @@ function usdt_flow_tests(int $sport): void
     [$c] = shop_order_input($sp, ['qty' => '1', 'email' => 'gamer@example.com', 'consent' => '1']);
     $o8 = shop_create_order($sp['slug'], $c);
     $q8 = usdt_current_quote(usdt_choose($o8['id'], 'trc20'));
-    ok($q8['cny'] === 680 && intdiv($q8['amount4'], 100) === 95, '¥6.80 at 7.20 → 0.95 USDT + tail');
+    ok($q8['cny'] === 680 && $q8['amount4'] <= 9400 && $q8['amount4'] > 9300, '¥6.80 at 7.20 → 0.94 USDT or a little less');
     usdt_add_tron(tron_item($T, usdt_units($q8['amount4'], 6), time()));
     $r = usdt_check_chain('trc20', true);
     $after = shop_order_get($o8['id']);

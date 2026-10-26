@@ -70,7 +70,7 @@ function shop_how_html(string $type): string
         default => '我本人核对到账后确认，然后寄快递，快递单号在「查订单」里能看到。确认是手工的，可能要等几个小时。',
     };
     return '<ol class="how"><li>点「购买」，填数量和' . ($type !== 'physical' ? '邮箱' : '收货信息') . '。</li>'
-        . '<li>下单后页面会给出付款金额（比价格多几分钱，用来认出你的付款）。用微信或支付宝扫我的收款码，付这个金额，备注订单号。</li>'
+        . '<li>下单后页面会给出付款金额，不会比价格多（偶尔少几分钱，用来认出你的付款）。用微信或支付宝扫我的收款码，付这个金额，备注订单号。</li>'
         . '<li>' . $last . '</li></ol>';
 }
 
@@ -232,7 +232,7 @@ function shop_order_form_html(array $p, array $ss, array $v = [], array $e = [],
         . '<div class="sf' . (isset($e['consent']) ? ' has-err' : '') . '"><label class="consent"><input id="f-consent" name="consent" type="checkbox" value="1"' . (($v['consent'] ?? '') === '1' ? ' checked' : '') . '><span>' . enc_text($consent) . '</span></label>'
         . (isset($e['consent']) ? '<p class="sf-err">' . enc_text($e['consent']) . '</p>' : '') . '</div>' . "\n"
         . '<button class="btn btn-primary btn-wide" type="submit">提交订单</button>' . "\n"
-        . '<p class="sf-hint">提交以后会给出准确的付款金额：合计再加几分钱的识别尾数，方便我认出你的付款。</p>' . "\n"
+        . '<p class="sf-hint">提交以后会给出准确的付款金额，不会比合计多；偶尔会少几分钱，那是识别尾数，方便我认出你的付款。</p>' . "\n"
         . '</form>' . "\n"
         . '<section class="howbox" aria-label="怎么买"><p class="end-k">HOW TO BUY</p>' . shop_how_html($p['type']) . '</section>' . "\n"
         . '<p class="back"><a class="tlink" href="../shop/' . enc_attr($p['slug']) . '.html">回到商品</a></p>' . "\n"
@@ -252,7 +252,7 @@ function shop_amount_rows(array $o, ?array $q = null): string
             . '</dl>';
     }
     return '<dl class="sum">' . $rows
-        . ($paid === null ? '<div><dt>识别尾数</dt><dd>¥' . shop_money((int) $o['offset']) . '</dd></div>'
+        . ($paid === null ? ((int) $o['offset'] !== 0 ? '<div><dt>识别尾数</dt><dd>' . shop_offset_text((int) $o['offset']) . '</dd></div>' : '')
             . '<div class="sum-total"><dt>应付</dt><dd>¥' . shop_money((int) $o['amount']) . '</dd></div>'
             : '<div class="sum-total"><dt>订单金额</dt><dd>¥' . shop_money((int) $o['subtotal'] + (int) $o['shipping']) . '</dd></div>'
             . '<div><dt>USDT 实付（' . USDT_CHAINS[$paid['chain']]['label'] . '）</dt><dd>' . enc_text(usdt_units_text((string) $paid['units'], USDT_CHAINS[$paid['chain']]['decimals'])) . '</dd></div>')
@@ -309,7 +309,7 @@ function shop_pay_html(array $o, array $ss, string $msg = '', array $chains = []
             ? '<p class="pay-k">订单金额（人民币）</p>' . "\n" . '<p class="pay-amt pay-amt-sm">' . shop_price_html((int) $o['subtotal'] + (int) $o['shipping']) . '</p>' . "\n"
             : '<p class="pay-k">' . ($st === 'pending' ? '请付这个金额' : '订单金额') . '</p>' . "\n"
             . '<p class="pay-amt">' . shop_price_html((int) $o['amount']) . '</p>' . "\n"
-            . ($st === 'pending' ? '<p class="pay-why"><b>付款时请付这个金额，备注订单号。</b>金额比合计多 ¥' . shop_money((int) $o['offset']) . '，这是这个订单的识别尾数，我靠它认出你的付款。少付或多付都对不上。</p>' . "\n" : ''))
+            . ($st === 'pending' ? '<p class="pay-why"><b>付款时请付这个金额，备注订单号。</b>' . ((int) $o['offset'] < 0 ? '这一单比合计' . shop_offset_text((int) $o['offset']) . '，是这个订单的识别尾数，我靠它认出你的付款。' : '') . '少付或多付都对不上。</p>' . "\n" : ''))
         . '<p class="pay-no"><span>订单号</span><b>' . enc_text($o['id']) . '</b></p>' . "\n"
         . '</header>';
     $body = '';
@@ -418,7 +418,7 @@ function shop_usdt_panel_html(array $o, array $q, array $chains, int $now): stri
         . '<li>转完就好，不用截图。链上确认后自动确认收款，通常 1 到 3 分钟。</li>'
         . '</ol>' . "\n"
         . '<p class="usdt-warn"><b>只能用 ' . $c['label'] . ' 网络转 USDT。</b>换了别的网络、别的币，或者金额不一样（多了少了都算），系统都认不出来，不会自动确认，要人工核对，钱可能找不回来。</p>' . "\n"
-        . '<p class="sf-hint">按 1 USDT = ¥' . enc_text(usdt_rate_text($q['rate'])) . ' 换算，最后几位小数是这个订单的识别尾数。没有脚本的浏览器不会自动刷新，转完以后 <a class="tlink-in" href="' . $self . '">刷新这一页</a> 看看。</p>' . "\n"
+        . '<p class="sf-hint">按 1 USDT = ¥' . enc_text(usdt_rate_text($q['rate'])) . ' 换算并向下取整，不会比价格多；最后几位小数是这个订单的识别尾数。没有脚本的浏览器不会自动刷新，转完以后 <a class="tlink-in" href="' . $self . '">刷新这一页</a> 看看。</p>' . "\n"
         . '</section>' . "\n" . shop_usdt_scripts();
 }
 

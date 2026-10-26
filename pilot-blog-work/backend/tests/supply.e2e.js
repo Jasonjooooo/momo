@@ -148,7 +148,7 @@ async function run(W, browser) {
     await Promise.all([p.waitForNavigation(), p.click('form.sform button[type=submit]')]);
     const no = await p.textContent('.pay-no b');
     const fen = money(await p.textContent('.pay-amt'));
-    check(`[${W}] pay page: 2 × ¥6.80 + unique cents`, fen > 1360 && fen < 1360 + 200, fen);
+    check(`[${W}] pay page: 2 × ¥6.80, or a few fen less (never more)`, fen <= 1360 && fen > 1360 - 100, fen);
     check(`[${W}] nothing bought before the owner confirms`, Object.keys(mockBooks().trades || {}).length === 0);
     await sleep(2100);
     await Promise.all([p.waitForNavigation(), p.click('.paid-form button[type=submit]')]);
