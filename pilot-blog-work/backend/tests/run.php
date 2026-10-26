@@ -1135,6 +1135,11 @@ function group_shop(): void
     [$cl] = shop_order_input(['type' => 'physical'], ['qty' => '2', 'name' => "张\x00三\u{202E}", 'phone' => '13800138000', 'address' => "上海市\n浦东新区 100 号", 'note' => '<b>x</b>', 'consent' => '1']);
     ok($cl['name'] === '张 三' && !str_contains($cl['address'], "\n"), 'buyer text: control and bidi characters and line breaks removed');
 
+    // identification tail: the smallest free fen, above the totals other unpaid orders already ask
+    $oo = fn(int $amount, string $st) => ['amount' => $amount, 'status' => $st];
+    ok(shop_pick_offset(10, []) === 1 && shop_pick_offset(10, [$oo(11, 'pending'), $oo(12, 'claimed'), $oo(13, 'completed')]) === 3
+        && shop_pick_offset(10, array_map(fn($k) => $oo(10 + $k, 'pending'), range(1, 99))) === 100 && shop_pick_offset(10, array_map(fn($k) => $oo(10 + $k, 'pending'), range(1, 199))) === null,
+        'tail: 1 fen when free, else the next free one (paid orders do not count), 1.00 after 99, none after 199');
     // form tokens
     $t = shop_form_token('order', time() - 10);
     ok(shop_form_token_check('order', $t) === 'ok' && shop_form_token_check('lookup', $t) === 'bad', 'form token works only for its own form');

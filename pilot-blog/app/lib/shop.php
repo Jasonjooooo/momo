@@ -547,8 +547,9 @@ function shop_new_order_id(array $orders, int $now): string
 
 /**
  * The few fen added to an order's total so that its payable amount differs from every other unpaid order:
- * the owner matches a transfer to an order by its exact amount. Random among the free values 1..99 fen,
- * then 1.00..1.99 when a hundred unpaid orders share one total. Null when nothing is free.
+ * the owner matches a transfer to an order by its exact amount. The smallest free value from 1 fen up, so a
+ * ¥0.10 item asks ¥0.11 rather than up to ¥1.09 (it was random among 1..99 fen); 1.00..1.99 when a hundred
+ * unpaid orders share one total. Null when nothing is free.
  */
 function shop_pick_offset(int $base, array $orders): ?int
 {
@@ -559,14 +560,10 @@ function shop_pick_offset(int $base, array $orders): ?int
         }
     }
     foreach ([[1, 99], [100, 199]] as [$lo, $hi]) {
-        $free = [];
         for ($k = $lo; $k <= $hi; $k++) {
             if (!isset($used[$base + $k])) {
-                $free[] = $k;
+                return $k;
             }
-        }
-        if ($free) {
-            return $free[random_int(0, count($free) - 1)];
         }
     }
     return null;
