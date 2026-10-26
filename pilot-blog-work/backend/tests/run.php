@@ -1371,6 +1371,16 @@ function shop_http_tests(array $ph, array $dg): void
     $ts = (string) (time() - 5);
     ok(shop_form_token_check('order', $ts . '.' . substr(shop_hmac('form|order|' . $ts), 0, 32)) === 'ok', 'a form rendered before the update (token without a nonce) still works');
     clear_rl();
+    // separate pay address (pay.<domain>): the order form must be allowed to land there (CSP form-action covers redirects)
+    settings_save(['shop' => ['pay_sub' => true]], settings_get()['rev']);
+    $pay = (string) preg_replace('#^https://#', 'https://pay.', (string) (site_live()['fields']['site.origin'] ?? ''));   // as api/shop.php builds it
+    $csp = http('GET', '/api/shop.php?a=order&p=guide')['headers']['content-security-policy'] ?? '';
+    $r = shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'paysub@example.com', 'consent' => '1']);
+    ok(str_starts_with($pay, 'https://pay.') && str_contains($csp, "form-action 'self' " . $pay) && $r['status'] === 303 && str_starts_with($r['headers']['location'] ?? '', $pay . '/api/shop.php?a=pay&o='),
+        'pay address on: the order form may post on to it (form-action), and the order lands on its pay page there', $pay . ' | ' . $csp . ' | ' . ($r['headers']['location'] ?? ''));
+    settings_save(['shop' => ['pay_sub' => false]], settings_get()['rev']);
+    ok(str_contains(http('GET', '/api/shop.php?a=order&p=guide')['headers']['content-security-policy'] ?? '', "form-action 'self';"), 'pay address off: form-action is this site only');
+    clear_rl();
     // digital download
     shop_owner_action($id, 'confirm');
     $r = shop_post('lookup', ['o' => $id, 'v' => 'BUYER']);

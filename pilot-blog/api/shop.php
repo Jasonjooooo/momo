@@ -54,7 +54,19 @@ function shop_headers(?string $csp = null): void
     header('X-Frame-Options: DENY');
     header('Referrer-Policy: no-referrer');
     header('X-Robots-Tag: noindex, nofollow');
-    header('Content-Security-Policy: ' . ($csp ?? SHOP_CSP));
+    $csp ??= SHOP_CSP;
+    // With the separate pay address on, the order form's answer is a redirect to pay.<domain>; browsers check
+    // form-action on that redirect too, so the pay origin must be allowed or the buyer stays on the form
+    // (the order is made, the pay page never opens).
+    try {
+        $pay = shop_pay_origin(shop_settings());
+    } catch (Throwable $e) {
+        $pay = null;
+    }
+    if ($pay !== null) {
+        $csp = str_replace("form-action 'self'", "form-action 'self' " . $pay, $csp);
+    }
+    header('Content-Security-Policy: ' . $csp);
 }
 
 /** The page; the USDT pay page (and only it) may load this site's own scripts. */
