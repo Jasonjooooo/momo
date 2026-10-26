@@ -1826,6 +1826,20 @@ Added by the 微信提醒 pass (2026-10-23, owner request):
    only), `game_submit()` (a different name takes 本周第 1). No public page, template or Nginx change (no new public entry
    point). Details in §21. Tests: run.php group `notify` (+ `tests/push-mock.php`), the page joins the e2e.js admin sweep.
 
+Added by the USDT 收款 pass (2026-10-26, owner request):
+
+35. **USDT payment (TRC20 / BEP20), confirmed automatically from public chain data.** New `app/lib/usdt.php`, view `usdt`, admin
+   routes `pay.usdt` / `pay.usdt_key` / `pay.usdt_key_del` / `usdt` / `usdt.check` / `usdt.attach` / `usdt.dismiss` (page USDT 到账
+   under 订单, no new menu entry; the 订单 badge counts open unmatched transfers), setting `usdt` (not page state: never republishes),
+   secret `trongrid_key` (+ `trongrid_key_set_at`), public route `api/shop.php?a=usdt` (POST choose, GET poll), assets
+   `assets/shop/usdt.js` + `assets/shop/qrcode.min.js` (a copy of `assets/game/qrcode.min.js`), CLI `app/bin/usdt-watch.php`, cron file
+   `pilot-blog-work/deploy/hxpilot-usdt.cron`, 微信提醒 event `usdt` (default on). The pay page is no longer always script-free:
+   while it shows a USDT quote it carries the two same-origin scripts and is served with `script-src 'self'` (everything else
+   unchanged). `shop_owner_action('confirm')` takes `by` (`owner` | `usdt`), a history `note` and `usdt_paid`; `shop_maintain_in()`
+   does not expire a pending order while one of its USDT quotes is inside expiry + 10 min. No Nginx or .htaccess change (no new
+   entry point; `/assets/` is already served on the main and the pay host). Details in §22. Tests: run.php group `usdt`
+   (+ `tests/usdt-mock.php`), `shop.e2e.js` stage `usdt` (`ONLY_USDT=1`).
+
 ## 20. 商城 (shop, 2026-10-17)
 
 Owner-approved scope: physical goods (owner ships) and digital goods (text, link and/or one private file), paid to the
@@ -2109,6 +2123,98 @@ script switches (posix_initgroups / setgid / setuid) to the owner of the data di
 the data dir itself belongs to root it stays root).
 
 
+## 22. USDT 收款 (TRC20 / BEP20, 2026-10-26)
+
+**Scope (owner's choice).** Besides the 收款码, a buyer may pay an order in USDT on TRC20 (TRON) or BEP20 (BNB Smart Chain) to the
+owner's own receiving address; the site confirms the payment by itself from public chain data. Non-custodial only: the site
+stores receiving **addresses**, never a private key or a recovery phrase, never sends funds, has no wallet or balance feature and
+uses no payment aggregator. The CNY total stays the price of record (经营总览 counts `amount` in CNY as before).
+
+**Live API shapes.** TronGrid and the BNB Chain RPCs were not reachable from the build box (proxy 403, docs DNS failure); the code
+follows the documented shapes and is tested against `tests/usdt-mock.php`:
+- TronGrid `GET https://api.trongrid.io/v1/accounts/{address}/transactions/trc20?only_confirmed=true&only_to=true&limit=50&
+  contract_address=TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t&min_timestamp=<ms>` (header `TRON-PRO-API-KEY` when a key is set) →
+  `{data: [{transaction_id, token_info: {address, decimals, symbol}, block_timestamp (ms), from, to, type, value}], success,
+  meta: {fingerprint?}}`; up to 4 pages via `fingerprint`. Each item is checked again: `type` Transfer, `token_info.address` =
+  the USDT contract, `decimals` = 6, `to` = our address (a hex `41…` form is converted), `block_timestamp`.
+- BSC JSON-RPC (`https://bsc-dataseed.bnbchain.org`, then `https://bsc-dataseed1.defibit.io`, then `https://bsc-rpc.publicnode.com`;
+  the first that answers): `eth_blockNumber`; `eth_getLogs {fromBlock, toBlock, address: 0x55d398326f99059fF775485246999027B3197955,
+  topics: [keccak("Transfer(address,address,uint256)"), null, <our address padded>]}` in chunks of ≤ 1000 blocks (at most 8 per
+  check), only up to head − 15 (so every log has ≥ 15 confirmations; the pure function checks `conf` too), `removed` logs
+  skipped; `eth_getBlockByNumber` for each log's block time. The first block is estimated from the oldest waiting quote
+  (created − 2 min, 0.5 s per block, i.e. reaching a little further back than BSC's ~0.75 s) and the next block to scan is
+  remembered per address in `scan.json`.
+- Every call: curl, connect 3 s, total 8 s, TLS verified, no redirects, https only, answers capped at 2 MB, and a budget of 20 s per
+  chain check across pages / chunks / fallbacks. Failures are logged (`error_log`) and noted for the admin page; they never break
+  a page. Tests only: `BLOG_USDT_TEST_TRON` / `BLOG_USDT_TEST_BSC` (`http://127.0.0.1:<port>`, comma list for fallbacks) are
+  honoured only under the CLI or php -S. No buyer data, order number or amount is sent anywhere: the queries carry only the
+  owner's address, the contract and a time / block range.
+
+**Settings** (`settings.usdt`, 收款设置 → USDT 收款): `{trc20: {on, address}, bep20: {on, address}, rate (CNY per USDT ×10000,
+¥5.00..¥10.00, typed with up to 4 decimals), window (minutes, 10..120, default 30)}`; a chain is offered only when it is on, its
+address is valid and a rate is set. Address checks (`usdt_address_check`): TRC20 = base58check, version byte 0x41 (starts with T,
+34 characters), double-SHA256 checksum verified; BEP20 = `0x` + 40 hex, EIP-55 verified when mixed case (pure-PHP Keccak-256),
+stored checksummed; the USDT contracts themselves and the other chain's format are refused. Input that looks like a secret
+(64 hex with or without 0x, WIF, xprv, 12 or more words, a run of 12+ Chinese characters) is refused with a plain warning, never
+stored, never logged and never echoed back into the form. The TronGrid API key (UUID format, optional) is write-only in
+`secrets.json` like the 货源 key (hint = last 4). The page carries the plain-language warning (only the matching chain; the
+address must be the owner's own wallet; never paste a private key or recovery phrase).
+
+**Quotes** (`order.usdt = {method: qr|usdt, quotes: [...], paid: null|{...}}`). `POST api/shop.php?a=usdt` (pay token `k`, form
+token `usdt` where a quick tap is fine, honeypot, same-origin, 30 per visitor per hour; only while the order is `pending`) with `c`
+= `qr` | `trc20` | `bep20`. A chain gets a quote `{chain, address, rate, cny = subtotal + shipping (the CNY 识别尾数 is not part
+of it), amount4, units, created, expires = created + window}`; amount4 (0.0001 USDT) = ceil(cny / rate) to 0.01 USDT + a random
+tail 1..99, unique on that chain among all quotes that can still match (until expires + 10 min); all 99 taken → 「现在用 USDT
+付款的人太多了」. `units` = base units as a decimal string (TRC20 6 decimals, BEP20 18 decimals). Choosing a chain whose quote
+is still valid (> 1 min left, same address) shows that quote again; an expired quote is replaced by a new one at the current
+rate. At most 20 quotes per order. Old quotes stay on the order and keep matching until they run out (a buyer who paid and then
+switched is still recognised).
+
+**Pay page.** When USDT is on, 付款方式 (one plain form: 微信 / 支付宝, USDT · TRC20, USDT · BEP20; the current one marked).
+With a USDT quote: header 订单金额（人民币）, the chain in large text, the exact amount and the address (each with a copy button),
+a QR code of the address (canvas, qrcode-generator), the deadline and a countdown, three plain steps, the chain / amount
+warning, the rate used. Without script the address, amount and deadline are all there plus 「刷新这一页」. `usdt.js` polls
+`GET api/shop.php?a=usdt&o=&k=` every 8 s (20 s in a hidden tab, 30 s after a 429, backing off on errors) and reloads on paid /
+expired; the answer is `{ok, state: waiting|expired|paid|qr|claimed|cancelled, left, checked}` with no address or amount.
+Limits: 120 polls per visitor and 150 per order per 10 minutes (429 JSON). The poll asks the chain through
+`usdt_check_chain()`, which queries each chain at most every 15 s (shared with the cron and other pages, under a per-chain lock).
+An expired quote shows 「重新报价」 and explains that a transfer within 10 minutes is still confirmed and later ones are checked by
+hand. A paid order shows 「已收到 x USDT（链），已自动确认收款」 and has no script. The buyer never sees explorer links or other orders.
+
+**Matching** (`usdt_match`, pure): skip a transfer whose token contract or decimals are not the chain's USDT (fake tokens are not
+even listed), whose recipient is not our address (BEP20 case-insensitive, TRON exact), whose key (TRC20 `trc20:<txid>`, BEP20
+`bep20:<txhash>:<logIndex>`) is already in the used registry, or which is malformed; wait on a BEP20 log under 15 confirmations;
+match a quote of the same chain and address with exactly the same base units and `created − 2 min ≤ ts ≤ expires + 10 min` whose
+order can still be paid (pending, claimed, or auto-cancelled and not redacted) and is not already paid in USDT (several → the
+latest quote); else unmatched with the reason `amount` (no quote has that amount: under- and overpayment included), `early`,
+`late` or `closed` (+ the order concerned). Transfers older than the oldest waiting quote (− 2 min) are ignored (the owner's own
+history). Quotes are watched until 6 h after they expired, so late payments still reach the list.
+
+**Applying** (`usdt_apply`, under `with_lock('usdt')`): a match runs `shop_owner_action(id, 'confirm', {by: 'usdt', note: '<链>
+<tx>', usdt_paid: {chain, tx, key, units, from, ts, at, how: auto, amount4, rate}})`, the same transition as 确认收款 (digital →
+completed, physical waits for shipping, an auto-cancelled order is restored if the stock is there), then marks the key used,
+then (after the response in a web request) buys a 货源 card with `supply_fulfill(id, 'confirm')`, republishes if a stock label
+changed and sends 微信提醒 `usdt`. A confirm refused by the order (state, stock) puts the transfer on the unmatched list instead.
+Everything else that is not skipped goes to the unmatched list and is marked used, so it is decided once. Files (0600, under
+`blog-data/shop/usdt/`): `used.json {keys: {key: {at, order}}}` (entries older than 60 days dropped), `unmatched.json {items:
+[{id, key, chain, tx, from, to, units, ts, seen, why, near, state open|attached|dismissed, order, done_at}]}` (all open ones kept,
+handled ones up to 500 in total), `scan.json {trc20|bep20: {at, ok_at, err, err_at, next: {address: block}}}`.
+
+**Owner.** 收款设置 → USDT 收款 (switches, addresses with a Tronscan / BscScan link to check them, rate, window, TronGrid key, link to
+USDT 到账). 订单: a notice when transfers are unmatched, chips USDT (paid in USDT) / 选了 USDT (pending with a quote). Order page: USDT
+card (paid: chain, amount, tx and payer address with explorer links, chain time; quotes: amount, chain, rate, time, address) and
+history 「已确认收款（USDT 自动核对）：TRC20 <tx>」. USDT 到账 (`?r=usdt`): last check per chain, 现在查一次, the unmatched list (amount,
+chain, time, reason, related order, explorer links) with 手动对账 (order number + confirm sheet: the order is confirmed by the owner
+with `how: manual` and the note 「USDT 手动对账 <链> <tx>」; 货源 bought as after 确认收款) and 不是订单付款，忽略. All POSTs CSRF-checked.
+经营总览: 支付订单数 adds 「其中 USDT 付款 N 单」; 待处理 lists 未匹配的 USDT 到账 when there are any. Refunds are made by the owner from
+the wallet and recorded with 记录退款 as before.
+
+**Cron.** `app/bin/usdt-watch.php [--force] [--quiet]` every minute as `www-data` (`/etc/cron.d/hxpilot-usdt`): exits at once without
+any network call when no quote is waiting; else checks both chains (cached 15 s unless `--force`), republishes if needed. Exit 0
+fine, 1 a chain could not be asked, 64 bad argument; a second run while one is going exits 0 (flock). Started as root it switches
+to the data dir's owner first.
+
+
 ## 19. How to run locally
 
 Everything below runs from the repo root (`/home/user/momo`). Nothing here needs a real API key.
@@ -2129,8 +2235,14 @@ php pilot-blog-work/backend/tests/run.php            # or name groups: ... run.p
 # public pages in Chromium: launch page + browser subscribe flow, then 0, 1, 3 and 8 published posts at 1440 and 390
 node pilot-blog-work/backend/tests/public.e2e.js     # or: ... public.e2e.js pub3
 
-# the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, then the categories stage
+# the shop in Chromium: buyer flow (physical + digital) at 390 and 1440, owner actions, then the categories and USDT stages
 node pilot-blog-work/backend/tests/shop.e2e.js         # or: ... shop.e2e.js 390
+
+# only the USDT stage (choose USDT, QR / copy / countdown, fake TronGrid, auto-confirm); screenshots in screens/usdt/
+ONLY_USDT=1 node pilot-blog-work/backend/tests/shop.e2e.js
+
+# USDT check by hand on a local site (needs BLOG_USDT_TEST_TRON / _BSC for a mock, or real network on the server)
+php pilot-blog/app/bin/usdt-watch.php --force
 
 # only the category stage (admin 商品分类, editor picker, home tabs, deep link, no-script view, breadcrumb)
 ONLY_CATS=1 node pilot-blog-work/backend/tests/shop.e2e.js   # screenshots in screens/categories/

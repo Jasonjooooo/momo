@@ -20,6 +20,7 @@ function settings_defaults(): array
         'ref' => ['enabled' => false],   // 推广链接; the commission rate is set per 推广人 (referral.php)
         'game' => ['board' => true],     // 盲降挑战 leaderboard (api/game.php); the game itself always runs
         'notify' => NOTIFY_EVENT_DEFAULTS,   // 微信提醒 per-event switches (notify.php); the token is in secrets.json
+        'usdt' => usdt_defaults(),           // USDT 收款 (usdt.php): receiving addresses only; the TronGrid key is in secrets.json
     ];
 }
 
@@ -64,6 +65,7 @@ function settings_normalize(array $s): array
     foreach (NOTIFY_EVENT_DEFAULTS as $k => $def) {
         $out['notify'][$k] = (bool) ($n[$k] ?? $def);
     }
+    $out['usdt'] = usdt_normalize($out['usdt']);
     $out['rev'] = (int) $out['rev'];
     return $out;
 }
@@ -110,7 +112,7 @@ function settings_validate(array $s): array
     if ($s['supply']['app_id'] !== '' && !preg_match(SUPPLY_APP_ID_RE, $s['supply']['app_id'])) {
         $e['supply.app_id'] = 'app_id 只能是字母、数字、短横线和下划线，最多 64 位。';
     }
-    return $e;
+    return $e + usdt_validate($s['usdt']);
 }
 
 function settings_get(): array

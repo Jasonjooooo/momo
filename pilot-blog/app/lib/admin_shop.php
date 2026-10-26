@@ -31,7 +31,7 @@ function shop_attention_count(): int
 {
     try {
         $c = shop_counts(shop_orders());
-        return $c['claimed'] + $c['to_ship'] + $c['failed'];
+        return $c['claimed'] + $c['to_ship'] + $c['failed'] + count(usdt_unmatched_open());   // + USDT 到账 that matched no order
     } catch (Throwable $e) {
         return 0;
     }
@@ -464,7 +464,174 @@ function admin_order_supply(string $id, string $act): void
 
 function admin_pay(array $errors = [], array $form = []): void
 {
-    view('pay', ['title' => '收款设置', 'settings' => settings_get(), 'errors' => $errors, 'form' => $form]);
+    view('pay', ['title' => '收款设置', 'settings' => settings_get(), 'errors' => $errors, 'form' => $form, 'usdt_key_hint' => usdt_trongrid_key_hint(),
+        'usdt_ready' => usdt_chains_ready(), 'usdt_open' => count(usdt_unmatched_open())]);
+}
+
+// ---------- USDT 收款 (usdt.php): receiving addresses, rate, window, the TronGrid key; 未匹配的 USDT 到账 ----------
+
+function admin_pay_usdt(): void
+{
+    $rev = (int) post_str('rev', 20);
+    $form = ['trc20' => post_str('trc20', 300), 'bep20' => post_str('bep20', 300), 'rate' => post_str('rate', 40), 'window' => post_str('window', 40),
+        'trc20_on' => post_str('trc20_on', 2) === '1', 'bep20_on' => post_str('bep20_on', 2) === '1'];
+    $errors = [];
+    $patch = ['trc20' => ['on' => $form['trc20_on'], 'address' => ''], 'bep20' => ['on' => $form['bep20_on'], 'address' => '']];
+    foreach (array_keys(USDT_CHAINS) as $c) {
+        $raw = trim($form[$c]);
+        if ($raw === '') {
+            continue;
+        }
+        $r = usdt_address_check($c, $raw);
+        if ($r['ok']) {
+            $patch[$c]['address'] = $r['address'];
+        } else {
+            $errors['usdt_' . $c] = $r['msg'];
+            if (!empty($r['secret'])) {
+                $form[$c] = '';   // never echo a private key or a recovery phrase back into the page
+            }
+        }
+    }
+    $rateRaw = trim($form['rate']);
+    $rate = $rateRaw === '' ? 0 : usdt_parse_rate($rateRaw);
+    if ($rate === null) {
+        $errors['usdt_rate'] = '汇率请填像 7.20 这样的数字（1 USDT 换多少人民币），最多 4 位小数。';
+    }
+    $win = ascii_numbers($form['window']);
+    if (!ctype_digit($win)) {
+        $errors['usdt_window'] = '付款时间请填整数分钟，比如 30。';
+    }
+    if (!$errors) {
+        try {
+            settings_save(['usdt' => $patch + ['rate' => (int) $rate, 'window' => (int) $win]], $rev);
+            audit('usdt_settings', ($patch['trc20']['on'] ? 'trc20 ' : '') . ($patch['bep20']['on'] ? 'bep20' : ''));
+            $on = usdt_chains_ready();
+            flash('ok', $on ? '已保存 USDT 收款设置。买家现在可以在付款页选 USDT（' . implode('、', array_map(fn($c) => USDT_CHAINS[$c]['label'], $on)) . '）。' : '已保存 USDT 收款设置。现在没有打开的链，买家看不到 USDT。');
+            redirect('pay');
+        } catch (ValidationError $e) {
+            foreach ($e->fields as $k => $v) {
+                $errors[str_replace('.', '_', (string) $k)] = (string) $v;
+            }
+        } catch (ConflictException $e) {
+            flash('error', '没有保存：设置在别处改过了，刷新页面再试。');
+            redirect('pay');
+        }
+    }
+    http_response_code(400);
+    flash('error', '没有保存：' . reset($errors));
+    admin_pay($errors, ['usdt' => $form]);
+}
+
+function admin_pay_usdt_key(): void
+{
+    try {
+        usdt_trongrid_key_set(post_str('trongrid_key', 300));
+        audit('usdt_trongrid_key', 'set');
+        flash('ok', '已保存 TronGrid API Key（只显示最后 4 位）。');
+    } catch (ValidationError $e) {
+        http_response_code(400);
+        flash('error', '没有保存：' . (string) reset($e->fields));
+        admin_pay(['trongrid_key' => (string) reset($e->fields)], []);
+        return;
+    } catch (Throwable $e) {
+        shop_flash_error($e);
+    }
+    redirect('pay');
+}
+
+function admin_pay_usdt_key_del(): void
+{
+    try {
+        usdt_trongrid_key_remove();
+        audit('usdt_trongrid_key', 'removed');
+        flash('ok', '已删除 TronGrid API Key。不用 Key 也能查，只是次数限制更严。');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有删除：');
+    }
+    redirect('pay');
+}
+
+function admin_usdt(): void
+{
+    $items = [];
+    try {
+        $items = usdt_unmatched_doc()['items'];
+    } catch (Throwable $e) {
+        error_log('admin usdt: ' . get_class($e));
+    }
+    $open = array_values(array_filter($items, fn($x) => ($x['state'] ?? '') === 'open'));
+    $done = array_slice(array_values(array_filter($items, fn($x) => ($x['state'] ?? '') !== 'open')), 0, 30);
+    $scan = [];
+    try {
+        $scan = usdt_scan_state();
+    } catch (Throwable $e) {
+    }
+    view('usdt', ['title' => 'USDT 到账', 'open' => $open, 'done' => $done, 'scan' => $scan, 'settings' => settings_get(), 'ready' => usdt_chains_ready()]);
+}
+
+function admin_usdt_check(): void
+{
+    $before = shop_page_signature(shop_products());
+    $res = usdt_check_all(true);
+    $paid = 0;
+    $odd = 0;
+    $errs = [];
+    $asked = false;
+    foreach ($res as $c => $r) {
+        $paid += count($r['paid']);
+        $odd += $r['odd'];
+        $asked = $asked || $r['asked'];
+        if (!$r['ok']) {
+            $errs[] = USDT_CHAINS[$c]['label'] . '：' . $r['err'];
+        }
+    }
+    shop_republish_if_changed($before);
+    if (!$asked && !$errs) {
+        flash('info', '现在没有等待 USDT 付款的订单，不用查。');
+    } elseif ($errs) {
+        flash('error', '查询链上数据失败（' . implode('；', $errs) . '）。过一会儿再试；cron 每分钟也会自己查。');
+    } else {
+        flash('ok', '查过了：' . ($paid > 0 ? '自动确认了 ' . $paid . ' 个订单' : '没有新的匹配到账') . ($odd > 0 ? '，' . $odd . ' 笔对不上的到账放进了下面的列表' : '') . '。');
+    }
+    redirect('usdt');
+}
+
+function admin_usdt_attach(): void
+{
+    $item = post_str('id', 20);
+    $order = strtoupper(trim(post_str('order', 40)));
+    $before = shop_page_signature(shop_products());
+    try {
+        if (!preg_match(ORDER_ID_RE, $order)) {
+            throw new ShopError('invalid', '订单号格式不对，应该像 20261026-K7P2QX。');
+        }
+        $o = usdt_attach($item, $order);
+        audit('usdt_attach', $order);
+        $msg = '已把这笔 USDT 记到订单 ' . $order . '，订单已确认收款。';
+        if ($o['type'] === 'supply') {
+            $r = supply_fulfill($order, 'confirm');
+            audit('supply_trade', $order . ($r['ok'] ? ' ok' : ' failed'));
+            $msg .= $r['msg'];
+        }
+        shop_republish_if_changed($before);
+        flash('ok', $msg);
+        redirect('order', ['id' => $order]);
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有对账：');
+    }
+    redirect('usdt');
+}
+
+function admin_usdt_dismiss(): void
+{
+    try {
+        usdt_dismiss(post_str('id', 20));
+        audit('usdt_dismiss', post_str('id', 20));
+        flash('ok', '已标记为「不是订单付款」，移到下面的已处理里。');
+    } catch (Throwable $e) {
+        shop_flash_error($e, '没有完成：');
+    }
+    redirect('usdt');
 }
 
 function admin_pay_save(): void

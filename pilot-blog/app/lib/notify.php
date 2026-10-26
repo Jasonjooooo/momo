@@ -22,9 +22,10 @@ const NOTIFY_EVENTS = [
     'claim' => '买家点了「我已付款」',
     'failed' => '进货失败（货源）',
     'sub' => '新订阅者',
+    'usdt' => 'USDT 到账（自动确认收款，或到账对不上）',
     'game' => '小游戏有人上了周榜第 1',
 ];
-const NOTIFY_EVENT_DEFAULTS = ['order' => true, 'claim' => true, 'failed' => true, 'sub' => true, 'game' => false];
+const NOTIFY_EVENT_DEFAULTS = ['order' => true, 'claim' => true, 'failed' => true, 'sub' => true, 'usdt' => true, 'game' => false];
 const NOTIFY_FIXED_EVENTS = ['health' => '服务器体检', 'test' => '测试'];
 
 // ---------- settings and the write-only token ----------

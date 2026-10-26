@@ -1,0 +1,10 @@
+# /etc/cron.d/hxpilot-usdt — USDT 到账核对 for hxpilot.com (pilot-blog/app/bin/usdt-watch.php), every minute.
+# Only does something while a buyer has chosen USDT (a quote is open, or expired less than 6 hours ago); otherwise it
+# exits at once without any network call. Asks TronGrid / a public BNB Chain RPC (3 s connect, 8 s total).
+# Runs as www-data (the PHP-FPM user that owns blog-data), so no data file ever becomes root-owned.
+# Install: sudo install -m 0644 -o root -g root hxpilot-usdt.cron /etc/cron.d/hxpilot-usdt
+#          sudo touch /var/log/hxpilot-usdt.log && sudo chown www-data:www-data /var/log/hxpilot-usdt.log
+# The file name in /etc/cron.d must have no dot; the last line must end with a newline.
+SHELL=/bin/sh
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+* * * * * www-data /usr/bin/php /var/www/hxpilot/public/app/bin/usdt-watch.php --quiet >> /var/log/hxpilot-usdt.log 2>&1

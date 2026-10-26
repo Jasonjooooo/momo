@@ -33,8 +33,8 @@ function makeSite() {
   return tmp;
 }
 const portFree = port => new Promise(res => { const s = net.createServer().once('error', () => res(false)).once('listening', () => s.close(() => res(true))).listen(port, '127.0.0.1'); });
-async function startServer(tmp, port) {
-  const env = { ...process.env, BLOG_PUBLIC_DIR: tmp + '/pub', BLOG_DATA_DIR: tmp + '/data' };
+async function startServer(tmp, port, extra = {}) {
+  const env = { ...process.env, BLOG_PUBLIC_DIR: tmp + '/pub', BLOG_DATA_DIR: tmp + '/data', ...extra };
   delete env.ANTHROPIC_API_KEY;
   const p = spawn('php', ['-S', '127.0.0.1:' + port, '-t', tmp + '/pub', REPO + '/pilot-blog/app/dev/router.php'], { env, stdio: 'ignore' });
   for (let i = 0; i < 50 && await portFree(port); i++) await sleep(100);
@@ -449,14 +449,128 @@ async function runCats(W, browser) {
   }
 }
 
+// ---------- USDT 收款 (SPEC §22): choose USDT on the pay page, QR / copy / countdown, switch chain and back, the
+// transfer arrives on a fake TronGrid (tests/usdt-mock.php) and the page turns 已确认收款 by itself; the admin order
+// card. Screenshots in pilot-blog-work/screens/usdt/. ONLY_USDT=1 runs only this stage. ----------
+const USDT_SHOTS = path.join(REPO, 'pilot-blog-work/screens/usdt/');
+
+async function runUsdt(W, browser) {
+  console.log(`\n[usdt ${W}]`);
+  const tmp = makeSite();
+  const out = JSON.parse(execFileSync('php', [__dirname + '/shop-fixture.php', PW, 'usdt'], { env: { ...process.env, BLOG_PUBLIC_DIR: tmp + '/pub', BLOG_DATA_DIR: tmp + '/data' } }).toString());
+  const stateFile = tmp + '/usdt-state.json';
+  fs.writeFileSync(stateFile, JSON.stringify({ tron: { items: [] }, bsc: { head: 50000, logs: [], times: {} }, requests: [] }));
+  const mport = 9960 + Math.floor(Math.random() * 30);
+  const mock = spawn('php', ['-S', '127.0.0.1:' + mport, __dirname + '/usdt-mock.php'], { env: { ...process.env, USDT_STATE: stateFile, PHP_CLI_SERVER_WORKERS: '4' }, stdio: 'ignore' });
+  for (let i = 0; i < 50 && await portFree(mport); i++) await sleep(100);
+  const port = 9300 + Math.floor(Math.random() * 90);
+  const srv = await startServer(tmp, port, { BLOG_USDT_TEST_TRON: 'http://127.0.0.1:' + mport, BLOG_USDT_TEST_BSC: 'http://127.0.0.1:' + mport, PHP_CLI_SERVER_WORKERS: '4' });
+  const base = 'http://127.0.0.1:' + port;
+  const logs = [];
+  const ctx = await browser.newContext({ ...VIEWPORTS[W], locale: 'zh-CN' });
+  await ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base });
+  await ctx.route('**/assets/hero-scrub*.mp4', r => r.fulfill({ status: 404, body: '' }));
+  const p = await ctx.newPage();
+  track(p, logs, base);
+  const orders = () => JSON.parse(fs.readFileSync(tmp + '/data/shop/orders.json')).items;
+  try {
+    // ----- a digital order lands on the pay page with the 付款方式 choice -----
+    await p.goto(base + '/shop/' + out.digital + '.html');
+    await Promise.all([p.waitForNavigation(), p.click('.buy-btn')]);
+    await p.fill('#f-email', 'usdt.buyer@example.com');
+    await p.check('#f-consent');
+    await sleep(2100);
+    await Promise.all([p.waitForNavigation(), p.click('form.sform button[type=submit]')]);
+    const no = await p.textContent('.pay-no b');
+    const ch = await p.evaluate(() => ({ btns: [...document.querySelectorAll('.paym-b b')].map(b => b.textContent), on: (document.querySelector('.paym-b.on b') || {}).textContent, scripts: document.scripts.length, qr: document.querySelectorAll('.qr-p img').length }));
+    check(`[${W}] pay page: 付款方式 微信 / 支付宝, USDT · TRC20, USDT · BEP20; 收款码 chosen, no script yet`, ch.btns.join(',') === '微信 / 支付宝,USDT · TRC20,USDT · BEP20' && ch.on === '微信 / 支付宝' && ch.scripts === 0 && ch.qr === 2, ch);
+    await layout(p, 'pay page with USDT choice', W);
+    // ----- choose TRC20 -----
+    await Promise.all([p.waitForNavigation(), p.click('.paym-b[value=trc20]')]);
+    await p.waitForSelector('.usdt-qr:not([hidden])', { timeout: 5000 });
+    const q = orders().find(o => o.id === no).usdt.quotes.slice(-1)[0];
+    const amt = (q.amount4 / 10000).toFixed(4);
+    const pn = await p.evaluate(() => {
+      const cv = document.querySelector('.usdt-qr');
+      const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data;
+      let dark = 0;
+      for (let i = 0; i < d.length; i += 4) if (d[i] < 50) dark++;
+      return { net: document.querySelector('.usdt-net b').textContent, netSize: parseFloat(getComputedStyle(document.querySelector('.usdt-net b')).fontSize), amt: document.getElementById('usdt-amt').textContent, addr: document.getElementById('usdt-addr').textContent,
+        dark, copies: [...document.querySelectorAll('.usdt-copy')].filter(b => !b.hidden).map(b => b.textContent), left: (document.querySelector('[data-left]') || {}).textContent, status: document.querySelector('[data-status]').textContent,
+        steps: document.querySelectorAll('.usdt-steps li').length, warn: document.querySelector('.usdt-warn').textContent, on: (document.querySelector('.paym-b.on b') || {}).textContent, qrImgs: document.querySelectorAll('.qr-p img').length };
+    });
+    check(`[${W}] USDT panel: chain name in large text, the exact amount and the owner's TRC20 address`, pn.net === 'USDT · TRC20' && pn.netSize >= 24 && pn.amt === amt && pn.addr === out.usdt.trc20 && pn.on === 'USDT · TRC20' && pn.qrImgs === 0, pn);
+    check(`[${W}] QR code drawn, copy buttons shown, countdown running, three steps and the chain warning`, pn.dark > 200 && pn.copies.join(',') === '复制金额,复制地址' && /^(29|30):\d\d$/.test(pn.left) && pn.steps === 3 && pn.warn.includes('只能用 TRC20 网络转 USDT'), pn);
+    await sleep(1300);
+    const left2 = await p.textContent('[data-left]');
+    check(`[${W}] the countdown goes down`, left2 !== pn.left, [pn.left, left2]);
+    await p.click('.usdt-copy[data-copy="' + amt + '"]');
+    await sleep(150);
+    const copied = await p.evaluate(() => navigator.clipboard.readText());
+    check(`[${W}] 复制金额 puts the exact amount on the clipboard and says 已复制`, copied === amt && (await p.textContent('.usdt-copy.copied')) === '已复制', copied);
+    await p.click('.usdt-copy[data-copy="' + out.usdt.trc20 + '"]');
+    await sleep(150);
+    check(`[${W}] 复制地址 copies the address`, (await p.evaluate(() => navigator.clipboard.readText())) === out.usdt.trc20);
+    await layout(p, 'USDT pay page', W);
+    await shot(p, 'pay-usdt-trc20', W);
+    fs.renameSync(SHOTS + 'pay-usdt-trc20-' + W + '.png', USDT_SHOTS + 'pay-usdt-trc20-' + W + '.png');
+    // ----- switch to BEP20, then back to 收款码, then TRC20 again (same quote) -----
+    await Promise.all([p.waitForNavigation(), p.click('.paym-b[value=bep20]')]);
+    await p.waitForSelector('.usdt-qr:not([hidden])', { timeout: 5000 });
+    const bep = await p.evaluate(() => ({ net: document.querySelector('.usdt-net b').textContent, addr: document.getElementById('usdt-addr').textContent }));
+    check(`[${W}] switch to BEP20: its own address`, bep.net === 'USDT · BEP20' && bep.addr === out.usdt.bep20, bep);
+    await Promise.all([p.waitForNavigation(), p.click('.paym-b[value=qr]')]);
+    check(`[${W}] back to 收款码: the QR images and 我已付款 again, no USDT panel`, (await p.locator('.qr-p img').count()) === 2 && (await p.locator('#usdt').count()) === 0 && (await p.locator('.paid-form').count()) === 1);
+    await Promise.all([p.waitForNavigation(), p.click('.paym-b[value=trc20]')]);
+    await p.waitForSelector('.usdt-qr:not([hidden])', { timeout: 5000 });
+    check(`[${W}] TRC20 again: the same quote (amount unchanged)`, (await p.textContent('#usdt-amt')) === amt);
+    // ----- the transfer arrives on chain: the page turns paid by itself -----
+    const st = JSON.parse(fs.readFileSync(stateFile));
+    st.tron.items.push({ transaction_id: crypto.randomBytes(32).toString('hex'), token_info: { symbol: 'USDT', address: 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t', decimals: 6, name: 'Tether USD' },
+      block_timestamp: Date.now(), from: out.usdt.trc20, to: out.usdt.trc20, type: 'Transfer', value: String(q.amount4 * 100) });
+    fs.writeFileSync(stateFile, JSON.stringify(st));
+    try { fs.unlinkSync(tmp + '/data/shop/usdt/scan.json'); } catch (e) { /* not asked yet */ }
+    await p.waitForSelector('#usdt-done', { timeout: 40000 });
+    const done = await p.evaluate(() => ({ box: document.getElementById('usdt-done').textContent, tag: document.querySelector('.strip-tag').textContent, scripts: document.scripts.length }));
+    check(`[${W}] auto-confirm: the page shows 已收到 … USDT（TRC20），已自动确认收款 without a tap`, done.box.includes(amt + ' USDT（TRC20）') && done.box.includes('已自动确认收款') && done.tag === '已完成' && done.scripts === 0, done);
+    const o = orders().find(x => x.id === no);
+    check(`[${W}] stored: completed, paid by usdt with the tx`, o.status === 'completed' && o.usdt.paid.chain === 'trc20' && o.history.some(h => h.by === 'usdt' && h.note.includes(o.usdt.paid.tx)), o.status);
+    await layout(p, 'USDT paid', W);
+    await shot(p, 'pay-usdt-paid', W);
+    fs.renameSync(SHOTS + 'pay-usdt-paid-' + W + '.png', USDT_SHOTS + 'pay-usdt-paid-' + W + '.png');
+    // ----- owner: order page card, 收款设置 section -----
+    const a = await adminLogin(ctx, base);
+    track(a, logs, base);
+    await a.goto(base + '/admin/?r=order&id=' + no);
+    const card = await a.textContent('#o-usdt-card');
+    check(`[${W}] admin order: USDT card with the amount and a Tronscan link`, card.includes('USDT 已到账，自动确认') && card.includes(amt + ' USDT') && (await a.locator('#o-usdt-card a[href^="https://tronscan.org/#/transaction/"]').count()) === 1, card.slice(0, 200));
+    await layout(a, 'admin order USDT', W);
+    await a.goto(base + '/admin/?r=pay#usdt');
+    check(`[${W}] admin 收款设置: USDT section with the warning`, (await a.textContent('#usdt')).includes('绝对不要'));
+    await layout(a, 'admin 收款设置 USDT', W);
+    await a.locator('#usdt').screenshot({ path: USDT_SHOTS + 'admin-usdt-settings-' + W + '.png' });
+    const bad = logs.filter(l => !/^HTTP 400 .*\/api\/shop\.php\?a=(order|lookup)$/.test(l));
+    check(`[${W}] usdt: no console errors, no external requests, no failed loads`, bad.length === 0, bad);
+  } finally {
+    await ctx.close();
+    srv.kill();
+    mock.kill();
+    if (!process.env.KEEP) fs.rmSync(tmp, { recursive: true, force: true });
+    else console.log('  kept ' + tmp);
+  }
+}
+
 (async () => {
   fs.mkdirSync(SHOTS, { recursive: true });
   fs.mkdirSync(CAT_SHOTS, { recursive: true });
+  fs.mkdirSync(USDT_SHOTS, { recursive: true });
   const browser = await chromium.launch();
   try {
     for (const W of WANT) {
+      if (process.env.ONLY_USDT) { await runUsdt(W, browser); continue; }
       if (!process.env.ONLY_CATS) await run(W, browser);
       await runCats(W, browser);
+      if (!process.env.ONLY_CATS) await runUsdt(W, browser);
     }
   } finally {
     await browser.close();

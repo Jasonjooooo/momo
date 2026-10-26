@@ -79,13 +79,13 @@ function group_notify(): void
 function notify_lib_tests(): void
 {
     // settings: defaults, old data, junk
-    ok(settings_get()['notify'] === ['order' => true, 'claim' => true, 'failed' => true, 'sub' => true, 'game' => false], 'switches default: order, claim, failed, sub on; game off');
+    ok(settings_get()['notify'] === ['order' => true, 'claim' => true, 'failed' => true, 'sub' => true, 'usdt' => true, 'game' => false], 'switches default: order, claim, failed, sub, usdt on; game off');
     $s = json_read(data_path('settings.json'));
     unset($s['notify']);
     json_write_atomic(data_path('settings.json'), $s);
     ok(settings_get()['notify'] === NOTIFY_EVENT_DEFAULTS, 'settings saved before 微信提醒 read as the defaults');
     json_write_atomic(data_path('settings.json'), ['notify' => ['order' => 0, 'evil' => true, 'game' => 'yes']] + $s);
-    ok(settings_get()['notify'] === ['order' => false, 'claim' => true, 'failed' => true, 'sub' => true, 'game' => true], 'unknown switch keys dropped, values cast to bool');
+    ok(settings_get()['notify'] === ['order' => false, 'claim' => true, 'failed' => true, 'sub' => true, 'usdt' => true, 'game' => true], 'unknown switch keys dropped, values cast to bool');
     $before = (string) file_get_contents(PUBLIC_DIR . '/index.html');
     $res = settings_save(['notify' => NOTIFY_EVENT_DEFAULTS], settings_get()['rev']);
     ok($res['publish'] === null && (string) file_get_contents(PUBLIC_DIR . '/index.html') === $before, 'switches are not page state: saving them never republishes');
@@ -370,8 +370,8 @@ function notify_http_tests(string $srvLog): void
     $r = http('POST', '/admin/?r=notify.events', ['form' => ['rev' => $rev, 'ev_order' => '1'], 'headers' => $cookie]);
     ok($r['status'] === 403 && settings_get()['notify']['claim'] === true, 'switches POST without CSRF: 403, nothing changed', (string) $r['status']);
     $r = http('POST', '/admin/?r=notify.events', ['form' => ['_csrf' => $csrf, 'rev' => $rev, 'ev_order' => '1', 'ev_sub' => '1', 'ev_game' => '1'], 'headers' => $cookie]);
-    ok(in_array($r['status'], [302, 303], true) && settings_get()['notify'] === ['order' => true, 'claim' => false, 'failed' => false, 'sub' => true, 'game' => true], 'switches saved from the checkboxes (unticked = off)', json_encode(settings_get()['notify']));
-    http('POST', '/admin/?r=notify.events', ['form' => ['_csrf' => $csrf, 'rev' => (string) settings_get()['rev'], 'ev_order' => '1', 'ev_claim' => '1', 'ev_failed' => '1', 'ev_sub' => '1'], 'headers' => $cookie]);
+    ok(in_array($r['status'], [302, 303], true) && settings_get()['notify'] === ['order' => true, 'claim' => false, 'failed' => false, 'sub' => true, 'usdt' => false, 'game' => true], 'switches saved from the checkboxes (unticked = off)', json_encode(settings_get()['notify']));
+    http('POST', '/admin/?r=notify.events', ['form' => ['_csrf' => $csrf, 'rev' => (string) settings_get()['rev'], 'ev_order' => '1', 'ev_claim' => '1', 'ev_failed' => '1', 'ev_sub' => '1', 'ev_usdt' => '1'], 'headers' => $cookie]);
     ok(settings_get()['notify'] === NOTIFY_EVENT_DEFAULTS, 'switches back to the defaults');
     $r = http('POST', '/admin/?r=notify.test', ['form' => [], 'headers' => $cookie]);
     ok($r['status'] === 403, '发一条测试 without CSRF: 403');

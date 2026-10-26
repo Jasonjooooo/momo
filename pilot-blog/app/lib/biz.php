@@ -108,7 +108,7 @@ function biz_report(array $range, ?array $orders = null, ?array $products = null
     $from = $range['from'];
     $to = $range['to'];
     $daily = array_fill_keys($range['days'], ['sales' => 0, 'profit' => 0, 'n' => 0]);
-    $r = ['created' => 0, 'paid_n' => 0, 'paid_fen' => 0, 'profit_fen' => 0, 'profit_n' => 0, 'cost_unknown' => 0, 'refund_fen' => 0, 'refund_n' => 0,
+    $r = ['created' => 0, 'usdt_n' => 0, 'paid_n' => 0, 'paid_fen' => 0, 'profit_fen' => 0, 'profit_n' => 0, 'cost_unknown' => 0, 'refund_fen' => 0, 'refund_n' => 0,
         'refund_unknown' => 0, 'ref_sales' => 0, 'ref_n' => 0, 'visitors' => 0, 'rate' => null, 'aov' => null];
     $top = [];
     foreach ($orders as $o) {
@@ -134,7 +134,10 @@ function biz_report(array $range, ?array $orders = null, ?array $products = null
         }
         $amount = (int) $o['amount'];
         $r['paid_n']++;
-        $r['paid_fen'] += $amount;
+        $r['paid_fen'] += $amount;   // the CNY total, also for orders paid in USDT
+        if (usdt_paid($o) !== null) {
+            $r['usdt_n']++;
+        }
         $daily[$day]['sales'] += $amount;
         $daily[$day]['n']++;
         $cost = biz_order_cost($o, $byId);

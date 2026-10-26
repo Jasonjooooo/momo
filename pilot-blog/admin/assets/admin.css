@@ -432,3 +432,9 @@ h2.cat-name{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0}
 /* 分享海报 */
 .pst-out{margin:16px 0 0}
 .pst-out img{display:block;width:min(360px,100%);height:auto;border:1px solid var(--line);border-radius:6px}
+/* USDT 到账 (?r=usdt) and the order page USDT card */
+.u-item{padding:14px 0;border-top:1px solid var(--line)}
+.u-item:first-of-type{border-top:0;padding-top:4px}
+.u-item p{margin:0 0 6px}
+.u-item form{margin:8px 0 0}
+.u-tx{overflow-wrap:anywhere;word-break:break-all}

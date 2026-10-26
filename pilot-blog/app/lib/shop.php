@@ -702,13 +702,19 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
                     throw new ShopError('state', '这个订单现在是「' . SHOP_STATUS[$st] . '」，不能再确认收款。');
                 }
                 $o['status'] = 'confirmed';
-                shop_hist($o, 'confirmed', 'owner', '', $now);
+                // by 'usdt': the payment was found on chain (usdt.php); the same transition as the owner's 确认收款
+                $by = ($args['by'] ?? 'owner') === 'usdt' ? 'usdt' : 'owner';
+                shop_hist($o, 'confirmed', $by, shop_clean_line($args['note'] ?? '', 120), $now);
+                if (is_array($args['usdt_paid'] ?? null)) {
+                    $o['usdt'] = (is_array($o['usdt'] ?? null) ? $o['usdt'] : []) + ['method' => 'usdt', 'quotes' => []];
+                    $o['usdt']['paid'] = $args['usdt_paid'];
+                }
                 // a card from the 货源 stays 'confirmed' here: supply_fulfill() buys it right after and completes it
                 if ($o['type'] === 'digital') {
                     // nothing to ship: the lookup page shows the content from now on
                     $o['status'] = 'completed';
                     $o['closed_at'] = $stamp;
-                    shop_hist($o, 'completed', 'owner', '', $now);
+                    shop_hist($o, 'completed', $by, '', $now);
                 }
                 break;
             case 'ship':
@@ -799,7 +805,8 @@ function shop_owner_action(string $id, string $act, array $args = [], ?int $now 
 function shop_maintain_in(array &$products, array &$orders, int $now, array $ss): void
 {
     foreach ($orders as &$o) {
-        if ($o['status'] === 'pending' && strtotime((string) $o['expires_at']) <= $now) {
+        if ($o['status'] === 'pending' && strtotime((string) $o['expires_at']) <= $now && usdt_order_hold($o) <= $now) {
+            // (a USDT quote keeps the order open until it expired plus the grace period: usdt.php)
             shop_release($o, $products);
             $o['status'] = 'cancelled';
             $o['cancel_reason'] = '超过 ' . (int) round((strtotime((string) $o['expires_at']) - strtotime((string) $o['created_at'])) / 3600) . ' 小时没有付款，订单自动取消。';
@@ -1408,6 +1415,10 @@ function shop_catalog_text(): string
             $out[] = '商城公告：' . $notice;
         }
         $out[] = $pay ? '收款方式：' . implode('或', $pay) . '扫码付款。' : '收款码还没设置好，暂时付不了款，请访客晚点再来。';
+        $chains = usdt_chains_ready();
+        if ($chains) {
+            $out[] = '也可以用 USDT 付款（' . implode('、', array_map(fn($c) => USDT_CHAINS[$c]['label'], $chains)) . '）：在付款页选 USDT，按页面上的金额和网络转账，到账后自动确认。';
+        }
         if ((int) ($ss['cancel_hours'] ?? 0) > 0) {
             $out[] = '下单后 ' . (int) $ss['cancel_hours'] . ' 小时内没付款的订单会自动取消。';
         }

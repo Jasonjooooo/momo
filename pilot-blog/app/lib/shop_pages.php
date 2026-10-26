@@ -1,7 +1,10 @@
 <?php
 // 商城 pages: the static product pages (written by the publisher into shop/) and the buyer's live pages served by
-// api/shop.php (order form, pay page, order lookup). One template (shop.tpl.html), no scripts anywhere: the CSP is
-// script-src 'none', so the pages work the same in the WeChat browser. Every value goes through enc_text/enc_attr.
+// api/shop.php (order form, pay page, order lookup). One template (shop.tpl.html), no scripts: the CSP is
+// script-src 'none', so the pages work the same in the WeChat browser. The one exception is the pay page while it shows
+// a USDT quote: it loads assets/shop/qrcode.min.js and assets/shop/usdt.js (same origin, CSP script-src 'self') for the
+// QR code, copy buttons, countdown and the poll; without them it still shows everything. Every value goes through
+// enc_text/enc_attr.
 declare(strict_types=1);
 defined('BLOG_APP') || exit;
 
@@ -174,10 +177,10 @@ function shop_input(string $id, string $name, string $value, array $attrs = [], 
 }
 
 /** Honeypot + form token, hidden from people. */
-function shop_form_hidden(string $purpose): string
+function shop_form_hidden(string $purpose, string $id = 'f-web'): string
 {
     return '<input type="hidden" name="tok" value="' . enc_attr(shop_form_token($purpose)) . '">'
-        . '<p class="sub-hp" aria-hidden="true"><label for="f-web">网址</label><input id="f-web" name="website" type="text" tabindex="-1" autocomplete="off"></p>';
+        . '<p class="sub-hp" aria-hidden="true"><label for="' . $id . '">网址</label><input id="' . $id . '" name="website" type="text" tabindex="-1" autocomplete="off"></p>';
 }
 
 /** The order form for one product. $v: values typed so far; $e: field errors; $top: a message above the form. */
@@ -236,14 +239,23 @@ function shop_order_form_html(array $p, array $ss, array $v = [], array $e = [],
         . '</div>';
 }
 
-/** Breakdown of an order's amount. */
-function shop_amount_rows(array $o): string
+/** Breakdown of an order's amount. With $q (the USDT quote the buyer is paying), the USDT amount replaces the CNY tail. */
+function shop_amount_rows(array $o, ?array $q = null): string
 {
-    return '<dl class="sum">'
-        . '<div><dt>' . enc_text($o['name']) . ' × ' . (int) $o['qty'] . '</dt><dd>¥' . shop_money((int) $o['subtotal']) . '</dd></div>'
-        . ($o['type'] === 'physical' ? '<div><dt>运费</dt><dd>' . ((int) $o['shipping'] > 0 ? '¥' . shop_money((int) $o['shipping']) : '包邮') . '</dd></div>' : '')
-        . '<div><dt>识别尾数</dt><dd>¥' . shop_money((int) $o['offset']) . '</dd></div>'
-        . '<div class="sum-total"><dt>应付</dt><dd>¥' . shop_money((int) $o['amount']) . '</dd></div>'
+    $paid = usdt_paid($o);
+    $rows = '<div><dt>' . enc_text($o['name']) . ' × ' . (int) $o['qty'] . '</dt><dd>¥' . shop_money((int) $o['subtotal']) . '</dd></div>'
+        . ($o['type'] === 'physical' ? '<div><dt>运费</dt><dd>' . ((int) $o['shipping'] > 0 ? '¥' . shop_money((int) $o['shipping']) : '包邮') . '</dd></div>' : '');
+    if ($q !== null) {
+        return '<dl class="sum">' . $rows
+            . '<div><dt>订单金额</dt><dd>¥' . shop_money((int) $o['subtotal'] + (int) $o['shipping']) . '</dd></div>'
+            . '<div class="sum-total"><dt>USDT 应付（' . USDT_CHAINS[$q['chain']]['label'] . '）</dt><dd>' . usdt_amount_text($q['amount4']) . '</dd></div>'
+            . '</dl>';
+    }
+    return '<dl class="sum">' . $rows
+        . ($paid === null ? '<div><dt>识别尾数</dt><dd>¥' . shop_money((int) $o['offset']) . '</dd></div>'
+            . '<div class="sum-total"><dt>应付</dt><dd>¥' . shop_money((int) $o['amount']) . '</dd></div>'
+            : '<div class="sum-total"><dt>订单金额</dt><dd>¥' . shop_money((int) $o['subtotal'] + (int) $o['shipping']) . '</dd></div>'
+            . '<div><dt>USDT 实付（' . USDT_CHAINS[$paid['chain']]['label'] . '）</dt><dd>' . enc_text(usdt_units_text((string) $paid['units'], USDT_CHAINS[$paid['chain']]['decimals'])) . '</dd></div>')
         . '</dl>';
 }
 
@@ -283,17 +295,21 @@ function shop_qr_html(array $ss, array $o): string
     return '<div class="qr-tabs">' . $radios . (count($order) > 1 ? '<div class="qr-bar">' . $labels . '</div>' : '<p class="qr-one">' . $help[$order[0]][0] . '</p>') . $panels . '</div>';
 }
 
-/** The pay page for an order (reached with its pay token). */
-function shop_pay_html(array $o, array $ss, string $msg = ''): string
+/** The pay page for an order (reached with its pay token). $chains: USDT chains the buyer may choose now. */
+function shop_pay_html(array $o, array $ss, string $msg = '', array $chains = [], ?int $now = null): string
 {
+    $now ??= time();
     $st = $o['status'];
     $k = shop_pay_token($o['id']);
     $lookup = 'shop.php?a=lookup&amp;o=' . enc_attr($o['id']);
+    $q = $st === 'pending' ? usdt_current_quote($o) : null;
     $head = '<header class="strip pay-head">' . "\n"
         . '<p class="strip-row">' . SHOP_FIX_SVG . '<b class="fix">PAY</b><span class="strip-tag st-' . $st . '">' . enc_text(shop_status_buyer($o)) . '</span></p>' . "\n"
-        . '<p class="pay-k">' . ($st === 'pending' ? '请付这个金额' : '订单金额') . '</p>' . "\n"
-        . '<p class="pay-amt">' . shop_price_html((int) $o['amount']) . '</p>' . "\n"
-        . ($st === 'pending' ? '<p class="pay-why"><b>付款时请付这个金额，备注订单号。</b>金额比合计多 ¥' . shop_money((int) $o['offset']) . '，这是这个订单的识别尾数，我靠它认出你的付款。少付或多付都对不上。</p>' . "\n" : '')
+        . ($q !== null
+            ? '<p class="pay-k">订单金额（人民币）</p>' . "\n" . '<p class="pay-amt pay-amt-sm">' . shop_price_html((int) $o['subtotal'] + (int) $o['shipping']) . '</p>' . "\n"
+            : '<p class="pay-k">' . ($st === 'pending' ? '请付这个金额' : '订单金额') . '</p>' . "\n"
+            . '<p class="pay-amt">' . shop_price_html((int) $o['amount']) . '</p>' . "\n"
+            . ($st === 'pending' ? '<p class="pay-why"><b>付款时请付这个金额，备注订单号。</b>金额比合计多 ¥' . shop_money((int) $o['offset']) . '，这是这个订单的识别尾数，我靠它认出你的付款。少付或多付都对不上。</p>' . "\n" : ''))
         . '<p class="pay-no"><span>订单号</span><b>' . enc_text($o['id']) . '</b></p>' . "\n"
         . '</header>';
     $body = '';
@@ -302,6 +318,13 @@ function shop_pay_html(array $o, array $ss, string $msg = ''): string
     }
     switch ($st) {
         case 'pending':
+            if ($chains) {
+                $body .= shop_usdt_choice_html($o, $ss, $chains, $q) . "\n";
+            }
+            if ($q !== null) {
+                $body .= shop_usdt_panel_html($o, $q, $chains, $now);
+                break;
+            }
             if (!array_filter($ss['qr'], fn($v) => is_string($v))) {
                 $body .= shop_qr_html($ss, $o);
                 break;
@@ -322,17 +345,91 @@ function shop_pay_html(array $o, array $ss, string $msg = ''): string
             $body .= '<p class="state-box state-x">这个订单已经取消：' . enc_text($o['cancel_reason']) . ' 如果你已经付了款，请在「查订单」里看取消原因，或者在首页的店铺客服留言。</p>';
             break;
         default:
-            $body .= '<p class="state-box state-ok">已确认收款，谢谢。' . match ($o['type']) {
+            $paid = usdt_paid($o);
+            $body .= '<p class="state-box state-ok" id="usdt-done">' . ($paid !== null && $paid['how'] === 'auto'
+                    ? '已收到 ' . enc_text(usdt_units_text((string) $paid['units'], USDT_CHAINS[$paid['chain']]['decimals'])) . ' USDT（' . USDT_CHAINS[$paid['chain']]['label'] . '），已自动确认收款，谢谢。'
+                    : '已确认收款，谢谢。') . match ($o['type']) {
                 'digital' => '内容在「查订单」里查看。',
                 'supply' => '卡密自动发出后在「查订单」里查看。',
                 default => '发货以后，快递单号会显示在「查订单」里。',
             } . '</p>';
     }
     return '<div class="scol">' . "\n" . $head . "\n" . $body . "\n"
-        . shop_amount_rows($o) . "\n"
+        . shop_amount_rows($o, $q) . "\n"
         . '<section class="savebox"><p class="end-k">SAVE THIS PAGE</p><p>请截图保存这一页，或者记下订单号 <b class="mono">' . enc_text($o['id']) . '</b>。以后在「查订单」里，用订单号和' . ($o['type'] !== 'physical' ? '邮箱 @ 前面的部分' : '手机号后 4 位') . '查看进度。</p>'
         . '<p><a class="tlink tlink-go" href="' . $lookup . '">去查订单</a></p></section>' . "\n"
         . '</div>';
+}
+
+/** 付款方式: 收款码 or USDT on a chain. One plain form (works without script); the current choice is marked. */
+function shop_usdt_choice_html(array $o, array $ss, array $chains, ?array $q): string
+{
+    $btn = function (string $value, string $label, string $sub, bool $on): string {
+        return '<button class="paym-b' . ($on ? ' on' : '') . '" type="submit" name="c" value="' . enc_attr($value) . '"' . ($on ? ' aria-current="true"' : '') . '>'
+            . '<b>' . enc_text($label) . '</b><span>' . enc_text($sub) . '</span></button>';
+    };
+    $b = '';
+    if (array_filter($ss['qr'], fn($v) => is_string($v))) {
+        $b .= $btn('qr', '微信 / 支付宝', '扫收款码，人民币', $q === null);
+    }
+    foreach ($chains as $c) {
+        $b .= $btn($c, 'USDT · ' . USDT_CHAINS[$c]['label'], USDT_CHAINS[$c]['net'] . ' 网络', $q !== null && $q['chain'] === $c);
+    }
+    return '<form class="paym" id="paym" method="post" action="shop.php?a=usdt">'
+        . '<p class="paym-k">付款方式</p>'
+        . '<input type="hidden" name="o" value="' . enc_attr($o['id']) . '"><input type="hidden" name="k" value="' . enc_attr(shop_pay_token($o['id'])) . '">' . shop_form_hidden('usdt', 'f-web-m')
+        . '<div class="paym-row">' . $b . '</div>'
+        . '<p class="sf-hint">还没付款之前可以随时换。USDT 是自动确认的，到账后这一页马上变成「已确认收款」。</p>'
+        . '</form>';
+}
+
+/** The USDT quote: chain, exact amount, address (QR + copy), countdown, steps; polls api/shop.php a=usdt (usdt.js). */
+function shop_usdt_panel_html(array $o, array $q, array $chains, int $now): string
+{
+    $c = USDT_CHAINS[$q['chain']];
+    $amt = usdt_amount_text($q['amount4']);
+    $k = shop_pay_token($o['id']);
+    $self = 'shop.php?a=pay&amp;o=' . enc_attr($o['id']) . '&amp;k=' . enc_attr($k);
+    $deadline = local_time(gmdate('Y-m-d\TH:i:s\Z', $q['expires']), 'n月j日 H:i');
+    if ($q['expires'] <= $now) {
+        $again = in_array($q['chain'], $chains, true)
+            ? '<form class="paym-again" method="post" action="shop.php?a=usdt"><input type="hidden" name="o" value="' . enc_attr($o['id']) . '"><input type="hidden" name="k" value="' . enc_attr($k) . '">' . shop_form_hidden('usdt', 'f-web-q')
+                . '<button class="btn btn-primary btn-wide" type="submit" name="c" value="' . enc_attr($q['chain']) . '">重新报价（按现在的汇率）</button></form>'
+            : '';
+        return '<section class="usdt usdt-exp" id="usdt" data-usdt data-poll="shop.php?a=usdt&amp;o=' . enc_attr($o['id']) . '&amp;k=' . enc_attr($k) . '" data-exp="' . $q['expires'] . '" data-now="' . $now . '" data-grace="' . USDT_GRACE . '">'
+            . '<p class="usdt-net"><b>USDT · ' . $c['label'] . '</b><span>' . enc_text($c['net']) . '</span></p>'
+            . '<p class="state-box">这个报价已经在 ' . enc_text($deadline) . ' 过期了（' . enc_text($amt) . ' USDT）。<b>还没转账</b>的话，点下面按现在的汇率重新报价，按新的金额转。<b>已经转了</b>的话不要再转：过期后 10 分钟内到账的还会自动确认；更晚到账的，我会人工核对后处理。</p>'
+            . '<p class="usdt-status" role="status" aria-live="polite" data-status></p>'
+            . $again
+            . '</section>' . "\n" . shop_usdt_scripts();
+    }
+    $copy = fn(string $v, string $label) => '<button class="btn btn-ghost usdt-copy" type="button" data-copy="' . enc_attr($v) . '" hidden>' . enc_text($label) . '</button>';
+    return '<section class="usdt" id="usdt" data-usdt data-poll="shop.php?a=usdt&amp;o=' . enc_attr($o['id']) . '&amp;k=' . enc_attr($k) . '" data-exp="' . $q['expires'] . '" data-now="' . $now . '" data-grace="' . USDT_GRACE . '" data-addr="' . enc_attr($q['address']) . '">' . "\n"
+        . '<p class="usdt-net"><b>USDT · ' . $c['label'] . '</b><span>' . enc_text($c['net']) . ' 网络</span></p>' . "\n"
+        . '<div class="usdt-box"><p class="usdt-k">转账金额（一分都不能差）</p><p class="usdt-v"><span class="mono sel" id="usdt-amt">' . enc_text($amt) . '</span> <small>USDT</small></p>' . $copy($amt, '复制金额') . '</div>' . "\n"
+        . '<div class="usdt-box"><p class="usdt-k">收款地址（只收 ' . $c['label'] . ' 网络的 USDT）</p>'
+        . '<canvas class="usdt-qr" width="232" height="232" hidden role="img" aria-label="收款地址的二维码"></canvas>'
+        . '<p class="usdt-a mono sel" id="usdt-addr">' . enc_text($q['address']) . '</p>' . $copy($q['address'], '复制地址') . '</div>' . "\n"
+        . '<p class="usdt-time">请在 <b>' . enc_text($deadline) . '</b>（北京时间）前转账<span data-left-wrap hidden>，还剩 <b class="mono" data-left></b></span>。</p>' . "\n"
+        . '<p class="usdt-status" role="status" aria-live="polite" data-status>等待到账。到账后这一页会自动变成「已确认收款」，不用点任何按钮。</p>' . "\n"
+        . '<ol class="usdt-steps">'
+        . '<li>在钱包或交易所的「提币 / 转账」里选 <b>USDT</b>，网络选 <b>' . $c['label'] . '（' . enc_text($c['net']) . '）</b>。</li>'
+        . '<li>收款地址填上面这个地址（复制或扫码），金额填 <b class="mono">' . enc_text($amt) . '</b>。交易所会扣手续费的话，请让<b>到账金额</b>正好是这个数。</li>'
+        . '<li>转完就好，不用截图。链上确认后自动确认收款，通常 1 到 3 分钟。</li>'
+        . '</ol>' . "\n"
+        . '<p class="usdt-warn"><b>只能用 ' . $c['label'] . ' 网络转 USDT。</b>换了别的网络、别的币，或者金额不一样（多了少了都算），系统都认不出来，不会自动确认，要人工核对，钱可能找不回来。</p>' . "\n"
+        . '<p class="sf-hint">按 1 USDT = ¥' . enc_text(usdt_rate_text($q['rate'])) . ' 换算，最后几位小数是这个订单的识别尾数。没有脚本的浏览器不会自动刷新，转完以后 <a class="tlink-in" href="' . $self . '">刷新这一页</a> 看看。</p>' . "\n"
+        . '</section>' . "\n" . shop_usdt_scripts();
+}
+
+/** The pay page's two scripts (same origin, cache-busted; the pay page CSP allows script-src 'self' only then). */
+function shop_usdt_scripts(): string
+{
+    $v = function (string $rel): string {
+        $b = (string) @file_get_contents(PUBLIC_DIR . '/' . $rel);
+        return '../' . $rel . '?v=' . substr(hash('sha256', $b), 0, 8);
+    };
+    return '<script src="' . enc_attr($v('assets/shop/qrcode.min.js')) . '" defer></script><script src="' . enc_attr($v('assets/shop/usdt.js')) . '" defer></script>';
 }
 
 /** Status in the buyer's words. */

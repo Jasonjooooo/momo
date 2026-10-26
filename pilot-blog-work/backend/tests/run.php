@@ -5,7 +5,7 @@
 declare(strict_types=1);
 
 const REPO = __DIR__ . '/../../..';
-const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'biz', 'ref', 'game', 'notify', 'admin'];
+const GROUPS = ['template', 'markdown', 'publish', 'images', 'album', 'subscribers', 'http', 'stats', 'shop', 'cats', 'supply', 'doubao', 'biz', 'ref', 'game', 'notify', 'usdt', 'admin'];
 
 if (($argv[1] ?? '') !== '--child') {
     $want = array_slice($argv, 1) ?: GROUPS;
@@ -14,7 +14,7 @@ if (($argv[1] ?? '') !== '--child') {
     foreach ($want as $g) {
         $tmp = make_site();
         $env = ['BLOG_PUBLIC_DIR' => $tmp . '/pub', 'BLOG_DATA_DIR' => $tmp . '/data', 'TEST_TMP' => $tmp, 'PATH' => getenv('PATH')]
-            + ($g === 'supply' ? ['BLOG_SUPPLY_TEST_LOOPBACK' => '1'] : []);
+            + (in_array($g, ['supply', 'usdt'], true) ? ['BLOG_SUPPLY_TEST_LOOPBACK' => '1'] : []);
         $p = proc_open([PHP_BINARY, __FILE__, '--child', $g], [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, null, $env);
         $out = stream_get_contents($pipes[1]);
         $err = stream_get_contents($pipes[2]);
@@ -2262,6 +2262,7 @@ function doubao_http_tests(string $akey, string $dkey, $ark, string $srvLog): vo
 require __DIR__ . '/biz-ref-tests.php';   // groups biz (经营总览) and ref (推广链接)
 require __DIR__ . '/game-tests.php';      // group game (盲降挑战 leaderboard)
 require __DIR__ . '/notify-tests.php';    // group notify (微信提醒 via PushPlus, health check)
+require __DIR__ . '/usdt-tests.php';      // group usdt (USDT 收款: TRC20 / BEP20, matching, pay page, admin, cron)
 
 $fn = 'group_' . $group;
 try {

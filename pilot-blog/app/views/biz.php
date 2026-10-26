@@ -9,7 +9,7 @@ $lowN = count($todo['low']);
 $kpis = [
     ['k-paid', '实付成交额', biz_money($rep['paid_fen']), $rep['paid_n'] . ' 单', true],
     ['k-profit', '商品毛利', biz_money($rep['profit_fen']), $rep['cost_unknown'] > 0 ? $rep['cost_unknown'] . ' 单没有成本，没算进去' : ($rep['paid_n'] > 0 ? '每单都有成本' : '还没有付款的订单'), true],
-    ['k-orders', '支付订单数', (string) $rep['paid_n'], '下单 ' . $rep['created'] . ' 单', false],
+    ['k-orders', '支付订单数', (string) $rep['paid_n'], '下单 ' . $rep['created'] . ' 单' . ($rep['usdt_n'] > 0 ? '，其中 USDT 付款 ' . $rep['usdt_n'] . ' 单' : ''), false],
     ['k-rate', '支付成功率', $pct, '付款单数 / 下单数', false],
     ['k-aov', '客单价', $rep['aov'] === null ? '-' : biz_money($rep['aov']), '成交额 / 支付订单数', false],
     ['k-visitors', '新增访客', number_format($rep['visitors']), '访问统计里每天访客的合计', false],
@@ -28,6 +28,9 @@ $items = [
     ['t-failed', '进货失败', $todo['failed'], '单', url('orders', ['f' => 'failed']), '去处理'],
     ['t-low', '库存不足（3 件及以下）', $lowN, '件', url('shop', ['cat' => 'low']), '看商品'],
 ];
+if (($uOdd = count(usdt_unmatched_open())) > 0) {
+    $items[] = ['t-usdt', '未匹配的 USDT 到账', $uOdd, '笔', url('usdt'), '去核对'];
+}
 ?>
 <h1 class="page-h">经营总览</h1>
 

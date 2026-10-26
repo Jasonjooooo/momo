@@ -5,6 +5,9 @@ $countOf = ['todo' => $counts['todo'], 'claimed' => $counts['claimed'], 'pending
 <h1 class="page-h">订单</h1>
 <p class="notice notice-info">核对付款：打开微信或支付宝的收款记录，看到一笔钱，就按<b>金额</b>找订单（每个没付款的订单金额都不一样，尾数是用来区分的），再点进去「确认收款」。买家备注里一般也有订单号。</p>
 
+<?php if (($uOpen = count(usdt_unmatched_open())) > 0): ?>
+<p class="notice notice-warn" id="usdt-odd"><?= h('有 ' . $uOpen . ' 笔 USDT 到账和订单对不上，没有自动确认。') ?> <a href="<?= h(url('usdt')) ?>">去核对</a></p>
+<?php endif; ?>
 <nav class="chips" aria-label="按状态筛选">
 <?php foreach (ORDER_FILTERS as $k => $label): ?>
   <a class="fchip<?= h(in_array($k, ['claimed', 'to_ship', 'failed'], true) && $countOf[$k] > 0 ? ' fchip-hot' : '') ?>" href="<?= h(url('orders', ($k === 'todo' ? [] : ['f' => $k]) + ($q !== '' ? ['q' => $q] : []))) ?>"<?php if ($filter === $k): ?> aria-current="page"<?php endif; ?>><?= h($label) ?> <span class="mono"><?= h((string) $countOf[$k]) ?></span></a>
@@ -33,7 +36,7 @@ $countOf = ['todo' => $counts['todo'], 'claimed' => $counts['claimed'], 'pending
     <a class="prow orow" href="<?= h(url('order', ['id' => $o['id']])) ?>">
       <span class="orow-top">
         <span class="orow-amt mono">¥<?= h(shop_money((int) $o['amount'])) ?></span>
-        <span class="chip <?= h(ORDER_CHIP[$o['status']] ?? '') ?>"><?= h($label) ?></span>
+        <span class="chip <?= h(ORDER_CHIP[$o['status']] ?? '') ?>"><?= h($label) ?></span><?php if (usdt_paid($o) !== null): ?> <span class="chip chip-line">USDT</span><?php elseif ($o['status'] === 'pending' && usdt_current_quote($o) !== null): ?> <span class="chip chip-line">选了 USDT</span><?php endif; ?>
       </span>
       <span class="prow-t"><?= h($o['name'] . ' × ' . $o['qty']) ?></span>
       <span class="prow-meta">

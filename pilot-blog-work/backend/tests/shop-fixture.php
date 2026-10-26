@@ -1,7 +1,7 @@
 <?php
 // Shop test site for shop.e2e.js: an owner password, three products (physical, digital with a file, sold out),
 // both 收款码 images, a shipping fee, then a publish. Temp dirs only (BLOG_PUBLIC_DIR / BLOG_DATA_DIR).
-// Usage: BLOG_PUBLIC_DIR=… BLOG_DATA_DIR=… php shop-fixture.php <owner password>
+// Usage: BLOG_PUBLIC_DIR=… BLOG_DATA_DIR=… php shop-fixture.php <owner password> [more|usdt]
 // Prints JSON: {physical, digital, soldout, file_sha256}
 declare(strict_types=1);
 define('BLOG_APP', true);
@@ -104,9 +104,14 @@ if (($argv[2] ?? '') === 'more') {
 
 $s = settings_get();
 settings_save(['shop' => ['shipping' => 1000, 'free_over' => 29900, 'qr' => ['wechat' => fx_qr('wechat'), 'alipay' => fx_qr('alipay')]]], $s['rev']);
+$usdt = null;
+if (($argv[2] ?? '') === 'usdt') {   // the USDT stage: both chains on, owner addresses, rate 7.20
+    $usdt = ['trc20' => usdt_tron_encode("\x41" . random_bytes(20)), 'bep20' => usdt_eip55('0x' . bin2hex(random_bytes(20)))];
+    settings_save(['usdt' => ['trc20' => ['on' => true, 'address' => $usdt['trc20']], 'bep20' => ['on' => true, 'address' => $usdt['bep20']], 'rate' => 72000, 'window' => 30]], settings_get()['rev']);
+}
 $r = publish_site('商城测试');
 if (!$r['ok']) {
     fwrite(STDERR, json_encode($r['errors'], JSON_UNESCAPED_UNICODE) . "\n");
     exit(1);
 }
-echo json_encode(['physical' => $phys['slug'], 'digital' => $dig['slug'], 'soldout' => $out['slug'], 'file_sha256' => $sha, 'extra' => $extra], JSON_UNESCAPED_UNICODE) . "\n";
+echo json_encode(['physical' => $phys['slug'], 'digital' => $dig['slug'], 'soldout' => $out['slug'], 'file_sha256' => $sha, 'extra' => $extra, 'usdt' => $usdt], JSON_UNESCAPED_UNICODE) . "\n";

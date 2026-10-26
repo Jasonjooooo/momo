@@ -4,7 +4,9 @@ $st = $o['status'];
 $b = $o['buyer'];
 $amount = '¥' . shop_money((int) $o['amount']);
 $red = $o['redacted_at'] !== null;
-$who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动'];
+$who = ['buyer' => '买家', 'owner' => '你', 'auto' => '自动', 'usdt' => 'USDT 自动核对'];
+$uq = usdt_order_quotes($o);
+$up = usdt_paid($o);
 $isSupply = $o['type'] === 'supply';
 $sp = $isSupply ? supply_order_normalize($o['supply'] ?? null) : null;
 $bought = $isSupply && $sp['trade_no'] !== '';
@@ -142,6 +144,40 @@ $bought = $isSupply && $sp['trade_no'] !== '';
     <button class="btn btn-wide" type="submit">刷新卡密</button>
   </form>
   <p class="where">这件是人工发货，供货方发卡以后，你或买家打开订单时会自动取到卡密。</p>
+<?php endif; ?>
+</section>
+<?php endif; ?>
+
+<?php if ($uq || $up !== null): $now = time(); ?>
+<section class="card" aria-labelledby="o-usdt" id="o-usdt-card">
+  <h2 class="card-h" id="o-usdt">USDT（买家看不到这里的链接）</h2>
+<?php if ($up !== null): $ui = USDT_CHAINS[$up['chain']]; ?>
+  <p><span class="chip chip-ok"><?= h($up['how'] === 'auto' ? 'USDT 已到账，自动确认' : 'USDT 手动对账') ?></span></p>
+  <dl class="kv">
+    <div><dt>链</dt><dd><?= h($ui['label'] . '（' . $ui['net'] . '）') ?></dd></div>
+    <div><dt>收到</dt><dd class="mono"><?= h(usdt_units_text((string) $up['units'], $ui['decimals']) . ' USDT') ?></dd></div>
+    <div><dt>交易</dt><dd><a class="mono u-tx" href="<?= h($ui['tx'] . $up['tx']) ?>" target="_blank" rel="noopener noreferrer"><?= h($up['tx']) ?></a></dd></div>
+<?php if (($up['from'] ?? '') !== ''): ?>
+    <div><dt>付款地址</dt><dd><a class="mono u-tx" href="<?= h($ui['addr'] . $up['from']) ?>" target="_blank" rel="noopener noreferrer"><?= h($up['from']) ?></a></dd></div>
+<?php endif; ?>
+<?php if (is_int($up['ts'] ?? null)): ?>
+    <div><dt>链上时间</dt><dd class="mono"><?= h(cn_time(gmdate('Y-m-d\TH:i:s\Z', $up['ts']))) ?></dd></div>
+<?php endif; ?>
+  </dl>
+  <p class="where">订单金额仍按人民币 <?= h($amount) ?> 记账（经营总览按人民币统计）。退款的话，在你的钱包里把 USDT 转回付款地址，再在下面记录退款。</p>
+<?php endif; ?>
+<?php if ($uq): ?>
+  <h3 class="sub-h">报价</h3>
+  <ul class="vlist">
+<?php foreach (array_reverse($uq) as $q): $qi = USDT_CHAINS[$q['chain']]; ?>
+    <li><span class="mono"><?= h(usdt_amount_text($q['amount4']) . ' USDT') ?></span> <span class="chip chip-line"><?= h($qi['label']) ?></span>
+      <span class="where"><?= h('汇率 ' . usdt_rate_text($q['rate']) . '，' . cn_time(gmdate('Y-m-d\TH:i:s\Z', $q['created'])) . ' 报价，' . ($q['expires'] > $now ? cn_time(gmdate('Y-m-d\TH:i:s\Z', $q['expires'])) . ' 前有效' : '已过期')) ?></span>
+      <a class="mono u-tx" href="<?= h($qi['addr'] . $q['address']) ?>" target="_blank" rel="noopener noreferrer"><?= h($q['address']) ?></a></li>
+<?php endforeach; ?>
+  </ul>
+<?php if ($up === null && in_array($st, ['pending', 'claimed'], true)): ?>
+  <p class="where">买家选了 USDT 付款。转账金额和报价一模一样、链和地址对、在有效时间内（再多 10 分钟）到账，就会自动确认收款，不用你操作。对不上的到账在 <a href="<?= h(url('usdt')) ?>">USDT 到账</a> 里。</p>
+<?php endif; ?>
 <?php endif; ?>
 </section>
 <?php endif; ?>
