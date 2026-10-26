@@ -272,6 +272,17 @@ try {
     }
     if ($a === 'order') {
         $v = visitor();
+        $tok = in_str('tok', 80);
+        $payUrl = fn(string $id) => ($payOrigin !== null ? $payOrigin . '/api/' : '') . 'shop.php?a=pay&o=' . rawurlencode($id) . '&k=' . shop_pay_token($id);
+        // the same form sent again (a second tap on a slow network): back to the order it already made, not counted
+        $seen = shop_form_token_check('order', $tok) === 'ok' ? shop_order_form_seen($tok) : null;
+        for ($i = 0; $seen === '' && $i < 20; $i++) {   // its twin is still making the order: wait for it
+            usleep(500000);
+            $seen = shop_order_form_seen($tok);
+        }
+        if ($seen !== null && $seen !== '' && shop_order_get($seen) !== null) {
+            see_other($payUrl($seen));
+        }
         limit('shop-order-try', $v, RL_ORDER_TRY_HOUR, 3600);
         if (rl_count('shop-order-site', local_day(), 2 * 86400) >= RL_ORDER_SITE_DAY || rl_count('shop-order-made', $v, 86400) >= RL_ORDER_MADE_DAY) {
             shop_msg(429, '请稍后再试', '今天的订单有点多，请明天再来，或者先在首页的店铺客服留言。');
@@ -292,11 +303,20 @@ try {
         if ($err) {
             shop_out(400, '下单：' . $p['name'], shop_order_form_html($p, $ss, $in, $err, '有几项要改一下：' . reset($err)));
         }
+        $twin = shop_order_form_claim($tok);
+        if ($twin !== null) {   // a twin of this request got here first
+            if ($twin !== '' && shop_order_get($twin) !== null) {
+                see_other($payUrl($twin));
+            }
+            shop_msg(409, '订单正在提交', '这张订单刚刚已经提交过，正在处理。请过一分钟在「查订单」里查看，不用再点提交。', 'shop.php?a=lookup', '查订单');
+        }
         $before = shop_page_signature(shop_products());
         try {
             // 推广: the code this browser's cookie holds (a disabled or unknown code, or the program switched off, is ignored)
             $o = shop_create_order($p['slug'], $clean, null, ref_partner_from_cookie($settings));
+            shop_order_form_done($tok, $o['id']);
         } catch (ShopError $e) {
+            shop_order_form_done($tok, null);
             $fresh = shop_product_by_slug($p['slug']);
             if ($fresh !== null && shop_product_live($fresh, $settings) && $e->code_ === 'stock' && ($fresh['stock'] ?? 1) > 0) {
                 shop_out(409, '下单：' . $p['name'], shop_order_form_html($fresh, $ss, $in, $e->fields, $e->getMessage()));
@@ -306,7 +326,7 @@ try {
         rl_hit('shop-order-made', $v, RL_ORDER_MADE_DAY, 86400);
         rl_hit('shop-order-site', local_day(), RL_ORDER_SITE_DAY, 2 * 86400, true);
         shop_republish_if_changed($before);
-        see_other(($payOrigin !== null ? $payOrigin . '/api/' : '') . 'shop.php?a=pay&o=' . rawurlencode($o['id']) . '&k=' . shop_pay_token($o['id']));
+        see_other($payUrl($o['id']));
     }
 
     // ---------- pay page / 我已付款 ----------

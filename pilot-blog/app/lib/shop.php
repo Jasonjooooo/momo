@@ -351,25 +351,104 @@ function shop_dl_sig(string $orderId, int $exp, string $fileId): string
     return substr(shop_hmac('dl|' . $orderId . '|' . $exp . '|' . $fileId), 0, 40);
 }
 
-/** Stateless token for the public forms: issue time + HMAC. Valid from 2 s to 6 h after it was issued. */
+/**
+ * Stateless token for the public forms: issue time + a random nonce + HMAC. Valid from 2 s to 6 h after it was issued.
+ * The nonce makes every rendered form unique, so a second submit of the same order form can be recognised (below).
+ */
 function shop_form_token(string $purpose, ?int $now = null): string
 {
     $t = (string) ($now ?? time());
-    return $t . '.' . substr(shop_hmac('form|' . $purpose . '|' . $t), 0, 32);
+    $n = bin2hex(random_bytes(6));
+    return $t . '.' . $n . '.' . substr(shop_hmac('form|' . $purpose . '|' . $t . '|' . $n), 0, 32);
 }
 
 /** 'ok' | 'fast' | 'bad' */
 function shop_form_token_check(string $purpose, string $tok, ?int $now = null): string
 {
     $now ??= time();
-    if (!preg_match('/^(\d{9,11})\.([0-9a-f]{32})$/', $tok, $m)) {
+    // forms rendered before the nonce was added (no middle part) stay valid for their 6 hours
+    if (!preg_match('/^(\d{9,11})\.(?:([0-9a-f]{12})\.)?([0-9a-f]{32})$/', $tok, $m)) {
         return 'bad';
     }
     $t = (int) $m[1];
-    if (!hash_equals(substr(shop_hmac('form|' . $purpose . '|' . $m[1]), 0, 32), $m[2]) || $t > $now + 5 || $now - $t > 6 * 3600) {
+    $signed = 'form|' . $purpose . '|' . $m[1] . ($m[2] !== '' ? '|' . $m[2] : '');
+    if (!hash_equals(substr(shop_hmac($signed), 0, 32), $m[3]) || $t > $now + 5 || $now - $t > 6 * 3600) {
         return 'bad';
     }
     return $now - $t < 2 ? 'fast' : 'ok';
+}
+
+// ---------- one order per order form (a slow network makes buyers tap 提交 again) ----------
+// blog-data/shop/order-forms.json: sha256(form token) → the order made from it ('' while it is being made), 7 h.
+
+const SHOP_FORM_KEEP = 7 * 3600;
+
+/** The registry key of a form token, or null for a token without a nonce (those cannot be told apart). */
+function shop_form_key(string $tok): ?string
+{
+    return preg_match('/^\d{9,11}\.[0-9a-f]{12}\.[0-9a-f]{32}$/', $tok) ? hash('sha256', $tok) : null;
+}
+
+/** Read-modify-write the registry under the lock; $fn gets and returns the map. Returns $fn's second value. */
+function shop_order_forms(callable $fn, ?int $now = null): mixed
+{
+    $now ??= time();
+    return with_lock('shop-forms', function () use ($fn, $now) {
+        $file = shop_dir('order-forms.json');
+        $map = json_read($file, []);
+        $map = array_filter(is_array($map) ? $map : [], fn($e) => is_array($e) && is_int($e['t'] ?? null) && $e['t'] >= $now - SHOP_FORM_KEEP);
+        [$map2, $out] = $fn($map);
+        if ($map2 !== $map) {
+            json_write_atomic($file, $map2);
+        }
+        return $out;
+    });
+}
+
+/**
+ * Claim a form for one order. Null: this request makes the order. Otherwise the order id already made from it,
+ * or '' when a twin request is making it right now.
+ */
+function shop_order_form_claim(string $tok, ?int $now = null): ?string
+{
+    $key = shop_form_key($tok);
+    if ($key === null) {
+        return null;
+    }
+    $now ??= time();
+    return shop_order_forms(function (array $map) use ($key, $now) {
+        // a claim left half done for over a minute (that request died) no longer blocks the form
+        if (isset($map[$key]) && !(($map[$key]['o'] ?? '') === '' && $map[$key]['t'] < $now - 60)) {
+            return [$map, (string) ($map[$key]['o'] ?? '')];
+        }
+        $map[$key] = ['o' => '', 't' => $now];
+        return [$map, null];
+    }, $now);
+}
+
+/** The order made from this form ('' = still being made, null = none). Read only. */
+function shop_order_form_seen(string $tok, ?int $now = null): ?string
+{
+    $key = shop_form_key($tok);
+    return $key === null ? null : shop_order_forms(fn(array $map) => [$map, isset($map[$key]) ? (string) ($map[$key]['o'] ?? '') : null], $now);
+}
+
+/** Record the order made from a claimed form ($orderId null: the attempt failed, the form may be sent again). */
+function shop_order_form_done(string $tok, ?string $orderId, ?int $now = null): void
+{
+    $key = shop_form_key($tok);
+    if ($key === null) {
+        return;
+    }
+    $now ??= time();
+    shop_order_forms(function (array $map) use ($key, $orderId, $now) {
+        if ($orderId === null) {
+            unset($map[$key]);
+        } else {
+            $map[$key] = ['o' => $orderId, 't' => $now];
+        }
+        return [$map, null];
+    }, $now);
 }
 
 // ---------- buyer input ----------

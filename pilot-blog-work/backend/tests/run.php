@@ -1355,6 +1355,22 @@ function shop_http_tests(array $ph, array $dg): void
     }
     ok(shop_post('order', ['p' => 'guide', 'qty' => '1', 'email' => 'y@example.com', 'consent' => '1'])['status'] === 429, 'per-visitor order limit: 13th order attempt in an hour refused');
     clear_rl();
+    // the same order form sent again (a second tap on a slow network): one order, the same pay page, not counted
+    $tok = shop_form_token('order', time() - 5);
+    $f = ['p' => 'guide', 'qty' => '1', 'email' => 'twice@example.com', 'consent' => '1', 'tok' => $tok, 'website' => ''];
+    $n0 = count(shop_orders());
+    $r1 = http('POST', '/api/shop.php?a=order', ['form' => $f]);
+    $r2 = http('POST', '/api/shop.php?a=order', ['form' => $f]);
+    ok($r1['status'] === 303 && $r2['status'] === 303 && ($r1['headers']['location'] ?? 'x') === ($r2['headers']['location'] ?? 'y') && count(shop_orders()) === $n0 + 1,
+        'the same order form sent twice: one order, both answers go to its pay page', $r1['status'] . ' ' . $r2['status']);
+    for ($i = 0; $i < 14; $i++) {
+        http('POST', '/api/shop.php?a=order', ['form' => $f]);
+    }
+    ok(http('POST', '/api/shop.php?a=order', ['form' => $f])['status'] === 303 && count(shop_orders()) === $n0 + 1, 'repeats of a form that already made its order are not counted against the per-visitor limit');
+    ok(shop_form_token('order', time() - 5) !== shop_form_token('order', time() - 5), 'two forms rendered in the same second get different tokens (no buyer is sent to another buyer\'s order)');
+    $ts = (string) (time() - 5);
+    ok(shop_form_token_check('order', $ts . '.' . substr(shop_hmac('form|order|' . $ts), 0, 32)) === 'ok', 'a form rendered before the update (token without a nonce) still works');
+    clear_rl();
     // digital download
     shop_owner_action($id, 'confirm');
     $r = shop_post('lookup', ['o' => $id, 'v' => 'BUYER']);
