@@ -8,6 +8,8 @@
   "max_per_cycle": 15,
   "first_run_keep": 3,
 
+  "x": {"enabled": false},
+
   "accept_submissions": true,
   "submission_reply": "已收到,感谢投稿。内容会经人工审核后再决定是否发布,我们不会公开你的身份。",
 

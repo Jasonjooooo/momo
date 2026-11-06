@@ -19,6 +19,29 @@
    - `admin_ids`:允许点审核按钮的人的用户 ID,可以填多个
    - `feeds`:RSS 订阅源;`include` / `exclude`:关键词(`/正则/` 也可以)
 
+## 一键发到 X(可选)
+
+开启后,每条待审核内容会有四个按钮:**✅ 发频道**、**𝕏 发到 X**、**🚀 两边都发**、**❌ 忽略**。可以先发一边,另一边稍后再发。
+
+- **新闻**:发到 X 的内容是"标题 + 链接 + 来源"。超过 X 的长度上限会自动截断,链接和来源始终保留。如果你回复改写过,就用你改写的文字。
+- **投稿**:文字原样发;照片会再去一次元数据后上传;**视频暂不支持自动发到 X**,需要手动上传。
+- 发送失败(比如额度用完、权限不对)时,审核群会收到失败原因,按钮保留,可以重试。
+
+**设置方法**
+1. 登录 X 开发者后台 developer.x.com,创建一个 App。
+2. 在 App 的 **User authentication settings** 里把权限设为 **Read and Write**。
+3. 在 **Keys and tokens** 里拿到 4 个值:API Key、API Key Secret、Access Token、Access Token Secret。**改完权限后要重新生成 Access Token**,否则还是只读权限。
+4. `config.json` 里改成 `"x": {"enabled": true}`。
+5. 运行时多加 4 个环境变量(systemd 里各写一行 `Environment=`):
+   ```
+   X_API_KEY=...
+   X_API_SECRET=...
+   X_ACCESS_TOKEN=...
+   X_ACCESS_SECRET=...
+   ```
+
+X API 的免费额度、价格和发帖数量限制经常调整,以开发者后台显示的为准。用 API 自动发帖也要遵守 X 的自动化规则,不要批量发重复内容。
+
 ## 运行(你的服务器)
 
 ```bash
@@ -68,4 +91,4 @@ pip install Pillow
 python3 -m unittest discover -s tests -v
 ```
 
-测试用一个假的 Telegram 服务器跑完整流程:RSS 筛选去重、权限检查、改写发布、匿名投稿、图片 EXIF 去除、视频元数据去除、限流。
+测试用假的 Telegram 和 X 服务器跑完整流程:RSS 筛选去重、权限检查、改写发布、匿名投稿、图片 EXIF 去除、视频元数据去除、限流、发到 X(签名、长度截断、图片上传、失败重试)。OAuth 签名用 X 官方文档里的示例数据校验过。

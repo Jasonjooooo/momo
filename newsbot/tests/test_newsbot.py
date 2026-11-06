@@ -21,7 +21,7 @@ ATOM = b"""<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><entry
 class FakeTG:
     """记录所有 API 调用;为下载提供文件。"""
     def __init__(self):
-        self.calls, self.files, self.next_id = [], {}, 100
+        self.calls, self.files, self.next_id, self.x_fail = [], {}, 100, False
         fake = self
 
         class H(BaseHTTPRequestHandler):
@@ -41,6 +41,15 @@ class FakeTG:
                     params = json.loads(raw)
                 else:
                     params = {"_multipart": raw}
+                if self.path.startswith("/2/"):     # 假的 X 接口
+                    fake.calls.append(("x" + self.path, {**params, "_auth": self.headers.get("Authorization", "")}))
+                    fake.next_id += 1
+                    data = {"data": {"id": f"X{fake.next_id}"}}
+                    if fake.x_fail:
+                        self.send_response(403); out = b'{"title":"Forbidden","detail":"not allowed"}'
+                    else:
+                        self.send_response(200); out = json.dumps(data).encode()
+                    self.send_header("Content-Length", str(len(out))); self.end_headers(); self.wfile.write(out); return
                 fake.calls.append((method, params))
                 fake.next_id += 1
                 if method == "getFile":
@@ -157,6 +166,108 @@ class BotTest(unittest.TestCase):
         self.store.q("DELETE FROM items"); self.store.q("DELETE FROM feeds_seen")
         self.assertEqual(self.bot.poll_feeds(now=NOW), 2)   # 每个新源只送最新 1 条
         self.assertEqual(self.store.q("SELECT count(*) FROM items WHERE status='skipped'", one=True)[0], 1)
+
+
+class XTest(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeTG()
+        self.tmp = tempfile.TemporaryDirectory()
+        os.environ.update(X_API_KEY="ck", X_API_SECRET="cs", X_ACCESS_TOKEN="tk", X_ACCESS_SECRET="ts")
+        cfg_path = Path(self.tmp.name) / "config.json"
+        cfg_path.write_text(json.dumps({"review_chat_id": -100, "channel_id": "@chan", "admin_ids": [1], "x": {"enabled": True},
+                                        "feeds": [{"id": "a", "name": "源A", "url": self.fake.base + "/feed.xml"}]}))
+        self.cfg = newsbot.load_config(cfg_path)
+        self.store = newsbot.Store(Path(self.tmp.name) / "db.sqlite")
+        self.bot = newsbot.Bot(self.cfg, newsbot.TG("TOKEN", self.fake.base), self.store, newsbot.X(self.cfg, self.fake.base))
+
+    def tearDown(self):
+        self.fake.srv.shutdown(); self.tmp.cleanup()
+
+    def press(self, data):
+        self.bot.handle({"callback_query": {"id": "cq", "from": {"id": 1, "first_name": "管理员"}, "data": data,
+                                            "message": {"message_id": 1, "chat": {"id": -100}}}})
+
+    def tweets(self):
+        return [p for m, p in self.fake.calls if m == "x/2/tweets"]
+
+    def test_buttons_show_x(self):
+        self.bot.poll_feeds(now=NOW)
+        btns = [b["text"] for row in self.fake.by("sendMessage")[0]["reply_markup"]["inline_keyboard"] for b in row]
+        self.assertEqual(btns, ["✅ 发频道", "𝕏 发到 X", "🚀 两边都发", "❌ 忽略"])
+
+    def test_both_then_already_done(self):
+        self.bot.poll_feeds(now=NOW)
+        iid = self.store.q("SELECT id FROM items WHERE title LIKE '%777X%'", one=True)[0]
+        self.press(f"both:{iid}")
+        t = self.tweets()[-1]
+        self.assertIn("777X", t["text"]); self.assertIn("https://a.test/1", t["text"]); self.assertIn("来源:源A", t["text"])
+        self.assertTrue(t["_auth"].startswith("OAuth ") and 'oauth_signature="' in t["_auth"] and 'oauth_consumer_key="ck"' in t["_auth"])
+        self.assertTrue(any(p["chat_id"] == "@chan" for p in self.fake.by("sendMessage")))
+        self.assertEqual(self.store.q("SELECT status,x_done,tg_done FROM items WHERE id=?", (iid,), one=True), ("published", 1, 1))
+        self.press(f"x:{iid}")
+        self.assertEqual(len(self.tweets()), 1)
+
+    def test_x_only_keeps_channel_button(self):
+        self.bot.poll_feeds(now=NOW)
+        iid = self.store.q("SELECT id FROM items WHERE title LIKE '%777X%'", one=True)[0]
+        self.press(f"x:{iid}")
+        mk = self.fake.by("editMessageReplyMarkup")[-1]["reply_markup"]["inline_keyboard"]
+        self.assertEqual([b["text"] for b in mk[0]], ["✅ 发频道", "✔️ X 已发"])
+        self.assertEqual(self.store.q("SELECT status FROM items WHERE id=?", (iid,), one=True)[0], "pending")
+        self.press(f"tg:{iid}")
+        self.assertEqual(self.store.q("SELECT status FROM items WHERE id=?", (iid,), one=True)[0], "published")
+
+    def test_photo_submission_to_x_strips_exif(self):
+        from PIL import Image
+        im = Image.new("RGB", (40, 30), "red"); exif = Image.Exif(); exif[0x0110] = "iPhone 99"
+        buf = io.BytesIO(); im.save(buf, "JPEG", exif=exif)
+        self.fake.files["P1"] = buf.getvalue()
+        self.bot.handle({"message": {"message_id": 3, "from": {"id": 700}, "chat": {"id": 700, "type": "private"},
+                                     "photo": [{"file_id": "small"}, {"file_id": "P1"}], "caption": "现场照片"}})
+        sid = self.store.q("SELECT id FROM items WHERE kind='sub'", one=True)[0]
+        self.press(f"x:{sid}")
+        up = [p for m, p in self.fake.calls if m == "x/2/media/upload"][-1]["_multipart"]
+        self.assertNotIn(b"iPhone 99", up); self.assertIn(b"tweet_image", up)
+        t = self.tweets()[-1]
+        self.assertEqual(t["text"], "现场照片"); self.assertEqual(len(t["media"]["media_ids"]), 1)
+
+    def test_x_error_is_reported_and_retryable(self):
+        self.bot.poll_feeds(now=NOW)
+        iid = self.store.q("SELECT id FROM items WHERE title LIKE '%777X%'", one=True)[0]
+        self.fake.x_fail = True
+        self.press(f"x:{iid}")
+        self.assertIn("X 发布失败", self.fake.by("sendMessage")[-1]["text"])
+        self.assertEqual(self.store.q("SELECT x_done,status FROM items WHERE id=?", (iid,), one=True), (0, "pending"))
+        self.fake.x_fail = False
+        self.press(f"x:{iid}")
+        self.assertEqual(self.store.q("SELECT x_done FROM items WHERE id=?", (iid,), one=True)[0], 1)
+
+    def test_video_submission_refused_for_x(self):
+        self.bot.handle({"message": {"message_id": 4, "from": {"id": 701}, "chat": {"id": 701, "type": "private"}, "text": "文字稿"}})
+        sid = self.store.q("SELECT id FROM items WHERE kind='sub'", one=True)[0]
+        self.store.q("UPDATE items SET media_kind='video' WHERE id=?", (sid,))
+        self.press(f"x:{sid}")
+        self.assertIn("视频暂不支持", self.fake.by("sendMessage")[-1]["text"])
+
+
+class XHelpersTest(unittest.TestCase):
+    def test_oauth_signature_matches_twitter_docs_example(self):
+        h = newsbot.oauth1_header(
+            "POST", "https://api.twitter.com/1.1/statuses/update.json",
+            "xvz1evFS4wEEPTGEFPHBog", "kAcSOqF21Fu85e7zjz7ZN2U4ZRhfV3WpwPAoE3Z7kBw",
+            "370773112-GmHxMAgYyLbNEtIKZeRNFsMKPR9EyMZeS9weJAEb", "LswwdoUaIvS8ltyTt5jkRh4J50vUPVVHtR2YPi5kE",
+            params={"include_entities": "true", "status": "Hello Ladies + Gentlemen, a signed OAuth request!"},
+            nonce="kYjzVBB8Y0ZFabxSWbWovY3uYSQ2pTgmZeNu2VS4cg", timestamp=1318622958)
+        self.assertIn('oauth_signature="hCtSmYh%2BiHYCEqBWrE7C7hYmtUk%3D"', h)
+
+    def test_weight_and_fit(self):
+        self.assertEqual(newsbot.x_weight("abc"), 3)
+        self.assertEqual(newsbot.x_weight("中文"), 4)
+        self.assertEqual(newsbot.x_weight("see https://example.com/very/long/path?x=1"), 4 + 23)
+        tail = "\n\nhttps://a.test/1\n来源:源A"
+        out = newsbot.fit_x("长" * 300, tail)
+        self.assertLessEqual(newsbot.x_weight(out), 280); self.assertTrue(out.endswith(tail)); self.assertIn("…", out)
+        self.assertEqual(newsbot.fit_x("short", tail), "short" + tail)
 
 
 class ParseTest(unittest.TestCase):

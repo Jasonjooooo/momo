@@ -8,9 +8,15 @@
   NEWSBOT_CONFIG   配置文件路径,默认与本文件同目录的 config.json
   NEWSBOT_DATA     数据库目录,默认 ./data
   TG_API_BASE      Telegram API 地址,默认 https://api.telegram.org(测试时替换)
+
+发到 X(可选,config.json 里 "x": {"enabled": true} 时需要,来自 X 开发者后台):
+  X_API_KEY / X_API_SECRET          应用的 API Key 和 Secret(Consumer Keys)
+  X_ACCESS_TOKEN / X_ACCESS_SECRET  你账号的 Access Token 和 Secret(需要 Read and Write 权限)
 """
+import base64
 import email.utils
 import hashlib
+import hmac
 import html
 import json
 import os
@@ -34,6 +40,7 @@ API = os.environ.get("TG_API_BASE", "https://api.telegram.org").rstrip("/")
 TOKEN = os.environ.get("BOT_TOKEN", "")
 UA = "Mozilla/5.0 (compatible; newsbot/1.0)"
 MAX_DOWNLOAD = 20 * 1024 * 1024          # Bot API 只能下载 20MB 以内的文件
+X_API = os.environ.get("X_API_BASE", "https://api.x.com").rstrip("/")
 
 
 def log(*a):
@@ -54,6 +61,7 @@ def load_config(path=None):
     cfg.setdefault("accept_submissions", True)
     cfg.setdefault("submission_reply", "已收到,感谢投稿。内容会经人工审核后再决定是否发布,我们不会公开你的身份。")
     cfg["admin_ids"] = [int(x) for x in cfg.get("admin_ids", [])]
+    cfg.setdefault("x", {"enabled": False})
     for k in ("review_chat_id", "channel_id"):
         if not cfg.get(k):
             raise SystemExit(f"配置缺少 {k}")
@@ -142,6 +150,12 @@ class Store:
         CREATE TABLE IF NOT EXISTS submitters(h TEXT PRIMARY KEY, count INTEGER, last REAL, banned INTEGER DEFAULT 0);
         CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
         """)
+        cols = {r[1] for r in self.db.execute("PRAGMA table_info(items)")}
+        for c, t in (("body", "TEXT"), ("media_kind", "TEXT"), ("media_file", "TEXT"),
+                     ("tg_done", "INTEGER DEFAULT 0"), ("x_done", "INTEGER DEFAULT 0"), ("x_id", "TEXT")):
+            if c not in cols:
+                self.db.execute(f"ALTER TABLE items ADD COLUMN {c} {t}")
+        self.db.commit()
 
     def q(self, sql, args=(), one=False):
         with self.lock:
@@ -176,7 +190,8 @@ class TG:
                 with urllib.request.urlopen(req, timeout=timeout) as r:
                     res = json.loads(r.read())
             except urllib.error.HTTPError as e:
-                res = json.loads(e.read() or b"{}")
+                with e:
+                    res = json.loads(e.read() or b"{}")
             if res.get("ok"):
                 return res["result"]
             retry = (res.get("parameters") or {}).get("retry_after")
@@ -200,7 +215,8 @@ class TG:
             with urllib.request.urlopen(req, timeout=300) as r:
                 res = json.loads(r.read())
         except urllib.error.HTTPError as e:
-            res = json.loads(e.read() or b"{}")
+            with e:
+                res = json.loads(e.read() or b"{}")
         if not res.get("ok"):
             raise RuntimeError(f"{method}: {res.get('description', res)}")
         return res["result"]
@@ -235,15 +251,105 @@ def strip_video(src, dst):
     return dst
 
 
+# ------------------------------------------------------------------ X ----
+def _pct(v):
+    return urllib.parse.quote(str(v), safe="~-._")
+
+
+def oauth1_header(method, url, ck, cs, tk, ts, params=None, nonce=None, timestamp=None):
+    """OAuth 1.0a 签名(HMAC-SHA1)。params 只放查询参数或表单参数,JSON 和 multipart 正文不参与签名。"""
+    oauth = {"oauth_consumer_key": ck, "oauth_nonce": nonce or uuid.uuid4().hex,
+             "oauth_signature_method": "HMAC-SHA1", "oauth_timestamp": str(timestamp or int(time.time())),
+             "oauth_token": tk, "oauth_version": "1.0"}
+    pairs = sorted((_pct(k), _pct(v)) for k, v in {**(params or {}), **oauth}.items())
+    base = "&".join([method.upper(), _pct(url), _pct("&".join(f"{k}={v}" for k, v in pairs))])
+    sig = base64.b64encode(hmac.new(f"{_pct(cs)}&{_pct(ts)}".encode(), base.encode(), hashlib.sha1).digest()).decode()
+    oauth["oauth_signature"] = sig
+    return "OAuth " + ", ".join(f'{_pct(k)}="{_pct(v)}"' for k, v in sorted(oauth.items()))
+
+
+def x_weight(text):
+    """按 X 的规则估算长度:链接一律算 23,中日韩等字符算 2,其余算 1;上限 280。"""
+    urls = re.findall(r"https?://\S+", text)
+    w = 23 * len(urls)
+    for ch in re.sub(r"https?://\S+", "", text):
+        c = ord(ch)
+        w += 1 if (c <= 4351 or 8192 <= c <= 8205 or 8208 <= c <= 8223 or 8242 <= c <= 8247) else 2
+    return w
+
+
+def fit_x(body, tail="", limit=280):
+    """正文过长时截断并加省略号,tail(链接、来源)始终保留。"""
+    if x_weight(body + tail) <= limit:
+        return body + tail
+    while body and x_weight(body + "…" + tail) > limit:
+        body = body[:-1]
+    return body.rstrip() + "…" + tail
+
+
+class X:
+    def __init__(self, cfg, base=X_API):
+        self.enabled = bool((cfg.get("x") or {}).get("enabled"))
+        self.base = base
+        self.keys = [os.environ.get(k, "") for k in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")]
+        if self.enabled and not all(self.keys):
+            raise SystemExit("已开启发到 X,但缺少环境变量 X_API_KEY / X_API_SECRET / X_ACCESS_TOKEN / X_ACCESS_SECRET")
+
+    def _send(self, url, data, ctype):
+        ck, cs, tk, ts = self.keys
+        req = urllib.request.Request(url, data, {"Content-Type": ctype, "User-Agent": UA,
+                                                 "Authorization": oauth1_header("POST", url, ck, cs, tk, ts)})
+        try:
+            with urllib.request.urlopen(req, timeout=120) as r:
+                return json.loads(r.read() or b"{}")
+        except urllib.error.HTTPError as e:
+            with e:
+                detail = e.read().decode("utf-8", "replace")[:300]
+            raise RuntimeError(f"X 返回 {e.code}:{detail}")
+
+    def upload_image(self, path):
+        boundary = uuid.uuid4().hex
+        body = (f"--{boundary}\r\nContent-Disposition: form-data; name=\"media_category\"\r\n\r\ntweet_image\r\n"
+                f"--{boundary}\r\nContent-Disposition: form-data; name=\"media\"; filename=\"image.jpg\"\r\n"
+                f"Content-Type: image/jpeg\r\n\r\n").encode() + Path(path).read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        res = self._send(f"{self.base}/2/media/upload", body, f"multipart/form-data; boundary={boundary}")
+        mid = (res.get("data") or {}).get("id") or res.get("media_id_string")
+        if not mid:
+            raise RuntimeError(f"图片上传失败:{res}")
+        return str(mid)
+
+    def post(self, text, media_ids=None):
+        payload = {"text": text}
+        if media_ids:
+            payload["media"] = {"media_ids": media_ids}
+        res = self._send(f"{self.base}/2/tweets", json.dumps(payload).encode(), "application/json")
+        tid = (res.get("data") or {}).get("id")
+        if not tid:
+            raise RuntimeError(f"发帖失败:{res}")
+        return tid
+
+
 # --------------------------------------------------------------- 机器人 ----
-def kb(item):
-    return {"inline_keyboard": [[{"text": "✅ 发布", "callback_data": f"pub:{item}"},
-                                 {"text": "❌ 忽略", "callback_data": f"ign:{item}"}]]}
+def kb(item, x_on=False, tg_done=False, x_done=False):
+    row1 = []
+    if not tg_done:
+        row1.append({"text": "✅ 发频道" if x_on else "✅ 发布", "callback_data": f"tg:{item}"})
+    elif x_on:
+        row1.append({"text": "✔️ 频道已发", "callback_data": "noop:"})
+    if x_on:
+        row1.append({"text": "𝕏 发到 X", "callback_data": f"x:{item}"} if not x_done
+                    else {"text": "✔️ X 已发", "callback_data": "noop:"})
+    row2 = []
+    if x_on and not tg_done and not x_done:
+        row2.append({"text": "🚀 两边都发", "callback_data": f"both:{item}"})
+    row2.append({"text": "❌ 忽略" if not (tg_done or x_done) else "✔️ 不再发布", "callback_data": f"ign:{item}"})
+    return {"inline_keyboard": [row1, row2]}
 
 
 class Bot:
-    def __init__(self, cfg, tg, store):
+    def __init__(self, cfg, tg, store, x=None):
         self.cfg, self.tg, self.store = cfg, tg, store
+        self.x = x if x is not None else X(cfg)
         self.include = compile_terms(cfg["include"])
         self.exclude = compile_terms(cfg["exclude"])
         self.salt = store.get("salt") or uuid.uuid4().hex
@@ -298,7 +404,7 @@ class Bot:
                 f"{' · ' + when if when else ''}\n{html.escape(it['link'])}\n\n"
                 f"<i>回复本条消息可以改写发布文字</i>")
         m = self.tg.call("sendMessage", chat_id=self.cfg["review_chat_id"], text=text, parse_mode="HTML",
-                         reply_markup=kb(iid))
+                         reply_markup=kb(iid, self.x.enabled))
         self._save_rss(iid, f, it, "pending", m["message_id"])
 
     # ---------- 更新处理 ----------
@@ -326,7 +432,7 @@ class Bot:
             if row and row[1] == "pending":
                 self.store.q("UPDATE items SET custom_text=? WHERE id=?", (text, row[0]))
                 self.tg.call("sendMessage", chat_id=msg["chat"]["id"], reply_to_message_id=reply["message_id"],
-                             text="已保存改写,点这条的「✅ 发布」就会用新文字发布。")
+                             text="已保存改写,再点这条的发布按钮就会用新文字发布(频道和 X 都会用)。")
             return
         if text.startswith("/stats"):
             rows = self.store.q("SELECT status,count(*) FROM items GROUP BY status")
@@ -354,17 +460,19 @@ class Bot:
         sid = uuid.uuid4().hex[:12]
         review = int(self.cfg["review_chat_id"])
         try:
-            content_id, note = self._copy_clean(msg, review)
+            content_id, note, media = self._copy_clean(msg, review)
         except Exception as e:
             log("投稿转存失败", e)
             self.tg.call("sendMessage", chat_id=uid, text="这条内容处理失败(可能文件超过 20MB),请压缩后重发。")
             return
         n = self.store.q("SELECT count(*) FROM items WHERE kind='sub'", one=True)[0] + 1
         ctrl = self.tg.call("sendMessage", chat_id=review, reply_to_message_id=content_id,
-                            text=f"📮 匿名投稿 #{n}(投稿人 {h[:6]}){note}\n点「发布」会把上面这条原样发到频道。",
-                            reply_markup=kb(sid))
-        self.store.q("INSERT INTO items(id,kind,source,title,status,review_msg,content_msg,created) VALUES(?,?,?,?,?,?,?,?)",
-                     (sid, "sub", "投稿", (msg.get("text") or msg.get("caption") or "")[:200], "pending",
+                            text=f"📮 匿名投稿 #{n}(投稿人 {h[:6]}){note}\n发布时会把上面这条原样发出。",
+                            reply_markup=kb(sid, self.x.enabled))
+        body = msg.get("text") or msg.get("caption") or ""
+        self.store.q("INSERT INTO items(id,kind,source,title,body,media_kind,media_file,status,review_msg,content_msg,created)"
+                     " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                     (sid, "sub", "投稿", body[:200], body, media[0], media[1], "pending",
                       ctrl["message_id"], content_id, time.time()))
         self.tg.call("sendMessage", chat_id=uid, text=self.cfg["submission_reply"])
 
@@ -391,45 +499,92 @@ class Bot:
                     if kind == "video":   # 视频无法清理时不上传原文件,只提醒管理员
                         r = self.tg.call("copyMessage", chat_id=review, from_chat_id=msg["chat"]["id"],
                                          message_id=msg["message_id"])
-                        return r["message_id"], "\n⚠️ 视频元数据未能去除,发布前请注意"
+                        return r["message_id"], "\n⚠️ 视频元数据未能去除,发布前请注意", ("video", fid)
                     raise
                 r = self.tg.upload(method, {"chat_id": review, "caption": cap}, kind, out,
                                    "photo.jpg" if kind == "photo" else "video.mp4")
-                return r["message_id"], note
+                got = (r.get("photo") or [{}])[-1].get("file_id") if kind == "photo" else (r.get("video") or {}).get("file_id")
+                return r["message_id"], note, (kind, got or fid)
         # 文字、Telegram 普通图片(服务器已重新压缩,不含 EXIF)等:复制而不是转发,不显示来源
         r = self.tg.call("copyMessage", chat_id=review, from_chat_id=msg["chat"]["id"], message_id=msg["message_id"])
         note = "\n⚠️ 这是文件形式,元数据可能未去除" if doc else ""
-        return r["message_id"], note
+        media = ("photo", msg["photo"][-1]["file_id"]) if msg.get("photo") else (None, None)
+        return r["message_id"], note, media
 
     def on_button(self, cq):
         uid = cq["from"]["id"]
+        answer = lambda t: self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text=t[:190])
         if uid not in self.cfg["admin_ids"]:
-            return self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text="你没有审核权限")
+            return answer("你没有审核权限")
         action, _, iid = (cq.get("data") or "").partition(":")
-        row = self.store.q("SELECT kind,title,link,source,status,content_msg,custom_text FROM items WHERE id=?",
-                           (iid,), one=True)
+        if action == "pub":
+            action = "tg"          # 兼容旧按钮
+        if action not in ("tg", "x", "both", "ign"):
+            return answer("")
+        row = self.store.q("SELECT kind,title,link,source,status,content_msg,custom_text,body,media_kind,media_file,"
+                           "tg_done,x_done FROM items WHERE id=?", (iid,), one=True)
         if not row or row[4] != "pending":
-            return self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text="这条已经处理过了")
-        kind, title, link, source, _, content_msg, custom = row
+            return answer("这条已经处理过了")
+        kind, title, link, source, _, content_msg, custom, body, mkind, mfile, tg_done, x_done = row
+        if action in ("x", "both") and not self.x.enabled:
+            return answer("还没有配置 X,请先在 config.json 打开并填写密钥")
         msg = cq.get("message") or {}
         who = cq["from"].get("first_name", "")
-        if action == "pub":
-            ch = self.cfg["channel_id"]
-            if kind == "sub":
-                self.tg.call("copyMessage", chat_id=ch, from_chat_id=self.cfg["review_chat_id"], message_id=content_msg)
-            else:
-                text = custom or f"<b>{html.escape(title)}</b>\n\n{html.escape(link)}\n\n来源:{html.escape(source)}"
-                self.tg.call("sendMessage", chat_id=ch, text=text, parse_mode=None if custom else "HTML")
+        errors = []
+        if action in ("tg", "both") and not tg_done:
+            try:
+                self._publish_tg(kind, title, link, source, content_msg, custom)
+                tg_done = 1
+                self.store.q("UPDATE items SET tg_done=1 WHERE id=?", (iid,))
+            except Exception as e:
+                errors.append(f"频道发布失败:{e}")
+        if action in ("x", "both") and not x_done:
+            try:
+                tid = self._publish_x(kind, title, link, source, custom, body, mkind, mfile)
+                x_done = 1
+                self.store.q("UPDATE items SET x_done=1, x_id=? WHERE id=?", (tid, iid))
+            except Exception as e:
+                errors.append(f"X 发布失败:{e}")
+        if action == "ign":
+            self.store.q("UPDATE items SET status=? WHERE id=?", ("published" if (tg_done or x_done) else "ignored", iid))
+            final = "✔️ 已结束" if (tg_done or x_done) else "❌ 已忽略"
+            markup = {"inline_keyboard": [[{"text": f"{final}({who})", "callback_data": "noop:"}]]}
+        elif tg_done and (x_done or not self.x.enabled):
             self.store.q("UPDATE items SET status='published' WHERE id=?", (iid,))
-            done = f"✅ 已发布({who})"
-        elif action == "ign":
-            self.store.q("UPDATE items SET status='ignored' WHERE id=?", (iid,))
-            done = f"❌ 已忽略({who})"
+            done = "✅ 已发布到频道" + (" 和 X" if self.x.enabled else "")
+            markup = {"inline_keyboard": [[{"text": f"{done}({who})", "callback_data": "noop:"}]]}
         else:
-            return
-        self.tg.call("editMessageReplyMarkup", chat_id=msg["chat"]["id"], message_id=msg["message_id"],
-                     reply_markup={"inline_keyboard": [[{"text": done, "callback_data": "noop:"}]]})
-        self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text=done)
+            markup = kb(iid, self.x.enabled, tg_done, x_done)
+        self.tg.call("editMessageReplyMarkup", chat_id=msg["chat"]["id"], message_id=msg["message_id"], reply_markup=markup)
+        if errors:
+            self.tg.call("sendMessage", chat_id=msg["chat"]["id"], reply_to_message_id=msg["message_id"], text="\n".join(errors))
+            return answer("有内容发送失败,详情见回复")
+        answer({"tg": "已发到频道", "x": "已发到 X", "both": "两边都已发布", "ign": "已处理"}[action])
+
+    def _publish_tg(self, kind, title, link, source, content_msg, custom):
+        ch = self.cfg["channel_id"]
+        if kind == "sub":
+            self.tg.call("copyMessage", chat_id=ch, from_chat_id=self.cfg["review_chat_id"], message_id=content_msg)
+        else:
+            text = custom or f"<b>{html.escape(title)}</b>\n\n{html.escape(link)}\n\n来源:{html.escape(source)}"
+            self.tg.call("sendMessage", chat_id=ch, text=text, parse_mode=None if custom else "HTML")
+
+    def _publish_x(self, kind, title, link, source, custom, body, mkind, mfile):
+        if kind == "sub":
+            if mkind == "video":
+                raise RuntimeError("视频暂不支持自动发到 X,请手动上传")
+            media_ids = []
+            if mkind == "photo" and mfile:
+                with tempfile.TemporaryDirectory() as td:
+                    raw = self.tg.download(mfile, os.path.join(td, "raw"))
+                    media_ids.append(self.x.upload_image(strip_image(raw, os.path.join(td, "x.jpg"))))
+            text = fit_x(custom or body or "")
+            if not text and not media_ids:
+                raise RuntimeError("没有可以发的内容")
+            return self.x.post(text, media_ids)
+        if custom:
+            return self.x.post(fit_x(custom))
+        return self.x.post(fit_x(title, f"\n\n{link}\n来源:{source}"))
 
     # ---------- 主循环 ----------
     def run(self):
