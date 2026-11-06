@@ -290,6 +290,10 @@ def fit_x(body, tail="", limit=280):
 class X:
     def __init__(self, cfg, base=X_API):
         self.enabled = bool((cfg.get("x") or {}).get("enabled"))
+        # 外链放哪里:inline=正文里;reply=正文不带链接,发完在自己帖子下回复链接(默认);none=不发链接
+        self.link_mode = (cfg.get("x") or {}).get("link_mode", "reply")
+        if self.link_mode not in ("inline", "reply", "none"):
+            raise SystemExit('x.link_mode 只能是 "inline"、"reply" 或 "none"')
         self.base = base
         self.keys = [os.environ.get(k, "") for k in ("X_API_KEY", "X_API_SECRET", "X_ACCESS_TOKEN", "X_ACCESS_SECRET")]
         if self.enabled and not all(self.keys):
@@ -318,8 +322,10 @@ class X:
             raise RuntimeError(f"图片上传失败:{res}")
         return str(mid)
 
-    def post(self, text, media_ids=None):
+    def post(self, text, media_ids=None, reply_to=None):
         payload = {"text": text}
+        if reply_to:
+            payload["reply"] = {"in_reply_to_tweet_id": str(reply_to)}
         if media_ids:
             payload["media"] = {"media_ids": media_ids}
         res = self._send(f"{self.base}/2/tweets", json.dumps(payload).encode(), "application/json")
@@ -584,7 +590,15 @@ class Bot:
             return self.x.post(text, media_ids)
         if custom:
             return self.x.post(fit_x(custom))
-        return self.x.post(fit_x(title, f"\n\n{link}\n来源:{source}"))
+        if self.x.link_mode == "inline" or not link:
+            return self.x.post(fit_x(title, f"\n\n{link}\n来源:{source}" if link else f"\n来源:{source}"))
+        tid = self.x.post(fit_x(title, f"\n\n来源:{source}"))
+        if self.x.link_mode == "reply":
+            try:
+                self.x.post(f"原文:{link}", reply_to=tid)
+            except Exception as e:      # 主帖已经发出,链接回复失败不影响结果,只记日志
+                log("X 链接回复失败", e)
+        return tid
 
     # ---------- 主循环 ----------
     def run(self):

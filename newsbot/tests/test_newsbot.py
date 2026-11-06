@@ -199,13 +199,25 @@ class XTest(unittest.TestCase):
         self.bot.poll_feeds(now=NOW)
         iid = self.store.q("SELECT id FROM items WHERE title LIKE '%777X%'", one=True)[0]
         self.press(f"both:{iid}")
-        t = self.tweets()[-1]
-        self.assertIn("777X", t["text"]); self.assertIn("https://a.test/1", t["text"]); self.assertIn("来源:源A", t["text"])
+        main, reply = self.tweets()[-2:]
+        t = main
+        self.assertIn("777X", main["text"]); self.assertIn("来源:源A", main["text"])
+        self.assertNotIn("https://", main["text"])                     # 默认:正文不带外链
+        self.assertEqual(reply["text"], "原文:https://a.test/1")      # 链接发在自己帖子下的回复里
+        self.assertTrue(reply["reply"]["in_reply_to_tweet_id"].startswith("X"))
         self.assertTrue(t["_auth"].startswith("OAuth ") and 'oauth_signature="' in t["_auth"] and 'oauth_consumer_key="ck"' in t["_auth"])
         self.assertTrue(any(p["chat_id"] == "@chan" for p in self.fake.by("sendMessage")))
         self.assertEqual(self.store.q("SELECT status,x_done,tg_done FROM items WHERE id=?", (iid,), one=True), ("published", 1, 1))
         self.press(f"x:{iid}")
-        self.assertEqual(len(self.tweets()), 1)
+        self.assertEqual(len(self.tweets()), 2)
+
+    def test_link_modes(self):
+        self.bot.poll_feeds(now=NOW)
+        ids = [r[0] for r in self.store.q("SELECT id FROM items WHERE kind='rss' ORDER BY title")]
+        self.bot.x.link_mode = "inline"; self.press(f"x:{ids[0]}")
+        self.assertIn("https://", self.tweets()[-1]["text"]); self.assertEqual(len(self.tweets()), 1)
+        self.bot.x.link_mode = "none"; self.press(f"x:{ids[1]}")
+        self.assertNotIn("https://", self.tweets()[-1]["text"]); self.assertEqual(len(self.tweets()), 2)
 
     def test_x_only_keeps_channel_button(self):
         self.bot.poll_feeds(now=NOW)
