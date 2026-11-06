@@ -1,0 +1,470 @@
+#!/usr/bin/env python3
+"""审核发布机器人:自动收集 RSS 新闻和网友投稿,发到审核群,管理员点「发布」后才发到公开频道。
+
+只依赖 Python 3.9+ 标准库。可选:Pillow(去除投稿图片里的 EXIF/GPS)、ffmpeg(去除视频元数据)。
+
+环境变量:
+  BOT_TOKEN        (必填) BotFather 给的机器人 Token
+  NEWSBOT_CONFIG   配置文件路径,默认与本文件同目录的 config.json
+  NEWSBOT_DATA     数据库目录,默认 ./data
+  TG_API_BASE      Telegram API 地址,默认 https://api.telegram.org(测试时替换)
+"""
+import email.utils
+import hashlib
+import html
+import json
+import os
+import re
+import shutil
+import sqlite3
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+import urllib.parse
+import urllib.request
+import uuid
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+API = os.environ.get("TG_API_BASE", "https://api.telegram.org").rstrip("/")
+TOKEN = os.environ.get("BOT_TOKEN", "")
+UA = "Mozilla/5.0 (compatible; newsbot/1.0)"
+MAX_DOWNLOAD = 20 * 1024 * 1024          # Bot API 只能下载 20MB 以内的文件
+
+
+def log(*a):
+    print(time.strftime("%F %T"), *a, flush=True)
+
+
+# ---------------------------------------------------------------- 配置 ----
+def load_config(path=None):
+    p = Path(path or os.environ.get("NEWSBOT_CONFIG", ROOT / "config.json"))
+    cfg = json.loads(p.read_text("utf-8"))
+    cfg.setdefault("feeds", [])
+    cfg.setdefault("include", [])
+    cfg.setdefault("exclude", [])
+    cfg.setdefault("interval_minutes", 30)
+    cfg.setdefault("max_age_hours", 48)
+    cfg.setdefault("max_per_cycle", 15)
+    cfg.setdefault("first_run_keep", 3)
+    cfg.setdefault("accept_submissions", True)
+    cfg.setdefault("submission_reply", "已收到,感谢投稿。内容会经人工审核后再决定是否发布,我们不会公开你的身份。")
+    cfg["admin_ids"] = [int(x) for x in cfg.get("admin_ids", [])]
+    for k in ("review_chat_id", "channel_id"):
+        if not cfg.get(k):
+            raise SystemExit(f"配置缺少 {k}")
+    if not cfg["admin_ids"]:
+        raise SystemExit("配置缺少 admin_ids(可以点审核按钮的人的 Telegram 用户 ID)")
+    return cfg
+
+
+def compile_terms(terms):
+    out = []
+    for t in terms:
+        t = str(t).strip()
+        if not t:
+            continue
+        if len(t) > 2 and t.startswith("/") and t.endswith("/"):
+            out.append(re.compile(t[1:-1], re.I))
+        else:
+            out.append(re.compile(re.escape(t), re.I))
+    return out
+
+
+def wanted(title, include, exclude):
+    """include 为空表示全部要;任一 exclude 命中就不要。"""
+    if any(r.search(title) for r in exclude):
+        return False
+    return not include or any(r.search(title) for r in include)
+
+
+# ------------------------------------------------------------- RSS 解析 ----
+def _text(el, *names):
+    for n in names:
+        x = el.find(n)
+        if x is not None and (x.text or "").strip():
+            return x.text.strip()
+    return ""
+
+
+def _date(s):
+    if not s:
+        return None
+    try:
+        d = email.utils.parsedate_to_datetime(s)
+    except (TypeError, ValueError):
+        try:
+            d = datetime.fromisoformat(s.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+
+
+def parse_feed(xml_bytes):
+    """返回 [{title, link, date}],同时支持 RSS 2.0 和 Atom。"""
+    root = ET.fromstring(xml_bytes)
+    items = []
+    atom = "{http://www.w3.org/2005/Atom}"
+    for it in root.iter("item"):
+        items.append({"title": _text(it, "title"), "link": _text(it, "link", "guid"),
+                      "date": _date(_text(it, "pubDate", "{http://purl.org/dc/elements/1.1/}date"))})
+    for en in root.iter(atom + "entry"):
+        link = ""
+        for l in en.findall(atom + "link"):
+            if l.get("rel", "alternate") == "alternate" and l.get("href"):
+                link = l.get("href"); break
+        items.append({"title": _text(en, atom + "title"), "link": link,
+                      "date": _date(_text(en, atom + "updated", atom + "published"))})
+    return [i for i in items if i["title"] or i["link"]]
+
+
+def fetch(url, timeout=30):
+    req = urllib.request.Request(url, headers={"User-Agent": UA})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return r.read(5 * 1024 * 1024)
+
+
+# ------------------------------------------------------------- 数据库 ----
+class Store:
+    def __init__(self, path):
+        Path(path).parent.mkdir(parents=True, exist_ok=True)
+        self.db = sqlite3.connect(path, check_same_thread=False)
+        self.lock = threading.Lock()
+        self.db.executescript("""
+        CREATE TABLE IF NOT EXISTS items(
+          id TEXT PRIMARY KEY, kind TEXT, source TEXT, title TEXT, link TEXT, published TEXT,
+          status TEXT, review_msg INTEGER, content_msg INTEGER, custom_text TEXT, created REAL);
+        CREATE TABLE IF NOT EXISTS feeds_seen(feed TEXT PRIMARY KEY);
+        CREATE TABLE IF NOT EXISTS submitters(h TEXT PRIMARY KEY, count INTEGER, last REAL, banned INTEGER DEFAULT 0);
+        CREATE TABLE IF NOT EXISTS kv(k TEXT PRIMARY KEY, v TEXT);
+        """)
+
+    def q(self, sql, args=(), one=False):
+        with self.lock:
+            cur = self.db.execute(sql, args)
+            self.db.commit()
+            rows = cur.fetchall()
+        return (rows[0] if rows else None) if one else rows
+
+    def get(self, k, default=None):
+        r = self.q("SELECT v FROM kv WHERE k=?", (k,), one=True)
+        return r[0] if r else default
+
+    def set(self, k, v):
+        self.q("INSERT OR REPLACE INTO kv VALUES(?,?)", (k, str(v)))
+
+
+def item_id(feed_id, link, title):
+    return hashlib.sha1(f"{feed_id}|{link or title}".encode()).hexdigest()[:16]
+
+
+# --------------------------------------------------------- Telegram API ----
+class TG:
+    def __init__(self, token, base=API):
+        self.base = f"{base}/bot{token}"
+        self.file_base = f"{base}/file/bot{token}"
+
+    def call(self, method, timeout=70, **params):
+        data = json.dumps({k: v for k, v in params.items() if v is not None}).encode()
+        req = urllib.request.Request(f"{self.base}/{method}", data, {"Content-Type": "application/json"})
+        for attempt in range(4):
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as r:
+                    res = json.loads(r.read())
+            except urllib.error.HTTPError as e:
+                res = json.loads(e.read() or b"{}")
+            if res.get("ok"):
+                return res["result"]
+            retry = (res.get("parameters") or {}).get("retry_after")
+            if retry and attempt < 3:           # 触发频率限制时按 Telegram 要求等待
+                time.sleep(int(retry) + 1); continue
+            raise RuntimeError(f"{method}: {res.get('description', res)}")
+
+    def upload(self, method, fields, file_field, file_path, filename):
+        boundary = uuid.uuid4().hex
+        body = bytearray()
+        for k, v in fields.items():
+            if v is None:
+                continue
+            body += f"--{boundary}\r\nContent-Disposition: form-data; name=\"{k}\"\r\n\r\n{v}\r\n".encode()
+        body += (f"--{boundary}\r\nContent-Disposition: form-data; name=\"{file_field}\"; filename=\"{filename}\"\r\n"
+                 f"Content-Type: application/octet-stream\r\n\r\n").encode()
+        body += Path(file_path).read_bytes() + f"\r\n--{boundary}--\r\n".encode()
+        req = urllib.request.Request(f"{self.base}/{method}", bytes(body),
+                                     {"Content-Type": f"multipart/form-data; boundary={boundary}"})
+        try:
+            with urllib.request.urlopen(req, timeout=300) as r:
+                res = json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            res = json.loads(e.read() or b"{}")
+        if not res.get("ok"):
+            raise RuntimeError(f"{method}: {res.get('description', res)}")
+        return res["result"]
+
+    def download(self, file_id, dest):
+        f = self.call("getFile", file_id=file_id)
+        if f.get("file_size", 0) > MAX_DOWNLOAD:
+            raise RuntimeError("文件超过 20MB,机器人无法下载")
+        with urllib.request.urlopen(f"{self.file_base}/{f['file_path']}", timeout=120) as r, open(dest, "wb") as out:
+            shutil.copyfileobj(r, out)
+        return dest
+
+
+# ------------------------------------------------------- 去除媒体元数据 ----
+def strip_image(src, dst):
+    """重新编码图片,丢弃 EXIF(含 GPS、设备型号、拍摄时间)。需要 Pillow。"""
+    from PIL import Image, ImageOps
+    with Image.open(src) as im:
+        im = ImageOps.exif_transpose(im)      # 先按 EXIF 方向转正,再丢弃 EXIF
+        clean = Image.frombytes(im.mode, im.size, im.tobytes())   # 只复制像素,不带任何元数据
+        if clean.mode not in ("RGB", "L"):
+            clean = clean.convert("RGB")
+        clean.save(dst, "JPEG", quality=92)
+    return dst
+
+
+def strip_video(src, dst):
+    """不重新编码,只去掉容器元数据(位置、设备、时间)。需要 ffmpeg。"""
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", src, "-map", "0", "-map_metadata", "-1",
+                    "-map_chapters", "-1", "-c", "copy", "-movflags", "+faststart", dst],
+                   check=True, timeout=600)
+    return dst
+
+
+# --------------------------------------------------------------- 机器人 ----
+def kb(item):
+    return {"inline_keyboard": [[{"text": "✅ 发布", "callback_data": f"pub:{item}"},
+                                 {"text": "❌ 忽略", "callback_data": f"ign:{item}"}]]}
+
+
+class Bot:
+    def __init__(self, cfg, tg, store):
+        self.cfg, self.tg, self.store = cfg, tg, store
+        self.include = compile_terms(cfg["include"])
+        self.exclude = compile_terms(cfg["exclude"])
+        self.salt = store.get("salt") or uuid.uuid4().hex
+        store.set("salt", self.salt)
+
+    # ---------- RSS ----------
+    def poll_feeds(self, now=None):
+        now = now or datetime.now(timezone.utc)
+        cutoff = now - timedelta(hours=self.cfg["max_age_hours"])
+        sent = 0
+        for f in self.cfg["feeds"]:
+            if f.get("enabled", True) is False:
+                continue
+            try:
+                items = parse_feed(fetch(f["url"]))
+            except Exception as e:
+                log("抓取失败", f.get("name", f["url"]), e); continue
+            first = not self.store.q("SELECT 1 FROM feeds_seen WHERE feed=?", (f["id"],), one=True)
+            fresh = []
+            for it in items:
+                iid = item_id(f["id"], it["link"], it["title"])
+                if self.store.q("SELECT 1 FROM items WHERE id=?", (iid,), one=True):
+                    continue
+                if it["date"] and it["date"] < cutoff:
+                    continue
+                if not wanted(it["title"], self.include, self.exclude):
+                    continue
+                fresh.append((iid, it))
+            fresh.sort(key=lambda x: x[1]["date"] or now, reverse=True)
+            if first:   # 新加入的源只送最新几条,其余标记已读,避免刷屏
+                for iid, it in fresh[self.cfg["first_run_keep"]:]:
+                    self._save_rss(iid, f, it, "skipped")
+                fresh = fresh[: self.cfg["first_run_keep"]]
+                self.store.q("INSERT OR IGNORE INTO feeds_seen VALUES(?)", (f["id"],))
+            for iid, it in fresh:
+                if sent >= self.cfg["max_per_cycle"]:
+                    break                     # 超出的留到下一轮(未入库,下次还会出现)
+                self._send_rss(iid, f, it)
+                sent += 1
+                time.sleep(0.5)
+        return sent
+
+    def _save_rss(self, iid, f, it, status, review_msg=None):
+        self.store.q("INSERT OR IGNORE INTO items(id,kind,source,title,link,published,status,review_msg,created)"
+                     " VALUES(?,?,?,?,?,?,?,?,?)",
+                     (iid, "rss", f.get("name", f["id"]), it["title"], it["link"],
+                      it["date"].isoformat() if it["date"] else "", status, review_msg, time.time()))
+
+    def _send_rss(self, iid, f, it):
+        when = it["date"].astimezone().strftime("%m-%d %H:%M") if it["date"] else ""
+        text = (f"📰 <b>{html.escape(it['title'])}</b>\n来源:{html.escape(f.get('name', f['id']))}"
+                f"{' · ' + when if when else ''}\n{html.escape(it['link'])}\n\n"
+                f"<i>回复本条消息可以改写发布文字</i>")
+        m = self.tg.call("sendMessage", chat_id=self.cfg["review_chat_id"], text=text, parse_mode="HTML",
+                         reply_markup=kb(iid))
+        self._save_rss(iid, f, it, "pending", m["message_id"])
+
+    # ---------- 更新处理 ----------
+    def handle(self, upd):
+        if "callback_query" in upd:
+            return self.on_button(upd["callback_query"])
+        msg = upd.get("message")
+        if not msg:
+            return
+        uid = (msg.get("from") or {}).get("id")
+        chat = msg["chat"]
+        if chat["id"] == int(self.cfg["review_chat_id"]) or (chat["type"] == "private" and uid in self.cfg["admin_ids"]):
+            return self.on_admin(msg)
+        if chat["type"] == "private" and self.cfg["accept_submissions"]:
+            return self.on_submission(msg)
+
+    def on_admin(self, msg):
+        text = (msg.get("text") or "").strip()
+        uid = (msg.get("from") or {}).get("id")
+        if uid not in self.cfg["admin_ids"]:
+            return
+        reply = msg.get("reply_to_message")
+        if reply and text and not text.startswith("/"):
+            row = self.store.q("SELECT id,status FROM items WHERE review_msg=?", (reply["message_id"],), one=True)
+            if row and row[1] == "pending":
+                self.store.q("UPDATE items SET custom_text=? WHERE id=?", (text, row[0]))
+                self.tg.call("sendMessage", chat_id=msg["chat"]["id"], reply_to_message_id=reply["message_id"],
+                             text="已保存改写,点这条的「✅ 发布」就会用新文字发布。")
+            return
+        if text.startswith("/stats"):
+            rows = self.store.q("SELECT status,count(*) FROM items GROUP BY status")
+            names = {"pending": "待审核", "published": "已发布", "ignored": "已忽略", "skipped": "首次跳过"}
+            s = "\n".join(f"{names.get(k, k)}:{n}" for k, n in rows) or "暂无数据"
+            self.tg.call("sendMessage", chat_id=msg["chat"]["id"], text=s)
+        elif text.startswith("/id"):
+            self.tg.call("sendMessage", chat_id=msg["chat"]["id"], text=f"这个对话的 ID:{msg['chat']['id']}\n你的用户 ID:{uid}")
+
+    def on_submission(self, msg):
+        uid = msg["from"]["id"]
+        if (msg.get("text") or "").startswith("/start"):
+            self.tg.call("sendMessage", chat_id=uid, text="你好!直接把文字、图片或视频发给我就是投稿。"
+                         "图片和视频会自动去除位置等隐藏信息,你的账号不会被公开。\n"
+                         "请注意画面里的人脸、车牌、门牌等也可能暴露你的身份。")
+            return
+        h = hashlib.sha256(f"{self.salt}{uid}".encode()).hexdigest()[:16]   # 只存加盐哈希,不存用户 ID
+        row = self.store.q("SELECT count,last,banned FROM submitters WHERE h=?", (h,), one=True)
+        if row and row[2]:
+            return
+        if row and time.time() - row[1] < 5:
+            return self.tg.call("sendMessage", chat_id=uid, text="发送太快了,请稍等几秒再发。")
+        self.store.q("INSERT INTO submitters(h,count,last) VALUES(?,1,?) ON CONFLICT(h) DO UPDATE SET count=count+1,last=?",
+                     (h, time.time(), time.time()))
+        sid = uuid.uuid4().hex[:12]
+        review = int(self.cfg["review_chat_id"])
+        try:
+            content_id, note = self._copy_clean(msg, review)
+        except Exception as e:
+            log("投稿转存失败", e)
+            self.tg.call("sendMessage", chat_id=uid, text="这条内容处理失败(可能文件超过 20MB),请压缩后重发。")
+            return
+        n = self.store.q("SELECT count(*) FROM items WHERE kind='sub'", one=True)[0] + 1
+        ctrl = self.tg.call("sendMessage", chat_id=review, reply_to_message_id=content_id,
+                            text=f"📮 匿名投稿 #{n}(投稿人 {h[:6]}){note}\n点「发布」会把上面这条原样发到频道。",
+                            reply_markup=kb(sid))
+        self.store.q("INSERT INTO items(id,kind,source,title,status,review_msg,content_msg,created) VALUES(?,?,?,?,?,?,?,?)",
+                     (sid, "sub", "投稿", (msg.get("text") or msg.get("caption") or "")[:200], "pending",
+                      ctrl["message_id"], content_id, time.time()))
+        self.tg.call("sendMessage", chat_id=uid, text=self.cfg["submission_reply"])
+
+    def _copy_clean(self, msg, review):
+        """把投稿放进审核群:去掉转发来源;能去元数据的媒体先处理再上传。返回(消息ID, 备注)。"""
+        cap = msg.get("caption")
+        doc = msg.get("document") or {}
+        mime = doc.get("mime_type", "")
+        media = None
+        if doc and mime.startswith("image/"):
+            media = ("photo", doc["file_id"], "sendPhoto")
+        elif msg.get("video") or (doc and mime.startswith("video/")):
+            media = ("video", (msg.get("video") or doc)["file_id"], "sendVideo")
+        if media:
+            kind, fid, method = media
+            with tempfile.TemporaryDirectory() as td:
+                raw = self.tg.download(fid, os.path.join(td, "raw"))
+                try:
+                    out = (strip_image(raw, os.path.join(td, "clean.jpg")) if kind == "photo"
+                           else strip_video(raw, os.path.join(td, "clean.mp4")))
+                    note = ""
+                except Exception as e:
+                    log("去除元数据失败", e)
+                    if kind == "video":   # 视频无法清理时不上传原文件,只提醒管理员
+                        r = self.tg.call("copyMessage", chat_id=review, from_chat_id=msg["chat"]["id"],
+                                         message_id=msg["message_id"])
+                        return r["message_id"], "\n⚠️ 视频元数据未能去除,发布前请注意"
+                    raise
+                r = self.tg.upload(method, {"chat_id": review, "caption": cap}, kind, out,
+                                   "photo.jpg" if kind == "photo" else "video.mp4")
+                return r["message_id"], note
+        # 文字、Telegram 普通图片(服务器已重新压缩,不含 EXIF)等:复制而不是转发,不显示来源
+        r = self.tg.call("copyMessage", chat_id=review, from_chat_id=msg["chat"]["id"], message_id=msg["message_id"])
+        note = "\n⚠️ 这是文件形式,元数据可能未去除" if doc else ""
+        return r["message_id"], note
+
+    def on_button(self, cq):
+        uid = cq["from"]["id"]
+        if uid not in self.cfg["admin_ids"]:
+            return self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text="你没有审核权限")
+        action, _, iid = (cq.get("data") or "").partition(":")
+        row = self.store.q("SELECT kind,title,link,source,status,content_msg,custom_text FROM items WHERE id=?",
+                           (iid,), one=True)
+        if not row or row[4] != "pending":
+            return self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text="这条已经处理过了")
+        kind, title, link, source, _, content_msg, custom = row
+        msg = cq.get("message") or {}
+        who = cq["from"].get("first_name", "")
+        if action == "pub":
+            ch = self.cfg["channel_id"]
+            if kind == "sub":
+                self.tg.call("copyMessage", chat_id=ch, from_chat_id=self.cfg["review_chat_id"], message_id=content_msg)
+            else:
+                text = custom or f"<b>{html.escape(title)}</b>\n\n{html.escape(link)}\n\n来源:{html.escape(source)}"
+                self.tg.call("sendMessage", chat_id=ch, text=text, parse_mode=None if custom else "HTML")
+            self.store.q("UPDATE items SET status='published' WHERE id=?", (iid,))
+            done = f"✅ 已发布({who})"
+        elif action == "ign":
+            self.store.q("UPDATE items SET status='ignored' WHERE id=?", (iid,))
+            done = f"❌ 已忽略({who})"
+        else:
+            return
+        self.tg.call("editMessageReplyMarkup", chat_id=msg["chat"]["id"], message_id=msg["message_id"],
+                     reply_markup={"inline_keyboard": [[{"text": done, "callback_data": "noop:"}]]})
+        self.tg.call("answerCallbackQuery", callback_query_id=cq["id"], text=done)
+
+    # ---------- 主循环 ----------
+    def run(self):
+        def feeder():
+            while True:
+                try:
+                    n = self.poll_feeds()
+                    log(f"RSS 检查完成,新增待审核 {n} 条")
+                except Exception as e:
+                    log("RSS 循环出错", e)
+                time.sleep(self.cfg["interval_minutes"] * 60)
+        threading.Thread(target=feeder, daemon=True).start()
+        offset = int(self.store.get("offset", 0))
+        log("机器人已启动")
+        while True:
+            try:
+                ups = self.tg.call("getUpdates", offset=offset, timeout=50, allowed_updates=["message", "callback_query"])
+            except Exception as e:
+                log("getUpdates 出错", e); time.sleep(5); continue
+            for u in ups:
+                offset = u["update_id"] + 1
+                self.store.set("offset", offset)
+                try:
+                    self.handle(u)
+                except Exception as e:
+                    log("处理更新出错", e)
+
+
+def main():
+    if not TOKEN:
+        sys.exit("请先设置环境变量 BOT_TOKEN")
+    cfg = load_config()
+    data = Path(os.environ.get("NEWSBOT_DATA", ROOT / "data"))
+    Bot(cfg, TG(TOKEN), Store(data / "newsbot.db")).run()
+
+
+if __name__ == "__main__":
+    main()

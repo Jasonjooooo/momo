@@ -1,0 +1,22 @@
+{
+  "review_chat_id": -1001234567890,
+  "channel_id": "@your_channel",
+  "admin_ids": [123456789],
+
+  "interval_minutes": 30,
+  "max_age_hours": 48,
+  "max_per_cycle": 15,
+  "first_run_keep": 3,
+
+  "accept_submissions": true,
+  "submission_reply": "已收到,感谢投稿。内容会经人工审核后再决定是否发布,我们不会公开你的身份。",
+
+  "include": [],
+  "exclude": ["广告", "/推广|赞助/"],
+
+  "feeds": [
+    {"id": "simpleflying", "name": "Simple Flying", "url": "https://simpleflying.com/feed/"},
+    {"id": "doctorofcredit", "name": "Doctor of Credit", "url": "https://www.doctorofcredit.com/feed/"},
+    {"id": "example", "name": "示例源(换成你的)", "url": "https://example.com/feed.xml", "enabled": false}
+  ]
+}
