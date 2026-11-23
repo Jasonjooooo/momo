@@ -12,6 +12,8 @@ test('参考分 = 每千次浏览的加权互动', () => {
 });
 test('分档与链接解析', () => {
   assert.deepEqual([null, 5, 10, 30, 60].map(v => XW.tier(v).key), ['na', 'low', 'ok', 'good', 'hot']);
+  assert.equal(XW.tier(400, 50).key, 'few');          // 浏览太少不评级
+  assert.equal(XW.tier(400, 200).key, 'hot');
   assert.deepEqual(XW.parseStatusHref('/Foo_1/status/123/analytics'), { handle: 'foo_1', id: '123' });
   assert.equal(XW.parseStatusHref('/i/lists/1'), null);
 });

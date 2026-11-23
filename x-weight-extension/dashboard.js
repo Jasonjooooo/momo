@@ -21,7 +21,7 @@ function load() {
 
 function render() {
   $('who').textContent = me ? `账号 @${me} · 已记录 ${posts.length} 条帖子` : '还没有识别到你的账号:请先登录 X 并打开 x.com';
-  const scored = posts.filter(p => p.score != null);
+  const scored = posts.filter(p => p.score != null && p.views >= XW.MIN_VIEWS);   // 样本太少的不计入统计
   const avg = scored.length ? scored.reduce((a, p) => a + p.score, 0) / scored.length : null;
   const best = scored.slice().sort((a, b) => b.score - a.score)[0];
   const tv = posts.reduce((a, p) => a + (p.views || 0), 0);
@@ -38,12 +38,12 @@ function render() {
   });
   $('tbl').innerHTML = posts.length ? `<tr>${COLS.map(([k, l, c]) => `<th class="${c || ''}" data-k="${k}">${l}${k === sortKey ? (sortDir < 0 ? ' ↓' : ' ↑') : ''}</th>`).join('')}</tr>` +
     list.map(p => {
-      const t = XW.tier(p.score);
+      const t = XW.tier(p.score, p.views);
       return `<tr><td>${p.created ? new Date(p.created).toLocaleString('zh-CN', { hour12: false }).slice(0, 16) : '—'}</td>
         <td class="txt"><a href="https://x.com/${esc(p.handle)}/status/${esc(p.id)}" target="_blank" rel="noopener">${esc((p.text || '(无文字)').slice(0, 90))}</a></td>
         <td>${(p.views || 0).toLocaleString()}</td><td>${p.replies || 0}</td><td>${p.reposts || 0}</td><td>${p.likes || 0}</td><td>${p.bookmarks || 0}</td>
         <td>${p.replyRate == null ? '—' : p.replyRate.toFixed(2) + '%'}</td>
-        <td class="${t.key === 'hot' ? 'hot' : t.key === 'good' ? 'good' : ''}" title="${t.label}">${XW.fmt(p.score)}</td></tr>`;
+        <td class="${t.key === 'hot' ? 'hot' : t.key === 'good' ? 'good' : ''}" title="${t.label}">${XW.fmt(p.score)}${t.key === 'few' ? '?' : ''}</td></tr>`;
     }).join('') : '';
   if (!posts.length) $('tbl').innerHTML = '<tr><td class="empty">还没有数据。打开你的 X 主页往下翻,插件会自动记录。</td></tr>';
   document.querySelectorAll('#tbl th').forEach(th => th.onclick = () => {

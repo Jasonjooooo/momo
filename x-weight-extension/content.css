@@ -3,10 +3,11 @@
 .xw-good{background:#e7f6ec;color:#067647;border-color:#b5e3c4}
 .xw-ok{background:#eef2f6;color:#364152;border-color:#d5dbe3}
 .xw-low{background:#f8f9fa;color:#8a94a6;border-color:#e6e9ee}
+.xw-few{background:transparent;color:#8a94a6;border-color:#e6e9ee;border-style:dashed}
 .xw-na{background:transparent;color:#8a94a6;border-color:#e6e9ee}
 @media (prefers-color-scheme:dark){
  .xw-hot{background:#3d1a1a;color:#ff9b91;border-color:#5c2525}
  .xw-good{background:#123222;color:#6ce0a0;border-color:#1d4d34}
  .xw-ok{background:#1e2530;color:#c4ccd8;border-color:#2c3544}
- .xw-low,.xw-na{background:transparent;color:#7d8798;border-color:#2c3544}
+ .xw-low,.xw-na,.xw-few{background:transparent;color:#7d8798;border-color:#2c3544}
 }

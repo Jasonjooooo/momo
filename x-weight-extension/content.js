@@ -55,10 +55,10 @@
 
   function render(t) {
     const s = XW.score(t, weights);
-    const tier = XW.tier(s && s.total);
+    const tier = XW.tier(s && s.total, t.views);
     let b = t.group.querySelector(':scope > .xw-badge');
     if (!b) { b = document.createElement('span'); t.group.appendChild(b); }
-    const cls = `xw-badge xw-${tier.key}`, txt = `⚖ ${XW.fmt(s && s.total)}`;
+    const cls = `xw-badge xw-${tier.key}`, txt = `⚖ ${XW.fmt(s && s.total)}${tier.key === 'few' ? '?' : ''}`;
     // 只在有变化时改动,避免触发自己的 MutationObserver 形成循环
     if (b.className !== cls) b.className = cls;
     if (b.textContent !== txt) b.textContent = txt;

@@ -17,8 +17,8 @@ const path = require('path'), fs = require('fs'), os = require('os'), assert = r
   await page.waitForSelector('#t1 .xw-badge', { timeout: 10000 });
   const badges = await page.$$eval('.xw-badge', bs => bs.map(b => [b.closest('article').id, b.textContent, b.className]));
   console.log('badges:', badges);
-  assert.deepStrictEqual(badges.map(b => b[1]), ['⚖ 18.1', '⚖ 124', '⚖ —']);   // 18.08;别人:(5*1200+300+0.708*5100)/80000*1000 = 123.9
-  assert.ok(badges[1][2].includes('xw-hot') && badges[0][2].includes('xw-ok') && badges[2][2].includes('xw-na'));
+  assert.deepStrictEqual(badges.map(b => b[1]), ['⚖ 18.1', '⚖ 124', '⚖ 242?', '⚖ —']);   // 18.08;别人:(5*1200+300+0.708*5100)/80000*1000 = 123.9
+  assert.ok(badges[1][2].includes('xw-hot') && badges[0][2].includes('xw-ok') && badges[2][2].includes('xw-few') && badges[3][2].includes('xw-na'));
   const tip = await page.$eval('#t1 .xw-badge', b => b.title); assert.ok(tip.includes('回复 20 × 5'));
 
   // 不应因自己的修改而无限循环:记录一段时间内的 DOM 变动次数
@@ -50,7 +50,7 @@ const path = require('path'), fs = require('fs'), os = require('os'), assert = r
   await dash.fill('#w_reply', '10'); await dash.click('#wsave');
   await dash.waitForFunction(() => document.querySelector('#tbl').innerText.includes('48.1'));
   await page.waitForFunction(() => document.querySelector('#t1 .xw-badge').textContent === '⚖ 48.1');
-  await dash.screenshot({ path: process.env.SHOT || '/dev/null', fullPage: true });
+  if (process.env.SHOT) await dash.screenshot({ path: process.env.SHOT, fullPage: true });
   assert.deepStrictEqual(errors, []);
   console.log('全部通过');
   await ctx.close();

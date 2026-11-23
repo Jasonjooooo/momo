@@ -35,8 +35,11 @@
   }
 
   // 粗略分档(按常见互动率估算,仅供参考):普通帖子约 10–30
-  function tier(total) {
+  const MIN_VIEWS = 200;   // 浏览太少时比例波动很大,不评级
+
+  function tier(total, views) {
     if (total == null) return { key: 'na', label: '无浏览数' };
+    if (views != null && views < MIN_VIEWS) return { key: 'few', label: `浏览不足 ${MIN_VIEWS},样本少,仅供参考` };
     if (total >= 60) return { key: 'hot', label: '很受偏爱' };
     if (total >= 30) return { key: 'good', label: '较好' };
     if (total >= 10) return { key: 'ok', label: '一般' };
@@ -62,5 +65,5 @@
     return '﻿' + [head, ...rows].map(r => r.map(esc).join(',')).join('\r\n');
   }
 
-  return { DEFAULT_WEIGHTS, WEIGHTS_SOURCE, parseCount, score, tier, fmt, parseStatusHref, toCsv };
+  return { DEFAULT_WEIGHTS, WEIGHTS_SOURCE, MIN_VIEWS, parseCount, score, tier, fmt, parseStatusHref, toCsv };
 });
