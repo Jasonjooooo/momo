@@ -46,6 +46,19 @@
 
 X API 的免费额度、价格和发帖数量限制经常调整,以开发者后台显示的为准。用 API 自动发帖也要遵守 X 的自动化规则,不要批量发重复内容。
 
+## AI 写草稿(可选)
+
+开启后,每条待审核内容下面多一个「**✍️ AI 写草稿**」按钮。点一下,AI 按"热点 → 转折 → 启示 → 提问"的结构写 3 条草稿,下面有「用①/用②/用③」和「🔄 换一批」。
+
+- 选中后,发布到频道和 X 时都会用这段文字。想再改,直接**回复草稿那条消息**写上新文字。
+- 涉及灾难、伤亡的热点,AI 只写表达关心的话,不写人生启示;政治话题只客观转述。
+- 在 `config.json` 的 `ai.persona` 写上你的身份,在 `ai.style_examples` 放几条你以前互动高的帖子,草稿会更像你的语气。
+- **发之前一定要看一眼**:AI 可能理解错热点,或者写出你不认同的话。
+
+**设置**
+1. `config.json` 里 `"ai": {"enabled": true, ...}`。
+2. 环境变量 `AI_API_KEY`:用 Gemini 就填 Google AI Studio 的 Key(`provider` 为 `"gemini"`,默认模型 `gemini-flash-latest`);用 DeepSeek 等兼容 OpenAI 接口的服务,`provider` 改为 `"openai"`,并填 `base_url` 和 `model`。
+
 ## 运行(你的服务器)
 
 ```bash
@@ -95,4 +108,4 @@ pip install Pillow
 python3 -m unittest discover -s tests -v
 ```
 
-测试用假的 Telegram 和 X 服务器跑完整流程:RSS 筛选去重、权限检查、改写发布、匿名投稿、图片 EXIF 去除、视频元数据去除、限流、发到 X(签名、长度截断、图片上传、失败重试)。OAuth 签名用 X 官方文档里的示例数据校验过。
+测试用假的 Telegram 和 X 服务器跑完整流程:RSS 筛选去重、权限检查、改写发布、匿名投稿、图片 EXIF 去除、视频元数据去除、限流、发到 X(签名、长度截断、图片上传、失败重试)、AI 写草稿(Gemini 和 OpenAI 两种接口、换一批、选用后发布、失败提示)。OAuth 签名用 X 官方文档里的示例数据校验过。

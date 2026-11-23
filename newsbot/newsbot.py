@@ -12,6 +12,9 @@
 发到 X(可选,config.json 里 "x": {"enabled": true} 时需要,来自 X 开发者后台):
   X_API_KEY / X_API_SECRET          应用的 API Key 和 Secret(Consumer Keys)
   X_ACCESS_TOKEN / X_ACCESS_SECRET  你账号的 Access Token 和 Secret(需要 Read and Write 权限)
+
+AI 写草稿(可选,config.json 里 "ai": {"enabled": true} 时需要):
+  AI_API_KEY   Gemini 的 API Key(provider 为 gemini),或兼容 OpenAI 接口的服务的 Key(provider 为 openai,如 DeepSeek)
 """
 import base64
 import email.utils
@@ -152,7 +155,8 @@ class Store:
         """)
         cols = {r[1] for r in self.db.execute("PRAGMA table_info(items)")}
         for c, t in (("body", "TEXT"), ("media_kind", "TEXT"), ("media_file", "TEXT"),
-                     ("tg_done", "INTEGER DEFAULT 0"), ("x_done", "INTEGER DEFAULT 0"), ("x_id", "TEXT")):
+                     ("tg_done", "INTEGER DEFAULT 0"), ("x_done", "INTEGER DEFAULT 0"), ("x_id", "TEXT"),
+                     ("draft_msg", "INTEGER")):
             if c not in cols:
                 self.db.execute(f"ALTER TABLE items ADD COLUMN {c} {t}")
         self.db.commit()
@@ -335,8 +339,98 @@ class X:
         return tid
 
 
+# --------------------------------------------------------------- AI 草稿 ----
+DRAFT_PROMPT = """你是一个 X(推特)中文博主的写作助手。根据下面的热点,写 {n} 条角度不同的帖子草稿。
+{persona}
+结构:
+1. 开头一句点出热点,让人一眼知道在说什么事
+2. 一句转折,从事件跳到普通人的生活
+3. 一两句启示:短、有画面、不说教
+4. 最后一句提一个问题,引导读者回复
+
+要求:
+- 每条 4 到 6 行,不超过 120 个汉字;口语化;不用 # 话题标签;不放链接
+- 不编造热点标题里没有的事实、数字、人物言论
+- 如果热点涉及灾难、事故伤亡、死亡、犯罪受害者:不要写人生启示,只写表达关心、提醒安全的话
+- 如果热点是政治话题:只客观转述,不表态
+{examples}
+热点标题:{title}
+来源:{source}
+
+只输出 JSON,格式:{{"drafts": ["第一条", "第二条"]}}"""
+
+
+def parse_drafts(text, n=3):
+    """从模型输出里取出草稿列表;优先解析 JSON,失败时按编号或空行拆分。"""
+    m = re.search(r"\{.*\}", text or "", re.S)
+    if m:
+        try:
+            d = json.loads(m.group(0)).get("drafts") or []
+            out = [str(x).strip() for x in d if str(x).strip()]
+            if out:
+                return out[:n]
+        except (ValueError, AttributeError):
+            pass
+    parts = re.split(r"\n\s*(?:\d+[.、)]|[①②③④⑤])\s*|\n\s*\n", "\n" + (text or ""))
+    return [x.strip() for x in parts if x.strip()][:n]
+
+
+class AI:
+    def __init__(self, cfg, base=None):
+        c = cfg.get("ai") or {}
+        self.enabled = bool(c.get("enabled"))
+        self.provider = c.get("provider", "gemini")
+        self.model = c.get("model", "gemini-flash-latest" if self.provider == "gemini" else "deepseek-chat")
+        self.base = (base or c.get("base_url") or
+                     ("https://generativelanguage.googleapis.com" if self.provider == "gemini" else "https://api.deepseek.com")).rstrip("/")
+        self.persona = c.get("persona", "")
+        self.examples = c.get("style_examples", [])
+        self.key = os.environ.get("AI_API_KEY", "")
+        if self.provider not in ("gemini", "openai"):
+            raise SystemExit('ai.provider 只能是 "gemini" 或 "openai"')
+        if self.enabled and not self.key:
+            raise SystemExit("已开启 AI 写草稿,但缺少环境变量 AI_API_KEY")
+
+    def prompt(self, title, source, n):
+        ex = ""
+        if self.examples:
+            ex = "\n博主以往受欢迎的帖子(只参考语气和长度,不要照抄):\n" + "\n---\n".join(self.examples[:6]) + "\n"
+        persona = f"博主背景:{self.persona}" if self.persona else ""
+        return DRAFT_PROMPT.format(n=n, persona=persona, examples=ex, title=title, source=source)
+
+    def _post(self, url, payload, headers):
+        req = urllib.request.Request(url, json.dumps(payload).encode(), {"Content-Type": "application/json", **headers})
+        try:
+            with urllib.request.urlopen(req, timeout=90) as r:
+                return json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            with e:
+                raise RuntimeError(f"AI 接口返回 {e.code}:{e.read().decode('utf-8', 'replace')[:200]}")
+
+    def drafts(self, title, source, n=3):
+        prompt = self.prompt(title, source, n)
+        if self.provider == "gemini":
+            res = self._post(f"{self.base}/v1beta/models/{self.model}:generateContent",
+                             {"contents": [{"role": "user", "parts": [{"text": prompt}]}],
+                              "generationConfig": {"responseMimeType": "application/json", "temperature": 0.9}},
+                             {"x-goog-api-key": self.key})
+            try:
+                text = "".join(p.get("text", "") for p in res["candidates"][0]["content"]["parts"])
+            except (KeyError, IndexError, TypeError):
+                raise RuntimeError(f"AI 没有返回内容:{str(res)[:200]}")
+        else:
+            res = self._post(f"{self.base}/chat/completions",
+                             {"model": self.model, "temperature": 0.9, "messages": [{"role": "user", "content": prompt}]},
+                             {"Authorization": f"Bearer {self.key}"})
+            text = res["choices"][0]["message"]["content"]
+        out = parse_drafts(text, n)
+        if not out:
+            raise RuntimeError("AI 返回的内容无法解析成草稿")
+        return out
+
+
 # --------------------------------------------------------------- 机器人 ----
-def kb(item, x_on=False, tg_done=False, x_done=False):
+def kb(item, x_on=False, tg_done=False, x_done=False, ai_on=False):
     row1 = []
     if not tg_done:
         row1.append({"text": "✅ 发频道" if x_on else "✅ 发布", "callback_data": f"tg:{item}"})
@@ -349,13 +443,19 @@ def kb(item, x_on=False, tg_done=False, x_done=False):
     if x_on and not tg_done and not x_done:
         row2.append({"text": "🚀 两边都发", "callback_data": f"both:{item}"})
     row2.append({"text": "❌ 忽略" if not (tg_done or x_done) else "✔️ 不再发布", "callback_data": f"ign:{item}"})
-    return {"inline_keyboard": [row1, row2]}
+    rows = [row1, row2]
+    if ai_on and not (tg_done or x_done):
+        rows.append([{"text": "✍️ AI 写草稿", "callback_data": f"draft:{item}"}])
+    return {"inline_keyboard": rows}
 
 
 class Bot:
-    def __init__(self, cfg, tg, store, x=None):
+    def __init__(self, cfg, tg, store, x=None, ai=None):
         self.cfg, self.tg, self.store = cfg, tg, store
         self.x = x if x is not None else X(cfg)
+        self.ai = ai if ai is not None else AI(cfg)
+        store.db.execute("CREATE TABLE IF NOT EXISTS drafts(item TEXT, idx INTEGER, text TEXT, PRIMARY KEY(item, idx))")
+        store.db.commit()
         self.include = compile_terms(cfg["include"])
         self.exclude = compile_terms(cfg["exclude"])
         self.salt = store.get("salt") or uuid.uuid4().hex
@@ -410,7 +510,7 @@ class Bot:
                 f"{' · ' + when if when else ''}\n{html.escape(it['link'])}\n\n"
                 f"<i>回复本条消息可以改写发布文字</i>")
         m = self.tg.call("sendMessage", chat_id=self.cfg["review_chat_id"], text=text, parse_mode="HTML",
-                         reply_markup=kb(iid, self.x.enabled))
+                         reply_markup=kb(iid, self.x.enabled, ai_on=self.ai.enabled))
         self._save_rss(iid, f, it, "pending", m["message_id"])
 
     # ---------- 更新处理 ----------
@@ -434,7 +534,8 @@ class Bot:
             return
         reply = msg.get("reply_to_message")
         if reply and text and not text.startswith("/"):
-            row = self.store.q("SELECT id,status FROM items WHERE review_msg=?", (reply["message_id"],), one=True)
+            row = self.store.q("SELECT id,status FROM items WHERE review_msg=? OR draft_msg=?",
+                               (reply["message_id"], reply["message_id"]), one=True)
             if row and row[1] == "pending":
                 self.store.q("UPDATE items SET custom_text=? WHERE id=?", (text, row[0]))
                 self.tg.call("sendMessage", chat_id=msg["chat"]["id"], reply_to_message_id=reply["message_id"],
@@ -474,7 +575,7 @@ class Bot:
         n = self.store.q("SELECT count(*) FROM items WHERE kind='sub'", one=True)[0] + 1
         ctrl = self.tg.call("sendMessage", chat_id=review, reply_to_message_id=content_id,
                             text=f"📮 匿名投稿 #{n}(投稿人 {h[:6]}){note}\n发布时会把上面这条原样发出。",
-                            reply_markup=kb(sid, self.x.enabled))
+                            reply_markup=kb(sid, self.x.enabled, ai_on=self.ai.enabled))
         body = msg.get("text") or msg.get("caption") or ""
         self.store.q("INSERT INTO items(id,kind,source,title,body,media_kind,media_file,status,review_msg,content_msg,created)"
                      " VALUES(?,?,?,?,?,?,?,?,?,?,?)",
@@ -525,6 +626,8 @@ class Bot:
         action, _, iid = (cq.get("data") or "").partition(":")
         if action == "pub":
             action = "tg"          # 兼容旧按钮
+        if action in ("draft", "use"):
+            return self.on_draft_button(cq, action, iid, answer)
         if action not in ("tg", "x", "both", "ign"):
             return answer("")
         row = self.store.q("SELECT kind,title,link,source,status,content_msg,custom_text,body,media_kind,media_file,"
@@ -560,12 +663,52 @@ class Bot:
             done = "✅ 已发布到频道" + (" 和 X" if self.x.enabled else "")
             markup = {"inline_keyboard": [[{"text": f"{done}({who})", "callback_data": "noop:"}]]}
         else:
-            markup = kb(iid, self.x.enabled, tg_done, x_done)
+            markup = kb(iid, self.x.enabled, tg_done, x_done, self.ai.enabled)
         self.tg.call("editMessageReplyMarkup", chat_id=msg["chat"]["id"], message_id=msg["message_id"], reply_markup=markup)
         if errors:
             self.tg.call("sendMessage", chat_id=msg["chat"]["id"], reply_to_message_id=msg["message_id"], text="\n".join(errors))
             return answer("有内容发送失败,详情见回复")
         answer({"tg": "已发到频道", "x": "已发到 X", "both": "两边都已发布", "ign": "已处理"}[action])
+
+    def on_draft_button(self, cq, action, arg, answer):
+        msg = cq.get("message") or {}
+        chat = msg.get("chat", {}).get("id")
+        iid, _, n = arg.partition(":")
+        row = self.store.q("SELECT kind,title,source,status,body,tg_done,x_done FROM items WHERE id=?", (iid,), one=True)
+        if not row or row[3] != "pending":
+            return answer("这条已经处理过了")
+        kind, title, source, _, body, tg_done, x_done = row
+        if not self.ai.enabled:
+            return answer("还没有开启 AI 写草稿")
+        if action == "use":
+            d = self.store.q("SELECT text FROM drafts WHERE item=? AND idx=?", (iid, int(n or 0)), one=True)
+            if not d:
+                return answer("找不到这条草稿,请重新生成")
+            self.store.q("UPDATE items SET custom_text=? WHERE id=?", (d[0], iid))
+            mark = "①②③④⑤"[int(n)]
+            markup = kb(iid, self.x.enabled, tg_done, x_done, self.ai.enabled)
+            markup["inline_keyboard"].insert(0, [{"text": f"✔️ 已选用第{mark}条(回复这条消息可以再改)", "callback_data": "noop:"}])
+            self.tg.call("editMessageReplyMarkup", chat_id=chat, message_id=msg["message_id"], reply_markup=markup)
+            return answer(f"已选用第{mark}条,发布时会用这段文字")
+        answer("正在写草稿,稍等几秒…")
+        topic = title if kind == "rss" else (body or title or "")
+        try:
+            drafts = self.ai.drafts(topic, source or "投稿", 3)
+        except Exception as e:
+            log("AI 草稿失败", e)
+            return self.tg.call("sendMessage", chat_id=chat, reply_to_message_id=msg.get("message_id"),
+                                text=f"AI 写草稿失败:{str(e)[:300]}")
+        self.store.q("DELETE FROM drafts WHERE item=?", (iid,))
+        for i, t in enumerate(drafts):
+            self.store.q("INSERT INTO drafts VALUES(?,?,?)", (iid, i, t))
+        marks = "①②③④⑤"
+        text = "✍️ AI 草稿(发之前请核对事实,改成你自己的语气)\n\n" + "\n\n".join(f"{marks[i]} {t}" for i, t in enumerate(drafts))
+        buttons = [[{"text": f"用{marks[i]}", "callback_data": f"use:{iid}:{i}"} for i in range(len(drafts))],
+                   [{"text": "🔄 换一批", "callback_data": f"draft:{iid}"}]]
+        m = self.tg.call("sendMessage", chat_id=chat, reply_to_message_id=msg.get("message_id"), text=text,
+                         reply_markup={"inline_keyboard": buttons})
+        # 让"回复草稿消息改写"也能对应到这一条
+        self.store.q("UPDATE items SET draft_msg=? WHERE id=?", (m["message_id"], iid))
 
     def _publish_tg(self, kind, title, link, source, content_msg, custom):
         ch = self.cfg["channel_id"]

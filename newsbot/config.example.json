@@ -10,6 +10,17 @@
 
   "x": {"enabled": false, "link_mode": "reply"},
 
+  "ai": {
+    "enabled": false,
+    "provider": "gemini",
+    "model": "gemini-flash-latest",
+    "persona": "飞行员,也在做 AI 小工具,喜欢分享真实生活和人生感悟",
+    "style_examples": [
+      "经历多了就发现,文字是有力量的!\n\n一个人很难在青春的时候,享受青春\n\n所以,我们应该活在当下。",
+      "富爸爸:远离垃圾人。\n\n穷爸爸:世界上还是好人多。\n\n你支持谁?"
+    ]
+  },
+
   "accept_submissions": true,
   "submission_reply": "已收到,感谢投稿。内容会经人工审核后再决定是否发布,我们不会公开你的身份。",
 

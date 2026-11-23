@@ -22,6 +22,7 @@ class FakeTG:
     """记录所有 API 调用;为下载提供文件。"""
     def __init__(self):
         self.calls, self.files, self.next_id, self.x_fail = [], {}, 100, False
+        self.ai_fail, self.ai_tag = False, 'A'
         fake = self
 
         class H(BaseHTTPRequestHandler):
@@ -41,6 +42,16 @@ class FakeTG:
                     params = json.loads(raw)
                 else:
                     params = {"_multipart": raw}
+                if self.path.startswith("/v1beta/") or self.path.endswith("/chat/completions"):   # 假的 AI 接口
+                    body = json.loads(raw)
+                    fake.calls.append(("ai", {"path": self.path, "body": body, "key": self.headers.get("x-goog-api-key") or self.headers.get("Authorization")}))
+                    drafts = json.dumps({"drafts": [f"草稿{i}:{fake.ai_tag}" for i in range(1, 4)]}, ensure_ascii=False)
+                    if self.path.startswith("/v1beta/"):
+                        data = {"candidates": [{"content": {"parts": [{"text": drafts}]}}]}
+                    else:
+                        data = {"choices": [{"message": {"content": "好的,结果如下:" + drafts}}]}
+                    out = json.dumps(data).encode()
+                    self.send_response(500 if fake.ai_fail else 200); self.send_header("Content-Length", str(len(out))); self.end_headers(); self.wfile.write(out); return
                 if self.path.startswith("/2/"):     # 假的 X 接口
                     fake.calls.append(("x" + self.path, {**params, "_auth": self.headers.get("Authorization", "")}))
                     fake.next_id += 1
@@ -260,6 +271,86 @@ class XTest(unittest.TestCase):
         self.store.q("UPDATE items SET media_kind='video' WHERE id=?", (sid,))
         self.press(f"x:{sid}")
         self.assertIn("视频暂不支持", self.fake.by("sendMessage")[-1]["text"])
+
+
+class AIDraftTest(unittest.TestCase):
+    def setUp(self):
+        self.fake = FakeTG()
+        self.tmp = tempfile.TemporaryDirectory()
+        os.environ.update(AI_API_KEY="gk", X_API_KEY="ck", X_API_SECRET="cs", X_ACCESS_TOKEN="tk", X_ACCESS_SECRET="ts")
+        cfg_path = Path(self.tmp.name) / "config.json"
+        cfg_path.write_text(json.dumps({"review_chat_id": -100, "channel_id": "@chan", "admin_ids": [1], "x": {"enabled": True, "link_mode": "none"},
+                                        "ai": {"enabled": True, "persona": "飞行员博主", "style_examples": ["每天按时上班!"]},
+                                        "feeds": [{"id": "a", "name": "源A", "url": self.fake.base + "/feed.xml"}]}))
+        self.cfg = newsbot.load_config(cfg_path)
+        self.store = newsbot.Store(Path(self.tmp.name) / "db.sqlite")
+        self.bot = newsbot.Bot(self.cfg, newsbot.TG("TOKEN", self.fake.base), self.store,
+                               newsbot.X(self.cfg, self.fake.base), newsbot.AI(self.cfg, self.fake.base))
+        self.bot.poll_feeds(now=NOW)
+        self.iid = self.store.q("SELECT id FROM items WHERE title LIKE '%777X%'", one=True)[0]
+
+    def tearDown(self):
+        self.fake.srv.shutdown(); self.tmp.cleanup()
+
+    def press(self, data, mid=1):
+        self.bot.handle({"callback_query": {"id": "cq", "from": {"id": 1, "first_name": "管理员"}, "data": data,
+                                            "message": {"message_id": mid, "chat": {"id": -100}}}})
+
+    def last_send(self):
+        return self.fake.by("sendMessage")[-1]
+
+    def test_button_and_prompt(self):
+        rows = self.fake.by("sendMessage")[0]["reply_markup"]["inline_keyboard"]
+        self.assertEqual(rows[-1][0]["text"], "✍️ AI 写草稿")
+        self.press(f"draft:{self.iid}")
+        call = [p for m, p in self.fake.calls if m == "ai"][-1]
+        self.assertIn("gemini-flash-latest:generateContent", call["path"]); self.assertEqual(call["key"], "gk")
+        prompt = call["body"]["contents"][0]["parts"][0]["text"]
+        for must in ("777X", "飞行员博主", "每天按时上班", "灾难", "政治", "JSON"):
+            self.assertIn(must, prompt)
+        m = self.last_send()
+        self.assertIn("① 草稿1:A", m["text"]); self.assertIn("③ 草稿3:A", m["text"])
+        self.assertEqual([b["text"] for b in m["reply_markup"]["inline_keyboard"][0]], ["用①", "用②", "用③"])
+
+    def test_use_draft_then_publish_both(self):
+        self.press(f"draft:{self.iid}")
+        self.press(f"use:{self.iid}:1", mid=999)
+        self.assertEqual(self.store.q("SELECT custom_text FROM items WHERE id=?", (self.iid,), one=True)[0], "草稿2:A")
+        mk = self.fake.by("editMessageReplyMarkup")[-1]["reply_markup"]["inline_keyboard"]
+        self.assertIn("已选用第②条", mk[0][0]["text"])
+        self.press(f"both:{self.iid}", mid=999)
+        self.assertEqual([p for m, p in self.fake.calls if m == "x/2/tweets"][-1]["text"], "草稿2:A")
+        self.assertEqual([p for p in self.fake.by("sendMessage") if p["chat_id"] == "@chan"][-1]["text"], "草稿2:A")
+
+    def test_regenerate_replaces_drafts_and_reply_edits(self):
+        self.press(f"draft:{self.iid}")
+        self.fake.ai_tag = "B"
+        self.press(f"draft:{self.iid}")
+        self.assertIn("草稿1:B", self.last_send()["text"])
+        self.press(f"use:{self.iid}:0")
+        self.assertEqual(self.store.q("SELECT custom_text FROM items WHERE id=?", (self.iid,), one=True)[0], "草稿1:B")
+        dmsg = self.store.q("SELECT draft_msg FROM items WHERE id=?", (self.iid,), one=True)[0]
+        self.bot.handle({"message": {"message_id": 50, "from": {"id": 1}, "chat": {"id": -100, "type": "supergroup"},
+                                     "text": "我自己改的版本", "reply_to_message": {"message_id": dmsg}}})
+        self.assertEqual(self.store.q("SELECT custom_text FROM items WHERE id=?", (self.iid,), one=True)[0], "我自己改的版本")
+
+    def test_ai_failure_reported(self):
+        self.fake.ai_fail = True
+        self.press(f"draft:{self.iid}")
+        self.assertIn("AI 写草稿失败", self.last_send()["text"])
+        self.assertEqual(self.store.q("SELECT status FROM items WHERE id=?", (self.iid,), one=True)[0], "pending")
+
+    def test_openai_compatible_provider(self):
+        self.cfg["ai"].update(provider="openai", model="deepseek-chat")
+        ai = newsbot.AI(self.cfg, self.fake.base)
+        self.assertEqual(ai.drafts("C919 首飞", "源", 3), ["草稿1:A", "草稿2:A", "草稿3:A"])
+        call = [p for m, p in self.fake.calls if m == "ai"][-1]
+        self.assertEqual(call["key"], "Bearer gk"); self.assertEqual(call["body"]["model"], "deepseek-chat")
+
+    def test_parse_fallbacks(self):
+        self.assertEqual(newsbot.parse_drafts('```json\n{"drafts": ["a", "b"]}\n```'), ["a", "b"])
+        self.assertEqual(newsbot.parse_drafts("1. 第一条\n2. 第二条\n3. 第三条"), ["第一条", "第二条", "第三条"])
+        self.assertEqual(newsbot.parse_drafts(""), [])
 
 
 class XHelpersTest(unittest.TestCase):
