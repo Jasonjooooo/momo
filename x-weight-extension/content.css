@@ -1,0 +1,12 @@
+.xw-badge{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 7px;border-radius:999px;font:600 12px/18px -apple-system,BlinkMacSystemFont,"PingFang SC",sans-serif;cursor:help;white-space:nowrap;align-self:center;border:1px solid transparent}
+.xw-hot{background:#fde8e8;color:#b42318;border-color:#f9c5c5}
+.xw-good{background:#e7f6ec;color:#067647;border-color:#b5e3c4}
+.xw-ok{background:#eef2f6;color:#364152;border-color:#d5dbe3}
+.xw-low{background:#f8f9fa;color:#8a94a6;border-color:#e6e9ee}
+.xw-na{background:transparent;color:#8a94a6;border-color:#e6e9ee}
+@media (prefers-color-scheme:dark){
+ .xw-hot{background:#3d1a1a;color:#ff9b91;border-color:#5c2525}
+ .xw-good{background:#123222;color:#6ce0a0;border-color:#1d4d34}
+ .xw-ok{background:#1e2530;color:#c4ccd8;border-color:#2c3544}
+ .xw-low,.xw-na{background:transparent;color:#7d8798;border-color:#2c3544}
+}

@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "X 权重参考分",
+  "version": "1.0.0",
+  "description": "按 X 开源算法的权重,在每条帖子旁显示参考分,并记录自己帖子的数据用于复盘。所有数据只存在本机。",
+  "permissions": ["storage"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_title": "打开我的帖子复盘" },
+  "content_scripts": [{
+    "matches": ["https://x.com/*", "https://twitter.com/*"],
+    "js": ["lib.js", "content.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
+}

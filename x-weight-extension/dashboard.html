@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>我的帖子复盘</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#14171f;--sub:#677083;--line:#e3e6eb;--acc:#1d6fd6;--hot:#b42318;--good:#067647;--bar:#1d6fd6}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#171a20;--text:#e7e9ee;--sub:#97a0b1;--line:#2a2f3a;--acc:#6aa5ff;--hot:#ff9b91;--good:#6ce0a0;--bar:#6aa5ff}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:1100px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:22px;margin:0 0 4px}
+.sub{color:var(--sub);font-size:13px}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin:16px 0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.stat{flex:1 1 160px}.stat b{display:block;font-size:22px}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{padding:8px 6px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th{color:var(--sub);font-weight:500;cursor:pointer;user-select:none}
+td.txt,th.txt{text-align:left;white-space:normal;min-width:220px}
+td.txt a{color:var(--text);text-decoration:none}td.txt a:hover{text-decoration:underline}
+.tw{overflow-x:auto}
+.hot{color:var(--hot);font-weight:700}.good{color:var(--good);font-weight:700}
+button{background:var(--acc);color:#fff;border:0;border-radius:8px;padding:7px 14px;font-size:13px;cursor:pointer}
+button.g{background:none;color:var(--acc);border:1px solid var(--line)}
+.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;align-items:end;height:110px;margin-top:8px}
+.hours div{background:var(--bar);border-radius:3px 3px 0 0;min-height:2px;position:relative}
+.hlab{display:grid;grid-template-columns:repeat(24,1fr);gap:3px;font-size:10px;color:var(--sub);text-align:center}
+label{font-size:13px;color:var(--sub);display:inline-flex;gap:6px;align-items:center;margin-right:14px}
+input[type=number]{width:80px;padding:5px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--text)}
+.empty{text-align:center;padding:40px;color:var(--sub)}
+</style>
+</head>
+<body>
+<main>
+  <h1>我的帖子复盘</h1>
+  <div class="sub" id="who"></div>
+  <div class="row" id="stats"></div>
+
+  <div class="card">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px">
+      <b>帖子排行</b>
+      <span><button class="g" id="csv">导出表格</button> <button class="g" id="clear">清空数据</button></span>
+    </div>
+    <div class="tw"><table id="tbl"></table></div>
+  </div>
+
+  <div class="row">
+    <div class="card" style="flex:2 1 420px">
+      <b>不同发帖时间的平均参考分</b>
+      <div class="sub">按发布时间(本机时区)统计,柱子越高越好;灰色数字是该时段的帖子数</div>
+      <div class="hours" id="hours"></div><div class="hlab" id="hlab"></div>
+    </div>
+    <div class="card" style="flex:1 1 280px">
+      <b>权重设置</b>
+      <div class="sub" id="wsrc"></div>
+      <div style="margin:10px 0">
+        <label>回复 <input type="number" step="any" id="w_reply"></label>
+        <label>转发 <input type="number" step="any" id="w_repost"></label>
+        <label>点赞 <input type="number" step="any" id="w_like"></label>
+      </div>
+      <button id="wsave">保存</button> <button class="g" id="wreset">恢复默认</button>
+      <p class="sub">X 更新权重后在这里改,页面上的参考分会立即按新权重重新计算。</p>
+    </div>
+  </div>
+
+  <p class="sub">参考分 = 每千次浏览中,回复 × 权重 + 转发 × 权重 + 点赞 × 权重。用浏览数近似 X 算法里的"动作概率",只基于页面公开可见的数据,不是 X 内部的真实分数。所有数据只保存在本机浏览器里。<br>
+  怎么记录:打开你自己的 X 主页往下翻,插件会自动记下看到的每条帖子;过几天再翻一次,就能看到数据增长。</p>
+</main>
+<script src="lib.js"></script>
+<script src="dashboard.js"></script>
+</body>
+</html>
